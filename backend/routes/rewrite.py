@@ -10,6 +10,7 @@ from config import RewriteMode, RewriteLevel, MAX_INPUT_LENGTH
 from analyzer import analyze
 from rewriter import TextRewriter, RewriteError
 from verifier import MeaningVerifier
+from translator import TranslationBouncer
 from utils import count_changes, compute_reading_time, sanitize_input, compute_word_diff
 from humanizer import humanize
 
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/api", tags=["rewrite"])
 
 _rewriter: TextRewriter | None = None
 _verifier: MeaningVerifier | None = None
+_bouncer: TranslationBouncer | None = None
 
 
 def get_rewriter() -> TextRewriter:
@@ -35,6 +37,13 @@ def get_verifier() -> MeaningVerifier:
     if _verifier is None:
         _verifier = MeaningVerifier()
     return _verifier
+
+
+def get_bouncer() -> TranslationBouncer:
+    global _bouncer
+    if _bouncer is None:
+        _bouncer = TranslationBouncer()
+    return _bouncer
 
 
 # ── Request / Response Models ───────────────────────────────────────────────
@@ -83,7 +92,7 @@ class RewriteResponse(BaseModel):
 async def rewrite_text(request: RewriteRequest):
     """
     Main rewrite endpoint.
-    Pipeline: sanitize → analyze → rewrite → verify meaning → grammar polish → humanize post-processing → analyze output.
+    Pipeline: sanitize → analyze → rewrite → translation bounce → grammar polish → humanize → verify → analyze.
     """
     # Validate input length
     if len(request.text) > MAX_INPUT_LENGTH:
@@ -100,26 +109,38 @@ async def rewrite_text(request: RewriteRequest):
     try:
         rewriter = get_rewriter()
         verifier = get_verifier()
+        bouncer = get_bouncer()
 
         # Step 1: Analyze original text
         original_stats = analyze(clean_text)
 
-        # Step 2: Rewrite (Groq Model - System/User prompts built by build_rewrite_prompt inside rewriter)
+        # Step 2: Rewrite (Groq Model with RAS prompts)
         rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
 
-        # Step 3: Grammar polish (Groq Model - skipped for level 3 or casual/native modes to avoid over-polishing)
+        # Step 3: Translation Bounce — disabled for level 3 because the primary
+        # model (Qwen3 thinking) already runs a deep rewrite pass that takes 20-40s.
+        # Stacking 2 translation API calls adds another 30-60s with minimal quality gain.
+        # Only enable for future use if a faster primary model is configured.
+        # if request.level >= 3:
+        #     try:
+        #         rewritten = bouncer.bounce(rewritten)
+        #         logger.info("Translation bounce completed successfully")
+        #     except Exception as e:
+        #         logger.warning("Translation bounce failed, continuing without it: %s", e)
+
+        # Step 4: Grammar polish (skipped for level 3 or casual/native modes)
         should_polish = request.level < 3 and request.mode not in (RewriteMode.CASUAL, RewriteMode.NATIVE)
         if should_polish:
             rewritten = rewriter.grammar_polish(rewritten)
 
-        # Step 4: Apply post-processing humanization (Rule-Based Cleanup)
+        # Step 5: Apply post-processing humanization (Rule-Based Cleanup)
         intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
         rewritten = humanize(rewritten, intensity=intensity)
 
-        # Step 5: Verify meaning preservation (Verification check)
+        # Step 6: Verify meaning preservation
         verification = verifier.verify(clean_text, rewritten)
 
-        # Step 6: If meaning not preserved, retry the pipeline once
+        # Step 7: If meaning not preserved, retry the pipeline once (without bounce to save API calls)
         if not verification.meaning_preserved:
             logger.info("Meaning not preserved after cleanup, retrying rewrite and cleanup pipeline...")
             rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
@@ -128,10 +149,10 @@ async def rewrite_text(request: RewriteRequest):
             rewritten = humanize(rewritten, intensity=intensity)
             verification = verifier.verify(clean_text, rewritten)
 
-        # Step 7: Analyze rewritten text
+        # Step 8: Analyze rewritten text
         rewritten_stats = analyze(rewritten)
 
-        # Step 7: Compute changes
+        # Step 9: Compute changes
         changes = count_changes(clean_text, rewritten)
         reading_time = compute_reading_time(rewritten)
         word_diff = compute_word_diff(clean_text, rewritten)

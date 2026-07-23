@@ -34,11 +34,17 @@ class TextRewriter:
         Raises specific exceptions for different error types.
         """
         target_model = model or self.model
+        # Prepend /no_think for Qwen3 models to disable chain-of-thought thinking.
+        # Thinking mode adds 20-40s latency and was causing internal monologue to
+        # leak into the output. Our detailed prompt instructions make thinking unnecessary.
+        effective_system = system_prompt
+        if 'qwen' in target_model.lower():
+            effective_system = '/no_think\n\n' + system_prompt
         try:
             response = self.client.chat.completions.create(
                 model=target_model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": effective_system},
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.9,

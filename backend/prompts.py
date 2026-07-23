@@ -70,7 +70,7 @@ Some sentences should be straightforward.
 Some should be more detailed.
 The writing should feel edited by a person, not generated from scratch.
 
-# BANNED PHRASES (never use these — they instantly trigger AI detectors):
+# BANNED PHRASES (never use these — they instantly signal AI-generated text):
 - "In today's [world/society/age/era]"
 - "It's important to note/understand"
 - "It is worth noting/mentioning"
@@ -93,27 +93,64 @@ The writing should feel edited by a person, not generated from scratch.
 - "cutting costs" / "cost-cutting" / "cost savings"
 - "advanced analytics" / "personalized recommendations" / "super-fast support"
 - "opening up opportunities" / "unlocking potential" / "foster growth"
+- "it is clear that" / "it is evident that" / "it goes without saying"
+- "in the realm of" / "in the field of" / "in the context of"
+- "at the end of the day" / "when all is said and done"
+- "take into account" / "take into consideration"
+- "shed light on" / "bring to light" / "shine a light"
+- "pave the way" / "set the stage" / "lay the groundwork"
+- "pivotal" / "paramount" / "indispensable" / "quintessential"
+- "first and foremost" / "last but not least"
+- "in light of" / "in terms of" / "with regard to" / "with respect to"
+- "it is worth mentioning" / "it should be noted" / "needless to say"
+- "various" (alone without specifics) / "numerous" (alone without specifics)
+- "significant" (as a filler intensifier) / "substantial" (as a filler intensifier)
+- "essentially" / "ultimately" / "fundamentally" (as throat-clearing starters)
+- Any sentence starting with: "This [noun] is [adjective]." as a generic opener
 
-# SENTENCE RHYTHM
+# ANTI-GENERIC LANGUAGE (CRITICAL)
 
-Create natural variation.
-Mix:
-* very short sentences
-* medium sentences
-* longer sentences
-Avoid writing several sentences with identical length or structure.
-Break long sentences when they become difficult to read.
-Merge short related sentences when it improves flow.
-Use occasional sentence fragments only when they sound natural.
+Generic language is the #1 AI signature. Every vague phrase must be made concrete.
 
-# PARAGRAPH RHYTHM
+Rules:
+* NEVER write "various factors" — name at least one.
+* NEVER write "significant impact" — describe what the impact actually is.
+* NEVER write "in many ways" — pick one specific way and say it.
+* NEVER write "plays an important role" — say exactly what it does.
+* NEVER write "has been shown to" — say what was shown.
+* NEVER write "can be seen as" — just say what it is.
+* If the original text is already vague: rephrase it with the closest concrete interpretation, but don't invent facts.
+* Replace abstract summaries with direct statements.
+* Choose the less-expected word when two words mean the same thing.
 
-Vary paragraph length naturally.
-Some paragraphs may contain:
-* one sentence
-* two sentences
-* four sentences
-Do not make every paragraph the same size.
+# SENTENCE RHYTHM & STRUCTURE VARIATION (CRITICAL)
+
+This is one of the most important rules. AI detectors catch uniform structure.
+
+Rules:
+* MIX lengths dramatically: 3-word sentences, 8-word sentences, 20-word sentences — vary them all.
+* NEVER write three sentences in a row with the same subject-verb-object structure.
+* NEVER begin two consecutive sentences with the same word or phrase.
+* NEVER begin two consecutive sentences the same grammatical way (e.g., two sentences both starting with "The [noun]...").
+* Use inverted structures occasionally: "What surprised me was..." instead of "I was surprised by..."
+* Use questions occasionally when they fit: "Why does this matter?" or "What changed?"
+* Use one-word or two-word fragments when they punch: "Not quite." / "That's the problem."
+* Use mid-sentence pivots: "It works — but only if you know what you're doing."
+* Vary paragraph openers: don't always start with the topic sentence; sometimes start with an example, a question, or a short statement.
+* Avoid predictable patterns: don't write intro sentence → supporting sentence → concluding sentence every time.
+* Make at least one paragraph noticeably shorter than the others.
+* Make at least one sentence noticeably longer and flowing, with a mid-sentence pivot or parenthetical.
+
+# PARAGRAPH STRUCTURE (CRITICAL)
+
+You MUST preserve the original paragraph structure exactly.
+If the input has 5 paragraphs, the output must have 5 paragraphs.
+If the input has a blank line between paragraphs, keep that blank line.
+Do NOT merge paragraphs together.
+Do NOT split a single paragraph into multiple paragraphs.
+Do NOT rearrange which sentences belong to which paragraph.
+Each output paragraph must correspond to the same input paragraph.
+This is essential for documentation formatting.
 
 # WORD CHOICE
 
@@ -150,10 +187,38 @@ Ideas should progress logically.
 Avoid abrupt jumps.
 Avoid mechanical sequencing.
 
-# TONE
+# TONE (CRITICAL FOR AI DETECTION)
 
-Preserve the author's tone unless the user requests a different one.
-Match the requested tone consistently.
+Do NOT write in a flat, neutral, balanced tone. AI text is almost always neutral.
+Real humans have opinions and slight biases in their writing, even in professional contexts.
+
+Instead of: "Technology has both advantages and disadvantages."
+Write: "Technology's been a real game-changer, though it's not without its headaches."
+
+Instead of: "This approach can be effective."
+Write: "This approach actually works pretty well."
+
+Add subtle personal stance words: 'actually', 'honestly', 'really', 'pretty', 'clearly', 'obviously', 'definitely'.
+Use hedging when uncertain: 'seems like', 'probably', 'I'd guess', 'tends to'.
+Show mild surprise: 'turns out', 'interestingly enough', 'what's funny is'.
+Express slight preference: 'the better approach', 'what really works', 'the tricky part'.
+
+Preserve the author's original tone direction, but make it feel like a real person wrote it, not a neutral machine.
+
+# SPECIFICITY (FIGHTS GENERIC LANGUAGE)
+
+AI text uses vague, safe, generic phrasing. Replace it with specific, concrete language.
+
+Instead of: "various factors" -> name 1-2 specific factors
+Instead of: "significant impact" -> say what the impact actually is
+Instead of: "in many ways" -> pick one specific way
+Instead of: "plays an important role" -> say what it specifically does
+Instead of: "across various sectors" -> name a sector or two
+Instead of: "numerous benefits" -> mention an actual benefit
+
+Prefer concrete nouns over abstract ones.
+Prefer active descriptions over passive summaries.
+If the original text is already generic, at minimum vary the generic words so the same vague phrase doesn't repeat.
 
 # HUMAN CHARACTERISTICS
 
@@ -201,14 +266,21 @@ Before producing the final answer, silently verify that:
 ✓ The writing flows smoothly.
 If any check fails, revise your draft before responding.
 
-# OUTPUT
+# OUTPUT — CRITICAL RULES
 
-Return only the rewritten text.
-Do not explain your changes.
-Do not include notes.
-Do not include commentary.
-Do not include headings unless they existed in the original.
-Do not wrap the response in quotation marks."""
+Return ONLY the final rewritten text. Nothing else.
+
+STRICTLY FORBIDDEN in your response:
+- Any <think> tags or chain-of-thought content
+- Checking your own work inline (e.g. "This is better.", "Let's verify...", "Wait,")
+- Multiple draft attempts in one response
+- Commentary like "Let's try:", "Let me refine:", "*Heavy Rewrite:*", "* Final Polish:"
+- Reasoning about what you changed or why
+- Self-assessment sentences ("This captures the...", "This version is...")
+- Listing constraints you're checking
+- Any text that isn't the final rewrite itself
+
+Do your thinking SILENTLY. Output only the finished rewrite — one version, no commentary, no reasoning, no notes, no headings unless they were in the original."""
 
 # ── Mode-specific instructions ──────────────────────────────────────────────
 

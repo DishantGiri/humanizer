@@ -122,8 +122,15 @@ export default function Home() {
               <Sparkles size={16} />
             </>
           )}
-          {loading ? 'Rewriting...' : 'Humanize'}
+          {loading
+            ? level === 3 ? 'Deep rewriting...' : 'Rewriting...'
+            : 'Humanize'}
         </button>
+        {loading && level === 3 && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginLeft: 8, whiteSpace: 'nowrap' }}>
+            Extreme mode — may take 15–30s
+          </span>
+        )}
       </div>
 
       {/* Main Grid: Input / Output */}

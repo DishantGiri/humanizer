@@ -87,16 +87,23 @@ class MeaningVerifier:
         """
         system_prompt, user_prompt = build_verification_prompt(original, rewritten)
 
-        last_error = None
-        models_to_try = [self.model, self.fallback_model]
+        # Always use the fast fallback model for verification.
+        # This is a simple yes/no factual comparison — using Qwen3 (thinking model)
+        # here adds 20-40s of unnecessary latency on every request.
+        try:
+            content = self._call_groq_verify(system_prompt, user_prompt, self.fallback_model)
+            return self._parse_response(content)
+        except Exception as e:
+            last_error = e
+            logger.warning("Meaning verification failed with fallback model: %s. Trying primary.", e)
 
-        for model in models_to_try:
-            try:
-                content = self._call_groq_verify(system_prompt, user_prompt, model)
-                return self._parse_response(content)
-            except Exception as e:
-                last_error = e
-                logger.warning("Meaning verification failed with model %s: %s. Trying fallback if available.", model, e)
+        # Last resort: try primary model
+        try:
+            content = self._call_groq_verify(system_prompt, user_prompt, self.model)
+            return self._parse_response(content)
+        except Exception as e:
+            last_error = e
+            logger.warning("Meaning verification failed with primary model too: %s", e)
 
         # On ultimate failure, log error and assume preserved (don't block the user)
         logger.error("All meaning verification models failed. Last error: %s", last_error)

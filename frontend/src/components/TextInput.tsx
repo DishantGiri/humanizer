@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 
 interface TextInputProps {
   value: string;
@@ -19,24 +19,12 @@ export default function TextInput({
   isOutput = false,
   maxLength = 10000,
 }: TextInputProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Auto-resize textarea to content
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = 'auto';
-      el.style.height = Math.max(280, el.scrollHeight) + 'px';
-    }
-  }, [value]);
-
   const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
   const charCount = value.length;
 
   return (
     <div className="text-panel__wrapper">
       <textarea
-        ref={textareaRef}
         id={isOutput ? 'output-text' : 'input-text'}
         className={`text-panel__textarea ${isOutput ? 'text-panel__textarea--output' : ''}`}
         value={value}

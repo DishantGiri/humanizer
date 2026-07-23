@@ -77,7 +77,7 @@ export interface ApiError {
 
 export async function rewriteText(request: RewriteRequest): Promise<RewriteResponse> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+  const timeoutId = setTimeout(() => controller.abort(), 240_000); // 4 min timeout for translation bounce pipeline
 
   try {
     const response = await fetch(`${API_BASE}/api/rewrite`, {

@@ -19,7 +19,7 @@ GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instan
 
 MAX_INPUT_LENGTH: int = 10_000  # characters
 MAX_RETRIES: int = 2
-API_TIMEOUT: int = 60  # seconds
+API_TIMEOUT: int = 120  # seconds (increased for translation bounce pipeline)
 
 # ── Rewrite Modes ───────────────────────────────────────────────────────────
 

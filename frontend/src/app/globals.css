@@ -263,7 +263,9 @@ body::before {
 .text-panel__textarea {
   flex: 1;
   width: 100%;
-  min-height: 280px;
+  height: 420px;
+  min-height: 420px;
+  max-height: 420px;
   padding: var(--space-md);
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
@@ -272,14 +274,44 @@ body::before {
   font-family: var(--font-body);
   font-size: 0.95rem;
   line-height: 1.7;
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
   outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 140, 255, 0.35) transparent;
+}
+
+/* Webkit custom scrollbar */
+.text-panel__textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.text-panel__textarea::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.text-panel__textarea::-webkit-scrollbar-thumb {
+  background: rgba(79, 140, 255, 0.3);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.text-panel__textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 140, 255, 0.65);
+  box-shadow: 0 0 6px rgba(79, 140, 255, 0.4);
 }
 
 .text-panel__textarea:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--accent-blue-glow);
+  scrollbar-color: rgba(79, 140, 255, 0.6) transparent;
+}
+
+.text-panel__textarea:focus::-webkit-scrollbar-thumb {
+  background: rgba(79, 140, 255, 0.55);
 }
 
 .text-panel__textarea::placeholder {
@@ -291,6 +323,7 @@ body::before {
   background: rgba(8, 12, 28, 0.6);
   cursor: default;
 }
+
 
 /* ── Output Actions ────────────────────────────────────────────────────── */
 
