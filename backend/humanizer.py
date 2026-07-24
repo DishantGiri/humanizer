@@ -386,11 +386,11 @@ _INLINE_THINKING_RE = re.compile(
     r"I'?ll (?:adjust|try|push|craft|refine|rephrase|change|deliberately|now|go with|keep trying)|'"
     # Named section markers
     r'New version[: (]|'
-    r'Final (?:answer|output|version|draft|rewrite|text|Polish|Attempt)[: ]|'
+    r'Final (?:answer|output|version|draft|rewrite|text|Polish|Attempt)(?:\s+Text)?[: ]|'
     r'Heavy Rewrite[: ]|'
     r'Another (?:attempt|version|draft|try)[: ]|'
     r'Original: |'
-    r'\*(?:Heavy Rewrite|Final Polish|Another Attempt|Version \d|Refined Version)[*: ]|'
+    r'[\*_ ]*(?:Heavy Rewrite|Final Polish(?: Text)?|Another Attempt|Version \d|Refined Version|Polish Text)[\*_ ]*[: ]|'
     r'One more (?:try|attempt|version|pass)|'
     # Explicit check lists
     r'(?:Let me|Now|I need to) check (?:the )?(?:constraints|facts|rhythm|structure|flow|paragraph)|'
@@ -403,10 +403,11 @@ _FINAL_MARKER_RE = re.compile(
     r"(?m)^\s*(?:Let'?s try(?:[^:\n]*):\s*\n+|"
     r"Let'?s try a different \w+[^:\n]*:\s*\n+|"
     r"(?:Here'?s?|This is) (?:the )?(?:final|last|best|revised|improved|refined|polished|ultimate)[^:\n]*:\s*\n+|"
-    r"\*(?:Heavy Rewrite|Final Polish|Last Attempt|Final Version|Refined Version)[^*]*\*?\s*:\s*\n+"
+    r"[\*_ ]*(?:Heavy Rewrite|Final Polish(?: Text)?|Last Attempt|Final Version|Refined Version|Polish Text)[\*_ ]*[:\s]*\n+"
     r")",
     re.IGNORECASE,
 )
+
 
 
 def extract_final_output(text: str) -> str:
@@ -550,7 +551,7 @@ def strip_preamble(text: str) -> str:
         r"^here's\s+a\s+rewrite:?\s*\n+",
         r"^here is a rewrite:?\s*\n+",
         # Leading asterisk-wrapped labels: "* Final Polish:\n" at very start
-        r"^\*+\s*Final\s+\w+\s*:?\*?\s*\n+",
+        r"^[\*_ ]*(?:Final Polish(?: Text)?|Heavy Rewrite|Polish Version|Polish Text|Final Version|Final Answer)[\*_ ]*[:\s]*\n+",
     ]
 
     for pattern in preamble_patterns:

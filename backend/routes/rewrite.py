@@ -13,6 +13,7 @@ from verifier import MeaningVerifier
 from translator import TranslationBouncer
 from utils import count_changes, compute_reading_time, sanitize_input, compute_word_diff
 from humanizer import humanize
+from perplexity import PerplexityOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api", tags=["rewrite"])
 _rewriter: TextRewriter | None = None
 _verifier: MeaningVerifier | None = None
 _bouncer: TranslationBouncer | None = None
+_perplexity_optimizer: PerplexityOptimizer | None = None
 
 
 def get_rewriter() -> TextRewriter:
@@ -44,6 +46,14 @@ def get_bouncer() -> TranslationBouncer:
     if _bouncer is None:
         _bouncer = TranslationBouncer()
     return _bouncer
+
+
+def get_perplexity_optimizer() -> PerplexityOptimizer:
+    global _perplexity_optimizer
+    if _perplexity_optimizer is None:
+        _perplexity_optimizer = PerplexityOptimizer()
+    return _perplexity_optimizer
+
 
 
 # ── Request / Response Models ───────────────────────────────────────────────
@@ -117,6 +127,10 @@ async def rewrite_text(request: RewriteRequest):
         # Step 2: Rewrite (Groq Model with RAS prompts)
         rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
 
+        # Step 2.5: Perplexity Optimization Pass
+        perplexity_opt = get_perplexity_optimizer()
+        rewritten = perplexity_opt.optimize(rewritten, request.mode)
+
         # Step 3: Translation Bounce — disabled for level 3 because the primary
         # model (Qwen3 thinking) already runs a deep rewrite pass that takes 20-40s.
         # Stacking 2 translation API calls adds another 30-60s with minimal quality gain.
@@ -128,6 +142,14 @@ async def rewrite_text(request: RewriteRequest):
         #     except Exception as e:
         #         logger.warning("Translation bounce failed, continuing without it: %s", e)
 
+        # Step 3.5: Translation Chain (only for Level 3 / heavy rewrite)
+        if request.level >= 3:
+            try:
+                rewritten = bouncer.chain(rewritten)
+                logger.info("Translation chain Step 3.5 completed successfully")
+            except Exception as e:
+                logger.warning("Translation chain Step 3.5 failed, continuing without it: %s", e)
+
         # Step 4: Grammar polish (skipped for level 3 or casual/native modes)
         should_polish = request.level < 3 and request.mode not in (RewriteMode.CASUAL, RewriteMode.NATIVE)
         if should_polish:
@@ -137,17 +159,35 @@ async def rewrite_text(request: RewriteRequest):
         intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
         rewritten = humanize(rewritten, intensity=intensity)
 
-        # Step 6: Verify meaning preservation
-        verification = verifier.verify(clean_text, rewritten)
+        # Step 6: Verify meaning preservation (after all transformations)
+        # Skip meaning verification for Level 1 (Light) to optimize speed.
+        # Level 1 has very low semantic drift risk and does not justify the extra 3-4s latency.
+        meaning_preserved = True
+        meaning_reason = "Semantic verification skipped for Light rewriting level."
 
-        # Step 7: If meaning not preserved, retry the pipeline once (without bounce to save API calls)
-        if not verification.meaning_preserved:
-            logger.info("Meaning not preserved after cleanup, retrying rewrite and cleanup pipeline...")
-            rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
-            if should_polish:
-                rewritten = rewriter.grammar_polish(rewritten)
-            rewritten = humanize(rewritten, intensity=intensity)
+        if request.level >= 2:
             verification = verifier.verify(clean_text, rewritten)
+            meaning_preserved = verification.meaning_preserved
+            meaning_reason = verification.reason
+
+            # Step 7: If meaning not preserved, retry the pipeline once (including perplexity and chain if level >= 3)
+            if not meaning_preserved:
+                logger.info("Meaning not preserved after cleanup, retrying rewrite and cleanup pipeline...")
+                rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+                # Run Perplexity Optimization in retry pass
+                rewritten = perplexity_opt.optimize(rewritten, request.mode)
+                # Run Translation Chain in retry pass if level >= 3
+                if request.level >= 3:
+                    try:
+                        rewritten = bouncer.chain(rewritten)
+                    except Exception as e:
+                        logger.warning("Translation chain failed during retry: %s", e)
+                if should_polish:
+                    rewritten = rewriter.grammar_polish(rewritten)
+                rewritten = humanize(rewritten, intensity=intensity)
+                verification = verifier.verify(clean_text, rewritten)
+                meaning_preserved = verification.meaning_preserved
+                meaning_reason = verification.reason
 
         # Step 8: Analyze rewritten text
         rewritten_stats = analyze(rewritten)
@@ -163,10 +203,11 @@ async def rewrite_text(request: RewriteRequest):
             rewritten_stats=rewritten_stats.to_dict(),
             changes=changes,
             reading_time=reading_time,
-            meaning_preserved=verification.meaning_preserved,
-            meaning_reason=verification.reason,
+            meaning_preserved=meaning_preserved,
+            meaning_reason=meaning_reason,
             word_diff=word_diff,
         )
+
 
     except RewriteError as e:
         raise HTTPException(status_code=502, detail=str(e))
