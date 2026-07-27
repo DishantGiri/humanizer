@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Wand2,
-  Fingerprint,
   User,
   CreditCard,
   HelpCircle,
@@ -16,11 +17,12 @@ import {
   Check,
   Star,
   Sparkles,
-  Scan,
   CircleDot,
   Loader2,
   X,
   AlertTriangle,
+  LogOut,
+  ArrowRight,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -28,14 +30,22 @@ import LevelSelector from '@/components/LevelSelector';
 import DiffView from '@/components/DiffView';
 import ExportMenu from '@/components/ExportMenu';
 import PipelineLoader, { getPipelineStages } from '@/components/PipelineLoader';
+import AuthModal from '@/components/AuthModal';
+import DashboardView from '@/components/DashboardView';
+import PricingView from '@/components/PricingView';
 import {
   rewriteText,
+  getCurrentUser,
+  logoutUser,
   type RewriteMode,
   type RewriteLevel,
   type RewriteResponse,
+  type User as UserType,
 } from '@/lib/api';
 
 export default function Home() {
+  const router = useRouter();
+
   // ── State ──────────────────────────────────────────────────────────────
 
   const [inputText, setInputText] = useState('');
@@ -44,28 +54,80 @@ export default function Home() {
   const [level, setLevel] = useState<RewriteLevel>(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLimitError, setIsLimitError] = useState(false);
   const [result, setResult] = useState<RewriteResponse | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeMenu, setActiveMenu] = useState('humanizer');
   const [copied, setCopied] = useState(false);
-  
+
+  // Auth state
+  const [user, setUser] = useState<UserType | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+
   const [currentStage, setCurrentStage] = useState<{ label: string; step: number; total: number }>({
     label: 'Analyzing structure...',
     step: 1,
     total: 5,
   });
 
+  // Check saved session on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('humanizer_token');
+    const savedUser = localStorage.getItem('humanizer_user');
+
+    if (savedToken) {
+      setToken(savedToken);
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {}
+      }
+      getCurrentUser(savedToken)
+        .then((u) => {
+          setUser(u);
+          localStorage.setItem('humanizer_user', JSON.stringify(u));
+        })
+        .catch(() => {
+          localStorage.removeItem('humanizer_token');
+          localStorage.removeItem('humanizer_user');
+          setToken(null);
+          setUser(null);
+        });
+    }
+  }, []);
+
   // ── Handlers ───────────────────────────────────────────────────────────
+
+  const handleAuthSuccess = (u: UserType, t: string) => {
+    setUser(u);
+    setToken(t);
+    localStorage.setItem('humanizer_token', t);
+    localStorage.setItem('humanizer_user', JSON.stringify(u));
+  };
+
+  const handleLogout = async () => {
+    if (token) {
+      await logoutUser(token);
+    }
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('humanizer_token');
+    localStorage.removeItem('humanizer_user');
+  };
 
   const handleRewrite = async () => {
     if (!inputText.trim()) {
       setError('Please enter some text to rewrite.');
+      setIsLimitError(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    
+    setIsLimitError(false);
+
     const initialStages = getPipelineStages(level);
     setCurrentStage({
       label: initialStages[0].buttonLabel,
@@ -74,14 +136,25 @@ export default function Home() {
     });
 
     try {
-      const response = await rewriteText({ text: inputText, mode, level });
+      const response = await rewriteText({ text: inputText, mode, level }, token);
       setOutputText(response.rewritten);
       setResult(response);
+
+      // Refresh user stats if logged in
+      if (token) {
+        getCurrentUser(token).then((u) => {
+          setUser(u);
+          localStorage.setItem('humanizer_user', JSON.stringify(u));
+        }).catch(() => {});
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
       setError(message);
       setOutputText('');
       setResult(null);
+      if (message.toLowerCase().includes('limit reached')) {
+        setIsLimitError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -92,6 +165,7 @@ export default function Home() {
     setOutputText('');
     setResult(null);
     setError(null);
+    setIsLimitError(false);
   };
 
   const handleCopy = async (text: string) => {
@@ -117,7 +191,6 @@ export default function Home() {
     }
   };
 
-
   const handleDownload = (text: string) => {
     const element = document.createElement('a');
     const file = new Blob([text], { type: 'text/plain' });
@@ -128,14 +201,22 @@ export default function Home() {
     document.body.removeChild(element);
   };
 
-  // Calculate dynamic metrics for Quality Analysis sidebar
-  const humanScore = result ? Math.round(result.rewritten_stats.readability_score) : 99; // Default or calculated
+  // Dynamic quality scores
+  const humanScore = result ? Math.round(result.rewritten_stats.readability_score) : 99;
   const aiRisk = result ? Math.max(5, 100 - humanScore) : 10;
   const readabilityVal = result ? Math.min(95, Math.round(result.rewritten_stats.vocabulary_diversity * 100)) : 90;
   const grammarVal = result ? (result.meaning_preserved ? 95 : 75) : 75;
 
   return (
     <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
+      {/* ── Auth Modal ───────────────────────────────────────────────────── */}
+      <AuthModal
+        isOpen={authModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
+
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar__brand">
@@ -161,14 +242,6 @@ export default function Home() {
           >
             <Wand2 size={18} />
             <span className="sidebar__menu-text">Humanizer</span>
-          </button>
-          <button
-            type="button"
-            className={`sidebar__menu-item ${activeMenu === 'detector' ? 'sidebar__menu-item--active' : ''}`}
-            onClick={() => setActiveMenu('detector')}
-          >
-            <Fingerprint size={18} />
-            <span className="sidebar__menu-text">AI Detector</span>
           </button>
           <button
             type="button"
@@ -213,283 +286,432 @@ export default function Home() {
         {/* Top Navbar */}
         <header className="navbar">
           <div className="navbar__breadcrumb">
-            <span className="navbar__breadcrumb-current">Humanizer</span>
+            <span className="navbar__breadcrumb-current">
+              {activeMenu === 'dashboard'
+                ? 'Dashboard'
+                : activeMenu === 'plans'
+                ? 'Plans & Pricing'
+                : activeMenu === 'account'
+                ? 'Account'
+                : 'Humanizer'}
+            </span>
           </div>
           <div className="navbar__actions">
-            <button type="button" className="navbar__link">Log in</button>
-            <button type="button" className="navbar__btn">Get Started</button>
+            {user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    background: user.plan === 'pro' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(79, 140, 255, 0.15)',
+                    color: user.plan === 'pro' ? 'var(--accent-amber)' : 'var(--accent-blue)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {user.plan === 'pro' ? 'PRO' : 'FREE'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, var(--accent-blue), #6366f1)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                    {user.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="navbar__link"
+                  onClick={handleLogout}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <LogOut size={14} />
+                  Log out
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="navbar__link"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/register"
+                  className="navbar__btn"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </header>
 
         {/* Content Container */}
         <div className="content-container">
-          <div className="content-grid">
-            
-            {/* Left Column: Input, Mode selectors, output panels */}
-            <div className="content-column-left">
-              <div className="content-header">
-                <h2 className="content-title">AI Content Humanizer</h2>
-                <p className="content-subtitle">Paste your AI-generated text below and humanize it.</p>
-              </div>
+          {activeMenu === 'dashboard' ? (
+            <DashboardView
+              user={user}
+              token={token}
+              onNavigateToHumanizer={() => setActiveMenu('humanizer')}
+              onNavigateToPricing={() => setActiveMenu('plans')}
+              onRequireAuth={() => router.push('/login')}
+            />
+          ) : activeMenu === 'plans' ? (
+            <PricingView
+              user={user}
+              token={token}
+              onUpdateUser={(updated) => {
+                setUser(updated);
+                localStorage.setItem('humanizer_user', JSON.stringify(updated));
+              }}
+              onRequireAuth={() => router.push('/login')}
+            />
+          ) : activeMenu === 'account' ? (
+            <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '28px' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '8px' }}>User Account</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '20px' }}>
+                Manage your user profile and subscription settings.
+              </p>
 
-              {/* Mode Bar Selector */}
-              <div className="controls-bar-row">
-                <ModeSelector value={mode} onChange={setMode} />
-                <LevelSelector value={level} onChange={setLevel} />
-              </div>
-
-              {/* Input Area */}
-              <div className="card text-panel-box">
-                <div className="card-header-bar">
-                  <span className="card-header-bar__title">
-                    <CircleDot size={10} color="var(--accent-blue)" />
-                    Original Text
-                  </span>
-                  {inputText && (
-                    <button
-                      type="button"
-                      className="card-header-action-btn"
-                      onClick={handleClear}
-                      title="Clear text"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-
-                <TextInput
-                  value={inputText}
-                  onChange={setInputText}
-                  placeholder="Paste your AI-generated text here (ChatGPT, Claude, Jasper, etc.)..."
-                />
-
-                <div className="card-footer-bar">
-                  <div className="counter-chips">
-                    <span className="chip">{inputText.trim() ? inputText.trim().split(/\s+/).length : 0} words</span>
-                    <span className="chip">{inputText.length} chars</span>
+              {user ? (
+                <div className="account-profile-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div className="account-profile-avatar">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{user.name}</h4>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.email}</p>
+                    </div>
                   </div>
 
-                  <div className="action-buttons-group">
-                    <button
-                      type="button"
-                      className="action-btn-outline"
-                      disabled={loading || !inputText.trim()}
-                      onClick={handleRewrite}
-                    >
-                      <Scan size={14} />
-                      Check AI
-                    </button>
+                  <div className="account-profile-row">
+                    <span style={{ color: 'var(--text-secondary)' }}>Account ID</span>
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>{user.id.slice(0, 18)}...</span>
+                  </div>
+                  <div className="account-profile-row">
+                    <span style={{ color: 'var(--text-secondary)' }}>Current Tier</span>
+                    <span style={{ color: user.plan === 'pro' ? 'var(--accent-amber)' : 'var(--accent-blue)', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {user.plan === 'pro' ? 'Pro ($1/mo)' : 'Free Tier ($0/mo)'}
+                    </span>
+                  </div>
+                  <div className="account-profile-row">
+                    <span style={{ color: 'var(--text-secondary)' }}>Usage Count</span>
+                    <span>{user.usage_count} humanizations</span>
+                  </div>
 
+                  {user.plan !== 'pro' && (
                     <button
-                      id="rewrite-button"
                       type="button"
                       className="action-btn-solid"
-                      disabled={loading || !inputText.trim()}
-                      onClick={handleRewrite}
+                      onClick={() => setActiveMenu('plans')}
+                      style={{ marginTop: '8px', justifyContent: 'center' }}
                     >
-                      {loading ? (
-                        <Loader2 size={15} className="spinner-animate" />
-                      ) : (
-                        <Sparkles size={14} />
-                      )}
-                      {loading
-                        ? `[${currentStage.step}/${currentStage.total}] ${currentStage.label}`
-                        : 'Humanize Text'}
+                      Upgrade to Pro ($1/mo) <ArrowRight size={16} />
                     </button>
-                  </div>
-                </div>
-              </div>
+                  )}
 
-              {/* Output / Loading Area */}
-              {loading && (
-                <div className="card text-panel-box text-panel-box--loading">
-                  <PipelineLoader
-                    isLoading={loading}
-                    level={level}
-                    onStageChange={(stage, step, total) => {
-                      setCurrentStage({ label: stage.buttonLabel, step, total });
-                    }}
-                  />
-                </div>
-              )}
-
-              {outputText && !loading && (
-                <div className="card text-panel-box text-panel-box--output animate-fadeIn">
-                  <div className="card-header-bar">
-                    <span className="card-header-bar__title">
-                      <Check size={16} className="text-emerald" />
-                      Humanized Result
-                    </span>
-                    <div className="card-header-actions">
-                      <button
-                        type="button"
-                        className="card-header-action-btn"
-                        onClick={() => handleCopy(outputText)}
-                        title={copied ? "Copied!" : "Copy text"}
-                      >
-                        {copied ? (
-                          <Check size={16} className="text-emerald" />
-                        ) : (
-                          <Copy size={16} />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="card-header-action-btn"
-                        onClick={() => handleDownload(outputText)}
-                        title="Download text"
-                      >
-                        <Download size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="output-option-title">
-                    <span>Option (humanized) 1 – Modern Slate (Recommended) (humanized)</span>
-                    <div className="star-rating">
-                      <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-                      <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-                      <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-                      <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-                      <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-                    </div>
-                  </div>
-
-                  <div className="output-text-content">
-                    {outputText}
-                  </div>
-
-                  <div style={{ marginTop: 'var(--space-md)' }}>
-                    <DiffView
-                      wordDiff={result ? result.word_diff : []}
-                      original={inputText}
-                      rewritten={outputText}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Error Banner */}
-              {error && (
-                <div className="error-alert-box" role="alert">
-                  <AlertTriangle size={18} className="error-alert-box__icon" />
-                  <p className="error-alert-box__text">{error}</p>
                   <button
                     type="button"
-                    className="error-alert-box__dismiss"
-                    onClick={() => setError(null)}
+                    className="action-btn-outline"
+                    onClick={handleLogout}
+                    style={{ marginTop: '4px', justifyContent: 'center' }}
                   >
-                    <X size={16} />
+                    <LogOut size={16} />
+                    Log Out of Account
                   </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <User size={48} color="var(--text-tertiary)" style={{ marginBottom: '16px' }} />
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '8px' }}>You are not logged in</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px' }}>
+                    Log in or create an account to access features and manage your settings.
+                  </p>
+                  <Link
+                    href="/login"
+                    className="action-btn-solid"
+                    style={{ margin: '0 auto', textDecoration: 'none' }}
+                  >
+                    Log In / Register
+                  </Link>
                 </div>
               )}
             </div>
-
-            {/* Right Column: Analysis Sidebar */}
-            <div className="content-column-right">
-              <div className="card analysis-sidebar-card">
-                <h3 className="analysis-sidebar-card__title">Quality Analysis</h3>
-
-                {/* Circular Chart */}
-                <div className="analysis-gauge-container">
-                  <div className="gauge-outer-circle">
-                    <svg className="gauge-svg" viewBox="0 0 100 100">
-                      {/* Track background */}
-                      <circle
-                        className="gauge-track"
-                        cx="50"
-                        cy="50"
-                        r="42"
-                        strokeWidth="8"
-                        fill="transparent"
-                      />
-                      {/* Active green ring */}
-                      <circle
-                        className="gauge-fill"
-                        cx="50"
-                        cy="50"
-                        r="42"
-                        strokeWidth="8"
-                        fill="transparent"
-                        strokeDasharray={263.8}
-                        strokeDashoffset={263.8 - (263.8 * humanScore) / 100}
-                      />
-                    </svg>
-                    <div className="gauge-center-text">
-                      <span className="gauge-percentage">{humanScore}%</span>
-                      <span className="gauge-label">human</span>
-                    </div>
-                  </div>
-                  <div className="gauge-subtitle">HUMANIZED</div>
+          ) : (
+            <div className="content-grid">
+              {/* Left Column: Input, Mode selectors, output panels */}
+              <div className="content-column-left">
+                <div className="content-header">
+                  <h2 className="content-title">AI Content Humanizer</h2>
+                  <p className="content-subtitle">Paste your AI-generated text below and humanize it.</p>
                 </div>
 
-                {/* Bypassed Detectors */}
-                <div className="bypassed-detectors-section">
-                  <h4 className="section-label">Detectors Bypassed</h4>
-                  <div className="detector-badges-row">
-                    <div className="detector-badge">
-                      <Check size={11} className="detector-badge__check" />
-                      <span>Turnitin</span>
+                {/* Mode Bar Selector */}
+                <div className="controls-bar-row">
+                  <ModeSelector value={mode} onChange={setMode} />
+                  <LevelSelector value={level} onChange={setLevel} />
+                </div>
+
+                {/* Input Area */}
+                <div className="card text-panel-box">
+                  <div className="card-header-bar">
+                    <span className="card-header-bar__title">
+                      <CircleDot size={10} color="var(--accent-blue)" />
+                      Original Text
+                    </span>
+                    {inputText && (
+                      <button
+                        type="button"
+                        className="card-header-action-btn"
+                        onClick={handleClear}
+                        title="Clear text"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  <TextInput
+                    value={inputText}
+                    onChange={setInputText}
+                    placeholder="Paste your AI-generated text here (ChatGPT, Claude, Jasper, etc.)..."
+                  />
+
+                  <div className="card-footer-bar">
+                    <div className="counter-chips">
+                      <span className="chip">{inputText.trim() ? inputText.trim().split(/\s+/).length : 0} words</span>
+                      <span className="chip">{inputText.length} chars</span>
                     </div>
-                    <div className="detector-badge">
-                      <Check size={11} className="detector-badge__check" />
-                      <span>GPTZero</span>
-                    </div>
-                    <div className="detector-badge">
-                      <Check size={11} className="detector-badge__check" />
-                      <span>Originality.ai</span>
+
+                    <div className="action-buttons-group">
+                      <button
+                        id="rewrite-button"
+                        type="button"
+                        className="action-btn-solid"
+                        disabled={loading || !inputText.trim()}
+                        onClick={handleRewrite}
+                      >
+                        {loading ? (
+                          <Loader2 size={15} className="spinner-animate" />
+                        ) : (
+                          <Sparkles size={14} />
+                        )}
+                        {loading
+                          ? `[${currentStage.step}/${currentStage.total}] ${currentStage.label}`
+                          : 'Humanize Text'}
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Linguistic Progress Metrics */}
-                <div className="metrics-progress-section">
-                  {/* AI Risk */}
-                  <div className="progress-metric-item">
-                    <div className="progress-metric-item__header">
-                      <span className="progress-metric-item__name">AI Risk</span>
-                      <span className="progress-metric-item__val text-amber">{aiRisk}%</span>
+                {/* Output / Loading Area */}
+                {loading && (
+                  <div className="card text-panel-box text-panel-box--loading">
+                    <PipelineLoader
+                      isLoading={loading}
+                      level={level}
+                      onStageChange={(stage, step, total) => {
+                        setCurrentStage({ label: stage.buttonLabel, step, total });
+                      }}
+                    />
+                  </div>
+                )}
+
+                {outputText && !loading && (
+                  <div className="card text-panel-box text-panel-box--output animate-fadeIn">
+                    <div className="card-header-bar">
+                      <span className="card-header-bar__title">
+                        <Check size={16} className="text-emerald" />
+                        Humanized Result
+                      </span>
+                      <div className="card-header-actions">
+                        <button
+                          type="button"
+                          className="card-header-action-btn"
+                          onClick={() => handleCopy(outputText)}
+                          title={copied ? "Copied!" : "Copy text"}
+                        >
+                          {copied ? (
+                            <Check size={16} className="text-emerald" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className="card-header-action-btn"
+                          onClick={() => handleDownload(outputText)}
+                          title="Download text"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="progress-metric-item__track">
-                      <div
-                        className="progress-metric-item__bar bg-amber"
-                        style={{ width: `${aiRisk}%` }}
+
+                    <div className="output-option-title">
+                      <span>Option (humanized) 1 – Modern Slate (Recommended)</span>
+                      <div className="star-rating">
+                        <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                        <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                        <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                        <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                        <Star size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                      </div>
+                    </div>
+
+                    <div className="output-text-content">
+                      {outputText}
+                    </div>
+
+                    <div style={{ marginTop: 'var(--space-md)' }}>
+                      <DiffView
+                        wordDiff={result ? result.word_diff : []}
+                        original={inputText}
+                        rewritten={outputText}
                       />
                     </div>
                   </div>
+                )}
 
-                  {/* Readability */}
-                  <div className="progress-metric-item">
-                    <div className="progress-metric-item__header">
-                      <span className="progress-metric-item__name">Readability</span>
-                      <span className="progress-metric-item__val text-blue">{readabilityVal}%</span>
+                {/* Error Banner */}
+                {error && (
+                  <div className="error-alert-box" role="alert">
+                    <AlertTriangle size={18} className="error-alert-box__icon" />
+                    <div style={{ flex: 1 }}>
+                      <p className="error-alert-box__text">{error}</p>
+                      {isLimitError && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveMenu('plans')}
+                          style={{
+                            marginTop: '8px',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-blue)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          Upgrade to Pro ($1/mo) <ArrowRight size={14} />
+                        </button>
+                      )}
                     </div>
-                    <div className="progress-metric-item__track">
-                      <div
-                        className="progress-metric-item__bar bg-blue"
-                        style={{ width: `${readabilityVal}%` }}
-                      />
+                    <button
+                      type="button"
+                      className="error-alert-box__dismiss"
+                      onClick={() => setError(null)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Quality Analysis Sidebar */}
+              <div className="content-column-right">
+                <div className="card analysis-sidebar-card">
+                  <h3 className="analysis-sidebar-card__title">Quality Analysis</h3>
+
+                  {/* Circular Chart */}
+                  <div className="analysis-gauge-container">
+                    <div className="gauge-outer-circle">
+                      <svg className="gauge-svg" viewBox="0 0 100 100">
+                        <circle
+                          className="gauge-track"
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          strokeWidth="8"
+                          fill="transparent"
+                        />
+                        <circle
+                          className="gauge-fill"
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          strokeWidth="8"
+                          fill="transparent"
+                          strokeDasharray={263.8}
+                          strokeDashoffset={263.8 - (263.8 * humanScore) / 100}
+                        />
+                      </svg>
+                      <div className="gauge-center-text">
+                        <span className="gauge-percentage">{humanScore}%</span>
+                        <span className="gauge-label">human</span>
+                      </div>
                     </div>
+                    <div className="gauge-subtitle">HUMANIZED</div>
                   </div>
 
-                  {/* Grammar */}
-                  <div className="progress-metric-item">
-                    <div className="progress-metric-item__header">
-                      <span className="progress-metric-item__name">Grammar</span>
-                      <span className="progress-metric-item__val text-orange">{grammarVal}%</span>
+                  {/* Linguistic Progress Metrics */}
+                  <div className="metrics-progress-section">
+                    <div className="progress-metric-item">
+                      <div className="progress-metric-item__header">
+                        <span className="progress-metric-item__name">AI Risk</span>
+                        <span className="progress-metric-item__val text-amber">{aiRisk}%</span>
+                      </div>
+                      <div className="progress-metric-item__track">
+                        <div
+                          className="progress-metric-item__bar bg-amber"
+                          style={{ width: `${aiRisk}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="progress-metric-item__track">
-                      <div
-                        className="progress-metric-item__bar bg-orange"
-                        style={{ width: `${grammarVal}%` }}
-                      />
+
+                    <div className="progress-metric-item">
+                      <div className="progress-metric-item__header">
+                        <span className="progress-metric-item__name">Readability</span>
+                        <span className="progress-metric-item__val text-blue">{readabilityVal}%</span>
+                      </div>
+                      <div className="progress-metric-item__track">
+                        <div
+                          className="progress-metric-item__bar bg-blue"
+                          style={{ width: `${readabilityVal}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="progress-metric-item">
+                      <div className="progress-metric-item__header">
+                        <span className="progress-metric-item__name">Grammar</span>
+                        <span className="progress-metric-item__val text-orange">{grammarVal}%</span>
+                      </div>
+                      <div className="progress-metric-item__track">
+                        <div
+                          className="progress-metric-item__bar bg-orange"
+                          style={{ width: `${grammarVal}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from routes.rewrite import router as rewrite_router
+from routes.auth import router as auth_router
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ app.add_middleware(
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 app.include_router(rewrite_router)
+app.include_router(auth_router)
 
 
 @app.get("/api/health")

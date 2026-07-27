@@ -73,16 +73,48 @@ export interface ApiError {
   detail: string;
 }
 
+// ── Auth & User Types ──────────────────────────────────────────────────────
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  plan: 'free' | 'pro';
+  usage_count: number;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+  message: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  original_text: string;
+  rewritten_text: string;
+  mode: string;
+  level: number;
+  word_count: number;
+  created_at: string;
+}
+
 // ── API Functions ──────────────────────────────────────────────────────────
 
-export async function rewriteText(request: RewriteRequest): Promise<RewriteResponse> {
+export async function rewriteText(request: RewriteRequest, token?: string | null): Promise<RewriteResponse> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 240_000); // 4 min timeout for translation bounce pipeline
+  const timeoutId = setTimeout(() => controller.abort(), 240_000); // 4 min timeout
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/api/rewrite`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(request),
       signal: controller.signal,
     });
@@ -125,7 +157,96 @@ export async function analyzeText(text: string): Promise<TextStats> {
   return await response.json();
 }
 
-// ── Mode metadata (icon names reference Lucide icon components) ────────────
+// ── Auth & Plan API Functions ──────────────────────────────────────────────
+
+export async function registerUser(name: string, email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Registration failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Login failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function getCurrentUser(token: string): Promise<User> {
+  const response = await fetch(`${API_BASE}/api/auth/me`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Failed to authenticate (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function upgradeToPro(token: string): Promise<User> {
+  const response = await fetch(`${API_BASE}/api/auth/upgrade`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Upgrade failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function getUserHistory(token: string): Promise<HistoryItem[]> {
+  const response = await fetch(`${API_BASE}/api/user/history`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return await response.json();
+}
+
+export async function logoutUser(token?: string): Promise<void> {
+  if (!token) return;
+  await fetch(`${API_BASE}/api/auth/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {});
+}
+
+// ── Mode metadata ──────────────────────────────────────────────────────────
 
 export type ModeIcon =
   | 'speech'
