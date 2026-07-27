@@ -8,39 +8,60 @@ import logging
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 
+from urllib.parse import urlparse
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # MySQL connection configuration from environment
+MYSQL_URL = os.getenv("MYSQL_URL") or os.getenv("DATABASE_URL")
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "humanizer_db")
 
-SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "humanizer.db")
-
 _use_mysql = False
+
+if MYSQL_URL:
+    try:
+        parsed = urlparse(MYSQL_URL)
+        if parsed.username:
+            MYSQL_USER = parsed.username
+        if parsed.password:
+            MYSQL_PASSWORD = parsed.password
+        if parsed.hostname:
+            MYSQL_HOST = parsed.hostname
+        if parsed.port:
+            MYSQL_PORT = parsed.port
+        if parsed.path and len(parsed.path) > 1:
+            MYSQL_DATABASE = parsed.path.lstrip("/")
+        _use_mysql = True
+    except Exception as parse_err:
+        logger.warning("Failed to parse MYSQL_URL: %s", parse_err)
+
+SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "humanizer.db")
 
 try:
     import pymysql
     import pymysql.cursors
     # Test if MySQL environment is explicitly configured or reachable
-    if os.getenv("MYSQL_HOST") or os.getenv("USE_MYSQL") == "true":
+    if _use_mysql or os.getenv("MYSQL_HOST") or os.getenv("USE_MYSQL") == "true":
         conn_test = pymysql.connect(
             host=MYSQL_HOST,
             port=MYSQL_PORT,
             user=MYSQL_USER,
             password=MYSQL_PASSWORD,
-            connect_timeout=2
+            connect_timeout=3
         )
         conn_test.close()
         _use_mysql = True
-        logger.info("Connected to MySQL server at %s:%d", MYSQL_HOST, MYSQL_PORT)
+        logger.info("Connected to MySQL server at %s:%d/%s", MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE)
 except Exception as e:
     logger.info("MySQL connection unavailable (%s). Falling back to embedded database.", e)
-    _use_mysql = False
+    if not MYSQL_URL and os.getenv("USE_MYSQL") != "true":
+        _use_mysql = False
 
 
 def get_db_connection():
