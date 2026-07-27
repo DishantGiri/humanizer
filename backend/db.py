@@ -149,21 +149,31 @@ init_db()
 
 # ── Helper Query Wrappers ───────────────────────────────────────────────────
 
+def _prepare_query(query: str, engine: str) -> str:
+    if engine == "mysql":
+        return query.replace("?", "%s")
+    else:
+        return query.replace("%s", "?")
+
+
 def execute_query(query: str, params: tuple = ()):
     conn, engine = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(query, params)
-        if engine == "sqlite":
+        q = _prepare_query(query, engine)
+        cursor.execute(q, params)
+        if hasattr(conn, 'commit'):
             conn.commit()
     finally:
         conn.close()
+
 
 def fetch_one(query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
     conn, engine = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(query, params)
+        q = _prepare_query(query, engine)
+        cursor.execute(q, params)
         row = cursor.fetchone()
         if not row:
             return None
@@ -173,11 +183,13 @@ def fetch_one(query: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
     finally:
         conn.close()
 
+
 def fetch_all(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
     conn, engine = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(query, params)
+        q = _prepare_query(query, engine)
+        cursor.execute(q, params)
         rows = cursor.fetchall()
         if engine == "sqlite":
             return [dict(r) for r in rows]

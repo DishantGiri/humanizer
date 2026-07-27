@@ -192,7 +192,7 @@ async def rewrite_text(
 
         # Record usage count and history entry if user is logged in
         if user:
-            q_inc = "UPDATE users SET usage_count = usage_count + 1 WHERE id = %s" if os.getenv("USE_MYSQL") == "true" else "UPDATE users SET usage_count = usage_count + 1 WHERE id = ?"
+            q_inc = "UPDATE users SET usage_count = usage_count + 1 WHERE id = ?"
             execute_query(q_inc, (user.id,))
             
             hist_id = str(uuid.uuid4())
@@ -200,9 +200,6 @@ async def rewrite_text(
             created_at = datetime.utcnow().isoformat()
             
             q_hist = """
-                INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """ if os.getenv("USE_MYSQL") == "true" else """
                 INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """
@@ -232,12 +229,6 @@ async def get_user_history(current_user: UserResponse = Depends(get_current_user
     Retrieve past humanizations history for the logged-in user.
     """
     q_get = """
-        SELECT id, original_text, rewritten_text, mode, level, word_count, created_at
-        FROM history
-        WHERE user_id = %s
-        ORDER BY created_at DESC
-        LIMIT 50
-    """ if os.getenv("USE_MYSQL") == "true" else """
         SELECT id, original_text, rewritten_text, mode, level, word_count, created_at
         FROM history
         WHERE user_id = ?

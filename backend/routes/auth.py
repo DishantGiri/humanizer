@@ -68,11 +68,6 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         SELECT u.id, u.name, u.email, u.plan, u.usage_count, u.created_at
         FROM sessions s
         JOIN users u ON s.user_id = u.id
-        WHERE s.token = %s
-    """ if os.getenv("USE_MYSQL") == "true" else """
-        SELECT u.id, u.name, u.email, u.plan, u.usage_count, u.created_at
-        FROM sessions s
-        JOIN users u ON s.user_id = u.id
         WHERE s.token = ?
     """
     user_row = fetch_one(query, (token,))
@@ -106,7 +101,7 @@ async def register(request: RegisterRequest):
     email_clean = request.email.lower().strip()
     name_clean = request.name.strip()
     
-    q_check = "SELECT id FROM users WHERE email = %s" if os.getenv("USE_MYSQL") == "true" else "SELECT id FROM users WHERE email = ?"
+    q_check = "SELECT id FROM users WHERE email = ?"
     if fetch_one(q_check, (email_clean,)):
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
     
@@ -116,16 +111,13 @@ async def register(request: RegisterRequest):
     
     q_ins_u = """
         INSERT INTO users (id, name, email, password_hash, salt, plan, usage_count, created_at)
-        VALUES (%s, %s, %s, %s, %s, 'free', 0, %s)
-    """ if os.getenv("USE_MYSQL") == "true" else """
-        INSERT INTO users (id, name, email, password_hash, salt, plan, usage_count, created_at)
         VALUES (?, ?, ?, ?, ?, 'free', 0, ?)
     """
     execute_query(q_ins_u, (user_id, name_clean, email_clean, pwd_hash, salt, created_at))
     
     # Create session token
     token = uuid.uuid4().hex
-    q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (%s, %s)" if os.getenv("USE_MYSQL") == "true" else "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
+    q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
     execute_query(q_ins_s, (token, user_id))
     
     user_resp = UserResponse(
@@ -149,7 +141,7 @@ async def login(request: LoginRequest):
     """
     email_clean = request.email.lower().strip()
     
-    q_get = "SELECT id, name, email, password_hash, salt, plan, usage_count, created_at FROM users WHERE email = %s" if os.getenv("USE_MYSQL") == "true" else "SELECT id, name, email, password_hash, salt, plan, usage_count, created_at FROM users WHERE email = ?"
+    q_get = "SELECT id, name, email, password_hash, salt, plan, usage_count, created_at FROM users WHERE email = ?"
     user_row = fetch_one(q_get, (email_clean,))
     
     if not user_row:
@@ -161,7 +153,7 @@ async def login(request: LoginRequest):
     
     # Create new session token
     token = uuid.uuid4().hex
-    q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (%s, %s)" if os.getenv("USE_MYSQL") == "true" else "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
+    q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
     execute_query(q_ins_s, (token, user_row["id"]))
     
     user_resp = UserResponse(
@@ -190,7 +182,7 @@ async def upgrade_to_pro(current_user: UserResponse = Depends(get_current_user_f
     """
     Upgrade current user account to Pro ($1/mo).
     """
-    q_upg = "UPDATE users SET plan = 'pro' WHERE id = %s" if os.getenv("USE_MYSQL") == "true" else "UPDATE users SET plan = 'pro' WHERE id = ?"
+    q_upg = "UPDATE users SET plan = 'pro' WHERE id = ?"
     execute_query(q_upg, (current_user.id,))
     
     current_user.plan = "pro"
@@ -203,6 +195,6 @@ async def logout(authorization: Optional[str] = Header(None)):
     """
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
-        q_del = "DELETE FROM sessions WHERE token = %s" if os.getenv("USE_MYSQL") == "true" else "DELETE FROM sessions WHERE token = ?"
+        q_del = "DELETE FROM sessions WHERE token = ?"
         execute_query(q_del, (token,))
     return {"message": "Logged out successfully."}
