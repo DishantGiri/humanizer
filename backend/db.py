@@ -6,6 +6,9 @@ import os
 import sqlite3
 import logging
 from typing import Optional, Dict, Any, List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +71,14 @@ def init_db():
     try:
         if engine == "mysql":
             cursor = conn.cursor()
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_DATABASE}")
-            cursor.execute(f"USE {MYSQL_DATABASE}")
-            cursor.execute("""
+            try:
+                cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_DATABASE}")
+                cursor.execute(f"USE {MYSQL_DATABASE}")
+            except Exception as e:
+                logger.warning("MySQL database select issue: %s", e)
+
+            statements = [
+                """
                 CREATE TABLE IF NOT EXISTS users (
                     id VARCHAR(64) PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
@@ -80,17 +88,17 @@ def init_db():
                     plan VARCHAR(32) DEFAULT 'free',
                     usage_count INT DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            cursor.execute("""
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS sessions (
                     token VARCHAR(64) PRIMARY KEY,
                     user_id VARCHAR(64) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """)
-            cursor.execute("""
+                    INDEX idx_session_user (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS history (
                     id VARCHAR(64) PRIMARY KEY,
                     user_id VARCHAR(64) NOT NULL,
@@ -100,9 +108,15 @@ def init_db():
                     level INT NOT NULL,
                     word_count INT DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """)
+                    INDEX idx_history_user (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            ]
+            for stmt in statements:
+                try:
+                    cursor.execute(stmt)
+                except Exception as ex:
+                    logger.info("MySQL table setup note: %s", ex)
             conn.close()
         else:
             with conn:
