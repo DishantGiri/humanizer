@@ -64,8 +64,8 @@ export default function DashboardView({
       <div
         className="card"
         style={{
-          background: 'rgba(18, 19, 26, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-light)',
           padding: '28px',
           borderRadius: '16px',
           display: 'flex',
@@ -103,9 +103,9 @@ export default function DashboardView({
               Current Plan
             </span>
             {isPro ? (
-              <Crown size={20} color="#ffffff" />
+              <Crown size={20} color="var(--text-primary)" />
             ) : (
-              <Sparkles size={20} color="#ffffff" />
+              <Sparkles size={20} color="var(--text-primary)" />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
@@ -124,7 +124,7 @@ export default function DashboardView({
                 marginTop: '12px',
                 background: 'none',
                 border: 'none',
-                color: '#ffffff',
+                color: 'var(--text-primary)',
                 fontSize: '0.82rem',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -145,7 +145,7 @@ export default function DashboardView({
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Humanizations Used
             </span>
-            <Zap size={20} color={usageCount >= limit && !isPro ? '#f87171' : '#ffffff'} />
+            <Zap size={20} color={usageCount >= limit && !isPro ? '#f87171' : 'var(--text-primary)'} />
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{ fontSize: '1.6rem', fontWeight: 800 }}>
@@ -157,12 +157,12 @@ export default function DashboardView({
           </div>
 
           {/* Progress bar */}
-          <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', marginTop: '12px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '6px', background: 'var(--border-subtle)', borderRadius: '999px', marginTop: '12px', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
                 width: `${usagePercentage}%`,
-                background: usageCount >= limit && !isPro ? '#f87171' : '#ffffff',
+                background: usageCount >= limit && !isPro ? '#f87171' : 'var(--text-primary)',
                 borderRadius: '999px',
                 transition: 'width 0.3s ease',
               }}
@@ -176,9 +176,9 @@ export default function DashboardView({
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Remaining Quota
             </span>
-            <CheckCircle2 size={20} color="#ffffff" />
+            <CheckCircle2 size={20} color="var(--text-primary)" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff' }}>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             {remaining}
           </div>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '8px', display: 'block' }}>
@@ -227,7 +227,7 @@ export default function DashboardView({
       <div className="card" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <History size={18} color="#ffffff" />
+            <History size={18} color="var(--text-primary)" />
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Recent Humanizations</h3>
           </div>
           {user && (
@@ -270,8 +270,8 @@ export default function DashboardView({
               <div
                 key={item.id}
                 style={{
-                  background: 'rgba(14, 15, 21, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '10px',
                   padding: '16px',
                   display: 'flex',

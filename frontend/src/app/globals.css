@@ -107,6 +107,25 @@
   border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+[data-theme="light"] .sidebar__brand {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .sidebar__menu-item {
+  color: #475569;
+}
+
+[data-theme="light"] .sidebar__menu-item:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .sidebar__menu-item--active {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.08);
+  font-weight: 700;
+}
+
 [data-theme="light"] .navbar {
   background: rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -116,6 +135,12 @@
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .chip {
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #0f172a;
 }
 
 [data-theme="light"] .action-btn-solid {
@@ -136,10 +161,54 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+[data-theme="light"] .text-panel {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .text-panel__header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
 [data-theme="light"] .text-panel__textarea {
   background: #ffffff;
   color: #0f172a;
   border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .analysis-sidebar-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .detector-row {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mode-selector__btn {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .mode-selector__btn--active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+[data-theme="light"] .level-selector__btn {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .level-selector__btn--active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
 }
 
 [data-theme="light"] .auth-page-card,

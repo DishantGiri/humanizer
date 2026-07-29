@@ -116,12 +116,12 @@ export default function PricingView({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            border: '1px solid var(--border-subtle)',
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Sparkles size={20} color="#ffffff" />
+              <Sparkles size={20} color="var(--text-primary)" />
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Free Plan</h3>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
@@ -134,13 +134,13 @@ export default function PricingView({
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> 10 Free Humanizations Limit
+                <Check size={16} color="var(--text-primary)" /> 10 Free Humanizations Limit
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> All standard rewrite modes
+                <Check size={16} color="var(--text-primary)" /> All standard rewrite modes
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> Sentence diff visualization
+                <Check size={16} color="var(--text-primary)" /> Sentence diff visualization
               </li>
             </ul>
           </div>
@@ -152,7 +152,7 @@ export default function PricingView({
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--border-subtle)',
                   textAlign: 'center',
                   fontWeight: 600,
                   fontSize: '0.88rem',
@@ -167,7 +167,7 @@ export default function PricingView({
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'var(--border-subtle)',
                   textAlign: 'center',
                   fontWeight: 500,
                   fontSize: '0.85rem',
@@ -189,9 +189,9 @@ export default function PricingView({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'rgba(18, 19, 26, 0.85)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--glass-shadow)',
             position: 'relative',
           }}
         >
@@ -201,15 +201,15 @@ export default function PricingView({
               position: 'absolute',
               top: '-12px',
               right: '24px',
-              background: '#ffffff',
-              color: '#000000',
+              background: 'var(--text-primary)',
+              color: 'var(--bg-primary)',
               fontSize: '0.72rem',
               fontWeight: 800,
               padding: '4px 12px',
               borderRadius: '999px',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              boxShadow: '0 4px 12px rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
             }}
           >
             BEST VALUE
@@ -217,11 +217,11 @@ export default function PricingView({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Crown size={20} color="#ffffff" />
+              <Crown size={20} color="var(--text-primary)" />
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Pro Model</h3>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#ffffff' }}>$1</span>
+              <span style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>$1</span>
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>/ month</span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
@@ -230,19 +230,19 @@ export default function PricingView({
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600 }}>
-                <Zap size={16} color="#ffffff" /> UNLIMITED Humanizations
+                <Zap size={16} color="var(--text-primary)" /> UNLIMITED Humanizations
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> Priority Groq LLM processing
+                <Check size={16} color="var(--text-primary)" /> Priority Groq LLM processing
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> Level 3 Heavy restructuring pipeline
+                <Check size={16} color="var(--text-primary)" /> Level 3 Heavy restructuring pipeline
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#ffffff" /> Translation bounce & grammar polish
+                <Check size={16} color="var(--text-primary)" /> Translation bounce & grammar polish
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Shield size={16} color="#ffffff" /> Unlimited saved history
+                <Shield size={16} color="var(--text-primary)" /> Unlimited saved history
               </li>
             </ul>
           </div>
@@ -254,12 +254,12 @@ export default function PricingView({
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: 'var(--border-subtle)',
+                  border: '1px solid var(--border-light)',
                   textAlign: 'center',
                   fontWeight: 700,
                   fontSize: '0.9rem',
-                  color: '#ffffff',
+                  color: 'var(--text-primary)',
                 }}
               >
                 ✓ Active Pro Plan

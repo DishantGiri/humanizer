@@ -344,8 +344,8 @@ export default function Home() {
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                background: 'var(--border-subtle)',
+                border: '1px solid var(--border-light)',
                 borderRadius: '50%',
                 width: '34px',
                 height: '34px',
@@ -368,10 +368,10 @@ export default function Home() {
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: '999px',
-                    background: user.plan === 'pro' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)',
-                    color: user.plan === 'pro' ? '#ffffff' : 'var(--text-secondary)',
+                    background: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
                     textTransform: 'uppercase',
-                    border: user.plan === 'pro' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    border: '1px solid var(--border-light)',
                   }}
                 >
                   {user.plan === 'pro' ? 'PRO' : 'FREE'}
@@ -382,14 +382,15 @@ export default function Home() {
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      background: user.avatar_url ? 'transparent' : '#ffffff',
-                      color: '#000000',
+                      background: user.avatar_url ? 'transparent' : 'var(--text-primary)',
+                      color: 'var(--bg-primary)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 700,
                       fontSize: '0.85rem',
                       overflow: 'hidden',
+                      border: '1px solid var(--border-light)',
                     }}
                   >
                     {user.avatar_url ? (
