@@ -36,7 +36,7 @@ export default function DashboardView({
 
   useEffect(() => {
     if (user && token) {
-      setLoadingHistory(true);
+      queueMicrotask(() => setLoadingHistory(true));
       getUserHistory(token)
         .then((items) => setHistory(items))
         .catch(() => setHistory([]))

@@ -109,7 +109,7 @@ export default function PipelineLoader({
 
   useEffect(() => {
     if (!isLoading) {
-      setCurrentStageIdx(0);
+      queueMicrotask(() => setCurrentStageIdx(0));
       return;
     }
 
@@ -119,7 +119,7 @@ export default function PipelineLoader({
     // Level 3: deep (~2.5s per step)
     const stepDuration = level === 1 ? 800 : level === 2 ? 1500 : 2500;
 
-    setCurrentStageIdx(0);
+    queueMicrotask(() => setCurrentStageIdx(0));
 
     const interval = setInterval(() => {
       setCurrentStageIdx((prev) => (prev < stages.length - 1 ? prev + 1 : prev));

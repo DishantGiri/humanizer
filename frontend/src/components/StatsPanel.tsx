@@ -30,7 +30,7 @@ function AnimatedNumber({ value, duration = 600 }: { value: number; duration?: n
 
   useEffect(() => {
     if (value === 0) {
-      setDisplayed(0);
+      queueMicrotask(() => setDisplayed(0));
       return;
     }
 

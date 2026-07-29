@@ -105,7 +105,7 @@ export default function PricingView({
       )}
 
       {/* Pricing Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', paddingTop: '16px' }}>
         
         {/* Free Plan */}
         <div
@@ -193,6 +193,7 @@ export default function PricingView({
             border: '1px solid var(--border-light)',
             boxShadow: 'var(--glass-shadow)',
             position: 'relative',
+            overflow: 'visible',
           }}
         >
           {/* Badge */}
@@ -210,6 +211,7 @@ export default function PricingView({
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              zIndex: 2,
             }}
           >
             BEST VALUE

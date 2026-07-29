@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -23,8 +24,7 @@ import {
   AlertTriangle,
   LogOut,
   ArrowRight,
-  Sun,
-  Moon,
+  MoreVertical,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -37,6 +37,7 @@ import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
 import LandingHero from '@/components/LandingHero';
 import Logo from '@/components/Logo';
+import Navbar from '@/components/Navbar';
 import {
   rewriteText,
   getCurrentUser,
@@ -76,6 +77,20 @@ export default function Home() {
   const [editName, setEditName] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
 
+  // Sidebar User Account Popover Menu State
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [currentStage, setCurrentStage] = useState<{ label: string; step: number; total: number }>({
     label: 'Analyzing structure...',
     step: 1,
@@ -87,15 +102,61 @@ export default function Home() {
 
   useEffect(() => {
     const savedTheme = (localStorage.getItem('humyn_theme') as 'dark' | 'light') || 'dark';
-    setTheme(savedTheme);
+    queueMicrotask(() => {
+      setTheme(savedTheme);
+    });
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = (e?: React.MouseEvent<HTMLButtonElement>) => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('humyn_theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+
+    const updateDOM = () => {
+      setTheme(newTheme);
+      localStorage.setItem('humyn_theme', newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+    };
+
+    if (
+      !e ||
+      !document.startViewTransition ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      updateDOM();
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const right = window.innerWidth - rect.left;
+    const bottom = window.innerHeight - rect.top;
+    const maxRadius = Math.hypot(
+      Math.max(rect.left, right),
+      Math.max(rect.top, bottom)
+    );
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        updateDOM();
+      });
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${maxRadius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: 500,
+          easing: 'ease-in-out',
+          pseudoElement: '::view-transition-new(root)',
+        }
+      );
+    });
   };
 
   // Check saved session on mount
@@ -104,12 +165,14 @@ export default function Home() {
     const savedUser = localStorage.getItem('humanizer_user');
 
     if (savedToken) {
-      setToken(savedToken);
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch {}
-      }
+      queueMicrotask(() => {
+        setToken(savedToken);
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch {}
+        }
+      });
       getCurrentUser(savedToken)
         .then((u) => {
           setUser(u);
@@ -304,10 +367,6 @@ export default function Home() {
         </nav>
 
         <div className="sidebar__footer">
-          <button type="button" className="sidebar__menu-item" onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            <span className="sidebar__menu-text">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
           <button type="button" className="sidebar__menu-item">
             <HelpCircle size={18} />
             <span className="sidebar__menu-text">FAQ</span>
@@ -320,119 +379,118 @@ export default function Home() {
             <ChevronLeft className="sidebar__collapse-chevron" size={18} />
             <span className="sidebar__menu-text">Collapse Menu</span>
           </button>
+
+          {/* User Account Profile Card & Sign Out Popover */}
+          <div className="sidebar__user-container" ref={userMenuRef}>
+            {userMenuOpen && user && (
+              <div className="sidebar__user-popover">
+                <div className="sidebar__user-popover-header">
+                  <div className="sidebar__user-popover-avatar">
+                    {user.avatar_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={user.avatar_url} alt={user.name} />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="sidebar__user-popover-info">
+                    <span className="sidebar__user-popover-name">{user.name}</span>
+                    <span className="sidebar__user-popover-email">{user.email}</span>
+                  </div>
+                </div>
+
+                <div className="sidebar__user-popover-divider" />
+
+                <button
+                  type="button"
+                  className="sidebar__user-popover-item"
+                  onClick={() => {
+                    setActiveMenu('account');
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <User size={16} />
+                  <span>Account Settings</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="sidebar__user-popover-item"
+                  onClick={() => {
+                    setActiveMenu('plans');
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <CreditCard size={16} />
+                  <span>Plans & Pricing</span>
+                </button>
+
+                <div className="sidebar__user-popover-divider" />
+
+                <button
+                  type="button"
+                  className="sidebar__user-popover-item sidebar__user-popover-item--danger"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    handleLogout();
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            )}
+
+            {user ? (
+              <button
+                type="button"
+                className={`sidebar__user-card ${userMenuOpen ? 'sidebar__user-card--active' : ''}`}
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+              >
+                <div className="sidebar__user-avatar">
+                  {user.avatar_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={user.avatar_url} alt={user.name} />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="sidebar__user-details">
+                  <span className="sidebar__user-name">{user.name}</span>
+                  <span className="sidebar__user-plan">
+                    {user.plan === 'pro' ? 'PRO PLAN' : 'FREE TIER'}
+                  </span>
+                </div>
+                <MoreVertical size={16} className="sidebar__user-more-icon" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="sidebar__user-card"
+                onClick={() => router.push('/login')}
+              >
+                <div className="sidebar__user-avatar">
+                  <User size={16} />
+                </div>
+                <div className="sidebar__user-details">
+                  <span className="sidebar__user-name">Log In / Register</span>
+                  <span className="sidebar__user-plan">Access all features</span>
+                </div>
+                <ArrowRight size={14} className="sidebar__user-more-icon" />
+              </button>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* ── Main Panel ──────────────────────────────────────────────────── */}
       <main className="main-panel">
-        {/* Top Navbar */}
-        <header className="navbar">
-          <div className="navbar__breadcrumb">
-            <span className="navbar__breadcrumb-current">
-              {activeMenu === 'dashboard'
-                ? 'Dashboard'
-                : activeMenu === 'plans'
-                ? 'Plans & Pricing'
-                : activeMenu === 'account'
-                ? 'Account'
-                : 'Humanizer'}
-            </span>
-          </div>
-          <div className="navbar__actions">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              style={{
-                background: 'var(--border-subtle)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '50%',
-                width: '34px',
-                height: '34px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: 'var(--text-primary)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
-            {user ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    background: 'var(--border-subtle)',
-                    color: 'var(--text-primary)',
-                    textTransform: 'uppercase',
-                    border: '1px solid var(--border-light)',
-                  }}
-                >
-                  {user.plan === 'pro' ? 'PRO' : 'FREE'}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      background: user.avatar_url ? 'transparent' : 'var(--text-primary)',
-                      color: 'var(--bg-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      overflow: 'hidden',
-                      border: '1px solid var(--border-light)',
-                    }}
-                  >
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      user.name.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {user.name}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="navbar__link"
-                  onClick={handleLogout}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <LogOut size={14} />
-                  Log out
-                </button>
-              </div>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="navbar__link"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/register"
-                  className="navbar__btn"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Get Started
-                </Link>
-              </>
-            )}
-          </div>
-        </header>
+        {/* Top Navbar Component */}
+        <Navbar
+          activeMenu={activeMenu}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
 
         {/* Content Container */}
         <div className="content-container">

@@ -202,7 +202,7 @@ export default function AuthModal({
         <div className="auth-modal-footer">
           {mode === 'login' ? (
             <p>
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <button
                 type="button"
                 className="auth-link"

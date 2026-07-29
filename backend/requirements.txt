@@ -4,3 +4,4 @@ groq
 python-dotenv
 textstat
 language-tool-python
+email-validator
