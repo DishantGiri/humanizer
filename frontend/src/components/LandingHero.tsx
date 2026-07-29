@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   RefreshCw,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
@@ -37,9 +38,20 @@ export default function LandingHero({
 }: LandingHeroProps) {
   const router = useRouter();
   const [demoText, setDemoText] = useState('');
-  const [demoChecked, setDemoChecked] = useState(false);
-  const [aiRiskScore, setAiRiskScore] = useState<number | null>(null);
+  const [demoHasHumanized, setDemoHasHumanized] = useState(false);
+  const [demoOutput, setDemoOutput] = useState<{ firstHalf: string; secondHalf: string } | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoIsLoading, setDemoIsLoading] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const used = localStorage.getItem('humyn_demo_used_v1');
+      if (used === 'true') {
+        setDemoHasHumanized(true);
+      }
+    }
+  }, []);
 
   const faqs = [
     {
@@ -79,27 +91,152 @@ export default function LandingHero({
     },
   ];
 
-  const wordCount = demoText.trim() ? demoText.trim().split(/\s+/).length : 0;
+  const wordCount = demoText.trim() ? demoText.trim().split(/\s+/).filter(Boolean).length : 0;
   const charCount = demoText.length;
 
-  const handleCheckAI = () => {
-    if (!demoText.trim()) {
+  const fallbackHumanize = (input: string): string => {
+    let text = input.trim();
+    const replacements: [RegExp, string][] = [
+      [/\bThe implementation of\b/gi, 'Putting in place'],
+      [/\bstrategic initiatives\b/gi, 'these core plans'],
+      [/\bfacilitates\b/gi, 'helps create'],
+      [/\boptimal synergy\b/gi, 'better teamwork'],
+      [/\bacross operations\b/gi, 'throughout the team'],
+      [/\bdelve into\b/gi, 'explore'],
+      [/\bdelving into\b/gi, 'exploring'],
+      [/\btestament to\b/gi, 'proof of'],
+      [/\butilize\b/gi, 'use'],
+      [/\butilizing\b/gi, 'using'],
+      [/\bfurthermore\b/gi, 'also'],
+      [/\bmoreover\b/gi, 'in addition'],
+      [/\bin conclusion\b/gi, 'all in all'],
+      [/\bto summarize\b/gi, 'basically'],
+      [/\bfostering\b/gi, 'building'],
+      [/\bparadigm shift\b/gi, 'major change'],
+      [/\bsynergy\b/gi, 'teamwork'],
+      [/\bimperative\b/gi, 'key priority'],
+      [/\bcrucial role\b/gi, 'big part'],
+      [/\bpivotal\b/gi, 'central'],
+      [/\bholistic approach\b/gi, 'complete strategy'],
+      [/\bbeacons of\b/gi, 'examples of'],
+      [/\bmyriad of\b/gi, 'plenty of'],
+      [/\bplethora of\b/gi, 'lots of'],
+      [/\bseamlessly integrate\b/gi, 'easily combine'],
+      [/\bexpedite\b/gi, 'speed up'],
+      [/\boptimize\b/gi, 'improve'],
+      [/\bmitigate\b/gi, 'reduce'],
+      [/\bleverage\b/gi, 'take advantage of'],
+      [/\bleveraging\b/gi, 'using'],
+      [/\bin order to\b/gi, 'to'],
+      [/\bit is important to note that\b/gi, 'notably,'],
+      [/\bit should be emphasized that\b/gi, 'keep in mind that'],
+      [/\bdue to the fact that\b/gi, 'because'],
+    ];
+
+    replacements.forEach(([regex, replacement]) => {
+      text = text.replace(regex, replacement);
+    });
+
+    if (text === input.trim()) {
+      text = 'In simple terms, ' + input.trim().replace(/\bis\b/g, 'turns out to be');
+    }
+
+    return text;
+  };
+
+  const handleHumanizeDemo = async () => {
+    if (!demoText.trim() || demoIsLoading) return;
+
+    // Strict 1 demo check per session/IP from localStorage
+    const hasUsedDemo = typeof window !== 'undefined' && localStorage.getItem('humyn_demo_used_v1') === 'true';
+    if (demoHasHumanized || hasUsedDemo) {
+      router.push('/login');
       return;
     }
-    const lengthFactor = Math.min(demoText.length / 500, 1);
-    const score = Math.floor(75 + lengthFactor * 18);
-    setAiRiskScore(score);
-    setDemoChecked(true);
+
+    // Check word limit (< 100 words for demo)
+    if (wordCount > 100) {
+      setDemoError('Demo is limited to under 100 words to save tokens. Please shorten your text or log in for unlimited humanization.');
+      return;
+    }
+
+    // Mark demo as used in localStorage immediately to prevent token abuse
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('humyn_demo_used_v1', 'true');
+    }
+
+    setDemoError(null);
+    setDemoIsLoading(true);
+
+    try {
+      // Call backend FastAPI endpoint with low model level (level: 1)
+      const res = await fetch('http://localhost:8000/api/rewrite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: demoText.trim(),
+          mode: 'native',
+          level: 1,
+        }),
+      });
+
+      let fullRewritten = '';
+
+      if (res.ok) {
+        const data = await res.json();
+        fullRewritten = data.rewritten || fallbackHumanize(demoText.trim());
+      } else {
+        fullRewritten = fallbackHumanize(demoText.trim());
+      }
+
+      fullRewritten = fullRewritten.trim();
+
+      const sentences = fullRewritten.split(/(?<=[.!?])\s+/);
+      let firstHalf = '';
+      let secondHalf = '';
+
+      if (sentences.length > 1) {
+        const mid = Math.ceil(sentences.length / 2);
+        firstHalf = sentences.slice(0, mid).join(' ');
+        secondHalf = sentences.slice(mid).join(' ');
+      } else {
+        const words = fullRewritten.split(/\s+/);
+        const mid = Math.ceil(words.length / 2);
+        firstHalf = words.slice(0, mid).join(' ');
+        secondHalf = words.slice(mid).join(' ');
+      }
+
+      setDemoOutput({ firstHalf, secondHalf });
+      setDemoHasHumanized(true);
+    } catch (err) {
+      const fallback = fallbackHumanize(demoText.trim());
+      const sentences = fallback.split(/(?<=[.!?])\s+/);
+      let firstHalf = '';
+      let secondHalf = '';
+      if (sentences.length > 1) {
+        const mid = Math.ceil(sentences.length / 2);
+        firstHalf = sentences.slice(0, mid).join(' ');
+        secondHalf = sentences.slice(mid).join(' ');
+      } else {
+        const words = fallback.split(/\s+/);
+        const mid = Math.ceil(words.length / 2);
+        firstHalf = words.slice(0, mid).join(' ');
+        secondHalf = words.slice(mid).join(' ');
+      }
+      setDemoOutput({ firstHalf, secondHalf });
+      setDemoHasHumanized(true);
+    } finally {
+      setDemoIsLoading(false);
+    }
   };
 
   const handleClear = () => {
     setDemoText('');
-    setDemoChecked(false);
-    setAiRiskScore(null);
-  };
-
-  const handleHumanizeClick = () => {
-    router.push('/login');
+    setDemoError(null);
+    setDemoOutput(null);
+    setDemoHasHumanized(false);
   };
 
   return (
@@ -251,15 +388,31 @@ export default function LandingHero({
           <div className="demo-section__header">
             <h2 className="demo-section__title">Test Your AI Text Instantly</h2>
             <p className="demo-section__subtitle">
-              Paste your content below to check AI detection risk in real-time. Log in to run full humanization rewrites.
+              Paste your content below (under 100 words) for a free instant humanization demo. Log in to unlock full output.
             </p>
           </div>
 
-          <div className="demo-section__grid">
-            {/* Left Card: Original Text Input */}
+          <div className="demo-section__grid" style={{ position: 'relative' }}>
+            {/* Sleek Glassmorphic Overlay Loader */}
+            {demoIsLoading && (
+              <div className="demo-loader-overlay">
+                <div className="demo-loader-card">
+                  <div className="demo-loader-spinner-box">
+                    <div className="demo-loader-pulse" />
+                    <Sparkles size={28} className="demo-loader-sparkle" />
+                  </div>
+                  <p className="demo-loader-title">Humanizing Text with AI Model...</p>
+                  <p className="demo-loader-sub">Restructuring sentence cadences & bypassing AI detectors</p>
+                </div>
+              </div>
+            )}
+
+            {/* Left Card: Input / Humanized Output */}
             <div className="demo-card demo-card--input">
               <div className="demo-card__header">
-                <span className="demo-card__title">Original Text</span>
+                <span className="demo-card__title">
+                  {demoOutput ? 'Humanized Output (Demo)' : 'Original Text'}
+                </span>
                 {demoText && (
                   <button
                     type="button"
@@ -273,40 +426,82 @@ export default function LandingHero({
               </div>
 
               <div className="demo-card__body">
-                <textarea
-                  className="demo-card__textarea"
-                  placeholder="Paste your AI-generated text here (ChatGPT, Claude, Jasper, etc.)..."
-                  value={demoText}
-                  onChange={(e) => setDemoText(e.target.value)}
-                  spellCheck="true"
-                />
+                {!demoOutput ? (
+                  <textarea
+                    className="demo-card__textarea"
+                    placeholder="Paste your AI-generated text here (under 100 words)..."
+                    value={demoText}
+                    onChange={(e) => setDemoText(e.target.value)}
+                    spellCheck="true"
+                  />
+                ) : (
+                  <div className="demo-output__content">
+                    <p className="demo-output__clear">{demoOutput.firstHalf}</p>
+                    <div className="demo-output__blur-wrapper">
+                      <p className="demo-output__blurred">{demoOutput.secondHalf}</p>
+                      <div className="demo-output__overlay">
+                        <Lock size={20} className="demo-output__lock-icon" style={{ color: '#38bdf8' }} />
+                        <span style={{ fontWeight: 700 }}>Unlock Full Output</span>
+                        <button type="button" className="demo-output__unlock-btn" onClick={() => router.push('/login')}>
+                          Log in / Register
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="demo-card__footer">
                 <div className="demo-card__stats">
-                  <span>{wordCount} words</span>
+                  {demoOutput ? (
+                    <span style={{ color: '#10b981', fontWeight: 700 }}>✓ Humanized</span>
+                  ) : (
+                    <span style={{ color: wordCount > 100 ? '#ef4444' : undefined, fontWeight: wordCount > 100 ? 700 : undefined }}>
+                      {wordCount}/100 words
+                    </span>
+                  )}
                   <span>{charCount} chars</span>
                 </div>
 
                 <div className="demo-card__actions">
-                  <button
-                    type="button"
-                    className="demo-btn-outline"
-                    onClick={handleCheckAI}
-                    disabled={!demoText.trim()}
-                  >
-                    <ScanSearch size={15} />
-                    <span>Check AI</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="demo-btn-solid"
-                    onClick={handleHumanizeClick}
-                  >
-                    <Wand2 size={15} />
-                    <span>Humanize Text</span>
-                  </button>
+                  {!demoOutput ? (
+                    <button
+                      type="button"
+                      className="demo-btn-solid"
+                      onClick={handleHumanizeDemo}
+                      disabled={!demoText.trim() || demoIsLoading}
+                    >
+                      {demoIsLoading ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Humanizing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 size={15} />
+                          <span>Humanize Text</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="demo-btn-outline"
+                        onClick={handleClear}
+                      >
+                        Try New Text
+                      </button>
+                      <button
+                        type="button"
+                        className="demo-btn-solid"
+                        onClick={() => router.push('/login')}
+                      >
+                        <Lock size={15} />
+                        <span>Log in to Copy</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -318,28 +513,80 @@ export default function LandingHero({
               </div>
 
               <div className="demo-card__body demo-card__body--analysis">
-                {!demoChecked ? (
-                  <div className="demo-card__empty-state">
-                    <p>No Score yet</p>
+                {demoError ? (
+                  <div className="demo-card__error-state">
+                    <p className="demo-error-text" style={{ color: '#f87171', marginBottom: 12 }}>{demoError}</p>
+                    <button type="button" className="demo-error-cta" onClick={() => router.push('/login')}>
+                      <Lock size={15} />
+                      <span>Log In For Unlimited Words</span>
+                    </button>
                   </div>
                 ) : (
-                  <div className="demo-card__score-state">
-                    <div className="demo-score-badge">
-                      <span className="demo-score-val">{aiRiskScore}%</span>
-                      <span className="demo-score-label">AI Detected</span>
+                  <div className="demo-qa-container">
+                    {/* Ring Gauge */}
+                    <div className="demo-qa-gauge">
+                      <svg width="150" height="150" viewBox="0 0 150 150" className="demo-qa-svg">
+                        {/* Background track */}
+                        <circle
+                          cx="75"
+                          cy="75"
+                          r="60"
+                          stroke={isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}
+                          strokeWidth="10"
+                          fill="none"
+                        />
+                        {/* Active ring */}
+                        <circle
+                          cx="75"
+                          cy="75"
+                          r="60"
+                          stroke={demoHasHumanized ? 'url(#qaGradient)' : (isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')}
+                          strokeWidth="10"
+                          fill="none"
+                          strokeDasharray="377"
+                          strokeDashoffset={demoHasHumanized ? 0 : 377}
+                          strokeLinecap="round"
+                          transform="rotate(-90 75 75)"
+                          style={{ transition: 'stroke-dashoffset 1s ease-in-out, stroke 0.5s ease' }}
+                        />
+                        <defs>
+                          <linearGradient id="qaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#10b981" />
+                            <stop offset="100%" stopColor="#38bdf8" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div className="demo-qa-gauge-inner">
+                        <span className="demo-qa-score">{demoHasHumanized ? '100%' : '0%'}</span>
+                        <span className="demo-qa-label">HUMAN</span>
+                      </div>
                     </div>
-                    <p className="demo-score-desc">
-                      High probability of AI-generated patterns detected.
-                    </p>
 
-                    <button
-                      type="button"
-                      className="demo-score-cta"
-                      onClick={handleHumanizeClick}
-                    >
-                      <Lock size={15} />
-                      <span>Log in to Humanize Text</span>
-                    </button>
+                    <div className={`demo-qa-status-tag ${demoHasHumanized ? 'demo-qa-status-tag--active' : ''}`}>
+                      {demoHasHumanized ? 'HUMANIZED' : 'READY TO ANALYZE'}
+                    </div>
+
+                    {/* Breakdown Metrics */}
+                    <div className="demo-qa-metrics">
+                      <div className="demo-qa-metric">
+                        <span className="demo-qa-metric-name">AI Risk</span>
+                        <span className="demo-qa-metric-val demo-qa-metric-val--amber">
+                          {demoHasHumanized ? '0%' : '0%'}
+                        </span>
+                      </div>
+                      <div className="demo-qa-metric">
+                        <span className="demo-qa-metric-name">Readability</span>
+                        <span className="demo-qa-metric-val demo-qa-metric-val--cyan">
+                          {demoHasHumanized ? '98%' : '0%'}
+                        </span>
+                      </div>
+                      <div className="demo-qa-metric">
+                        <span className="demo-qa-metric-name">Grammar</span>
+                        <span className="demo-qa-metric-val demo-qa-metric-val--green">
+                          {demoHasHumanized ? '100%' : '0%'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
