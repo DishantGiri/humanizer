@@ -183,6 +183,56 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
+[data-theme="light"] .landing-page {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-nav__link {
+  color: #475569;
+}
+
+[data-theme="light"] .landing-nav__link:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-nav__theme-btn {
+  color: #475569;
+}
+
+[data-theme="light"] .landing-nav__theme-btn:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-nav__login-btn {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-nav__cta-pill {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+[data-theme="light"] .landing-nav__cta-pill:hover {
+  background: #1e293b;
+}
+
+[data-theme="light"] .landing-hero__title,
+[data-theme="light"] .demo-section__title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-hero__subtitle,
+[data-theme="light"] .demo-section__subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .landing-hero__badge {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #0f172a;
+}
+
 [data-theme="light"] .mode-tabs {
   background: #f1f5f9;
   border-color: rgba(0, 0, 0, 0.08);

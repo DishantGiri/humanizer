@@ -88,9 +88,9 @@ export default function LandingHero({
               className="landing-nav__theme-btn"
               onClick={onToggleTheme}
               aria-label="Toggle Theme"
-              title="Toggle theme"
+              title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
             >
-              {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
             <Link href="/login" className="landing-nav__login-btn" style={{ textDecoration: 'none' }}>

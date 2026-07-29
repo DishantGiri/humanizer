@@ -312,7 +312,16 @@ export default function Home() {
   const grammarVal = result ? (result.meaning_preserved ? 95 : 75) : 0;
 
   if (!user) {
-    return <LandingHero />;
+    return (
+      <LandingHero
+        isDarkMode={theme === 'dark'}
+        onToggleTheme={toggleTheme}
+        onOpenAuth={(mode) => {
+          setAuthModalMode(mode);
+          setAuthModalOpen(true);
+        }}
+      />
+    );
   }
 
   return (
