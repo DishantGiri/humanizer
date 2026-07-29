@@ -95,6 +95,7 @@ def init_db():
             try:
                 cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_DATABASE}")
                 cursor.execute(f"USE {MYSQL_DATABASE}")
+                cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
             except Exception as e:
                 logger.warning("MySQL database select issue: %s", e)
 

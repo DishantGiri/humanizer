@@ -17,67 +17,67 @@ export default function PricingView({
   onUpdateUser,
   onRequireAuth,
 }: PricingViewProps) {
-  const [loading, setLoading] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isPro = user?.plan === 'pro';
+  const currentPlan = user?.plan || 'free';
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (planName: string) => {
     if (!user || !token) {
       onRequireAuth();
       return;
     }
 
-    setLoading(true);
+    setLoadingPlan(planName);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
       const updatedUser = await upgradeToPro(token);
-      onUpdateUser(updatedUser);
-      setSuccessMsg('🎉 Successfully upgraded to Pro Plan! You now have unlimited humanizations.');
+      onUpdateUser({ ...updatedUser, plan: planName });
+      setSuccessMsg(`🎉 Successfully activated ${planName.toUpperCase()} Plan!`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upgrade failed.';
       setErrorMsg(msg);
     } finally {
-      setLoading(false);
+      setLoadingPlan(null);
     }
   };
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       {/* Header */}
       <div style={{ textAlign: 'center' }}>
         <span
           style={{
             fontSize: '0.8rem',
             fontWeight: 700,
-            color: 'var(--text-secondary)',
+            color: '#38bdf8',
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
             display: 'inline-block',
             marginBottom: '8px',
           }}
         >
-          Super Cheap Pricing
+          HUMYN REWRITING ENGINES
         </span>
-        <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '8px' }}>
+        <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: '8px' }}>
           Flexible Plans for Every Writer
         </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          Choose the plan that fits your writing and humanizing workflow.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto' }}>
+          Choose the plan that fits your writing workflow. Powered by proprietary Humyn neural rewriting models.
         </p>
       </div>
 
       {successMsg && (
         <div
           style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
             borderRadius: '12px',
             padding: '16px',
-            color: '#ffffff',
+            color: '#34d399',
             textAlign: 'center',
             fontWeight: 600,
             fontSize: '0.92rem',
@@ -104,55 +104,59 @@ export default function PricingView({
         </div>
       )}
 
-      {/* Pricing Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', paddingTop: '16px' }}>
+      {/* Pricing Cards Grid (4 Plans) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', paddingTop: '16px' }}>
         
-        {/* Free Plan */}
+        {/* Plan 1: Free ($0) */}
         <div
           className="card"
           style={{
-            padding: '32px 28px',
+            padding: '28px 24px',
             borderRadius: '16px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             border: '1px solid var(--border-subtle)',
+            background: 'var(--bg-card)',
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Sparkles size={20} color="var(--text-primary)" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Free Plan</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Sparkles size={18} color="var(--text-primary)" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Free</h3>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '2.4rem', fontWeight: 800 }}>$0</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>/ month</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$0</span>
+              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
-              Perfect for trying out Humyn and light writing tasks.
-            </p>
+            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
+              Humyn Lite Engine
+            </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> 10 Free Humanizations Limit
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 2 humanizations / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> All standard rewrite modes
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 250 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> Sentence diff visualization
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Standard Bypass Pipeline
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Basic Processing Speed
               </li>
             </ul>
           </div>
 
-          <div style={{ marginTop: '32px' }}>
-            {!isPro ? (
+          <div style={{ marginTop: '28px' }}>
+            {currentPlan === 'free' ? (
               <div
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'var(--border-subtle)',
+                  background: 'rgba(255,255,255,0.06)',
                   textAlign: 'center',
                   fontWeight: 600,
                   fontSize: '0.88rem',
@@ -174,94 +178,262 @@ export default function PricingView({
                   color: 'var(--text-tertiary)',
                 }}
               >
-                Free Tier
+                Included
               </div>
             )}
           </div>
         </div>
 
-        {/* Pro Plan */}
+        {/* Plan 2: Starter ($1) */}
         <div
           className="card"
           style={{
-            padding: '32px 28px',
+            padding: '28px 24px',
             borderRadius: '16px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            border: '1px solid var(--border-subtle)',
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-light)',
-            boxShadow: 'var(--glass-shadow)',
-            position: 'relative',
-            overflow: 'visible',
           }}
         >
-          {/* Badge */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '-12px',
-              right: '24px',
-              background: 'var(--text-primary)',
-              color: 'var(--bg-primary)',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              padding: '4px 12px',
-              borderRadius: '999px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-              zIndex: 2,
-            }}
-          >
-            BEST VALUE
-          </div>
-
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Crown size={20} color="var(--text-primary)" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Pro Model</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Zap size={18} color="#38bdf8" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Starter</h3>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>$1</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>/ month</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$1</span>
+              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
-              Unrestricted access to high quality rewriting at an unbeatable price.
-            </p>
+            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
+              Humyn SpeedEngine v1.5
+            </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600 }}>
-                <Zap size={16} color="var(--text-primary)" /> UNLIMITED Humanizations
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 10 humanizations / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> Priority Groq LLM processing
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 600 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> Level 3 Heavy restructuring pipeline
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Enhanced Paraphrase Quality
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="var(--text-primary)" /> Translation bounce & grammar polish
-              </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Shield size={16} color="var(--text-primary)" /> Unlimited saved history
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Fast Processing Speed
               </li>
             </ul>
           </div>
 
-          <div style={{ marginTop: '32px' }}>
-            {isPro ? (
+          <div style={{ marginTop: '28px' }}>
+            {currentPlan === 'starter' ? (
               <div
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'var(--border-subtle)',
-                  border: '1px solid var(--border-light)',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
                   textAlign: 'center',
                   fontWeight: 700,
-                  fontSize: '0.9rem',
-                  color: 'var(--text-primary)',
+                  fontSize: '0.88rem',
+                  color: '#38bdf8',
+                }}
+              >
+                ✓ Active Plan
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="action-btn-solid"
+                disabled={loadingPlan === 'starter'}
+                onClick={() => handleUpgrade('starter')}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '12px',
+                  fontSize: '0.88rem',
+                }}
+              >
+                {loadingPlan === 'starter' ? (
+                  <Loader2 size={16} className="spinner-animate" />
+                ) : (
+                  <>Select Starter ($1)</>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Plan 3: Plus ($2) - Popular */}
+        <div
+          className="card"
+          style={{
+            padding: '28px 24px',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            boxShadow: '0 8px 30px rgba(56, 189, 248, 0.15)',
+            position: 'relative',
+            overflow: 'visible',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '-12px',
+              right: '20px',
+              background: '#38bdf8',
+              color: '#0f172a',
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              padding: '4px 12px',
+              borderRadius: '999px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              boxShadow: '0 4px 12px rgba(56, 189, 248, 0.4)',
+              zIndex: 2,
+            }}
+          >
+            POPULAR
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Shield size={18} color="#38bdf8" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Plus</h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>$2</span>
+              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
+            </div>
+            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
+              Humyn Turbo Core v2.5
+            </div>
+
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 30 humanizations / day
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 1,200 words per input
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Advanced Humanization Engine
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> High AI Detector Bypass Rate
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Tone & Flow Controls
+              </li>
+            </ul>
+          </div>
+
+          <div style={{ marginTop: '28px' }}>
+            {currentPlan === 'plus' ? (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  color: '#38bdf8',
+                }}
+              >
+                ✓ Active Plan
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="action-btn-solid"
+                disabled={loadingPlan === 'plus'}
+                onClick={() => handleUpgrade('plus')}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '12px',
+                  fontSize: '0.88rem',
+                }}
+              >
+                {loadingPlan === 'plus' ? (
+                  <Loader2 size={16} className="spinner-animate" />
+                ) : (
+                  <>
+                    Choose Plus ($2) <ArrowRight size={15} />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Plan 4: Pro ($5) */}
+        <div
+          className="card"
+          style={{
+            padding: '28px 24px',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            border: '1px solid var(--border-subtle)',
+            background: 'var(--bg-card)',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Crown size={18} color="#f59e0b" />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Pro</h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$5</span>
+              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
+            </div>
+            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
+              Humyn Ultra DeepRewrite v3.0
+            </div>
+
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 80 humanizations / day
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> 2,500 words per input
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Maximum Detection Bypass
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Priority Processing Queue
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                <Check size={16} color="#34d399" /> Full Export Options
+              </li>
+            </ul>
+          </div>
+
+          <div style={{ marginTop: '28px' }}>
+            {currentPlan === 'pro' ? (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  color: '#f59e0b',
                 }}
               >
                 ✓ Active Pro Plan
@@ -270,20 +442,20 @@ export default function PricingView({
               <button
                 type="button"
                 className="action-btn-solid"
-                disabled={loading}
-                onClick={handleUpgrade}
+                disabled={loadingPlan === 'pro'}
+                onClick={() => handleUpgrade('pro')}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
                   padding: '12px',
-                  fontSize: '0.92rem',
+                  fontSize: '0.88rem',
                 }}
               >
-                {loading ? (
+                {loadingPlan === 'pro' ? (
                   <Loader2 size={16} className="spinner-animate" />
                 ) : (
                   <>
-                    Upgrade to Pro ($1/mo) <ArrowRight size={16} />
+                    Upgrade to Pro ($5) <ArrowRight size={15} />
                   </>
                 )}
               </button>

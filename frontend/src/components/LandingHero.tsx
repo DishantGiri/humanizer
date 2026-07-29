@@ -89,7 +89,7 @@ export default function LandingHero({
     {
       question: 'Is there a free plan available?',
       answer:
-        'Yes! Humyn offers a free tier with 5 daily humanizations and 5 AI scans so you can test our engine before upgrading to one of our affordable monthly plans.',
+        'Yes! Humyn offers a free tier with daily humanizations so you can test our engine before upgrading to one of our affordable monthly plans.',
     },
   ];
 
@@ -581,11 +581,11 @@ export default function LandingHero({
                           cx="75"
                           cy="75"
                           r="60"
-                          stroke={demoHasHumanized ? 'url(#qaGradient)' : (isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')}
+                          stroke={demoOutput ? 'url(#qaGradient)' : (isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')}
                           strokeWidth="10"
                           fill="none"
                           strokeDasharray="377"
-                          strokeDashoffset={demoHasHumanized ? 0 : 377}
+                          strokeDashoffset={demoOutput ? 0 : 377}
                           strokeLinecap="round"
                           transform="rotate(-90 75 75)"
                           style={{ transition: 'stroke-dashoffset 1s ease-in-out, stroke 0.5s ease' }}
@@ -598,33 +598,33 @@ export default function LandingHero({
                         </defs>
                       </svg>
                       <div className="demo-qa-gauge-inner">
-                        <span className="demo-qa-score">{demoHasHumanized ? '100%' : '0%'}</span>
+                        <span className="demo-qa-score">{demoOutput ? '100%' : '0%'}</span>
                         <span className="demo-qa-label">HUMAN</span>
                       </div>
                     </div>
 
-                    <div className={`demo-qa-status-tag ${demoHasHumanized ? 'demo-qa-status-tag--active' : ''}`}>
-                      {demoHasHumanized ? 'HUMANIZED' : 'READY TO ANALYZE'}
+                    <div className={`demo-qa-status-tag ${demoOutput ? 'demo-qa-status-tag--active' : ''}`}>
+                      {demoOutput ? 'HUMANIZED' : 'READY TO ANALYZE'}
                     </div>
 
                     {/* Breakdown Metrics */}
                     <div className="demo-qa-metrics">
                       <div className="demo-qa-metric">
                         <span className="demo-qa-metric-name">AI Risk</span>
-                        <span className="demo-qa-metric-val demo-qa-metric-val--amber">
-                          {demoHasHumanized ? '0%' : '0%'}
+                        <span className={`demo-qa-metric-val ${demoOutput ? 'demo-qa-metric-val--amber' : 'demo-qa-metric-val--muted'}`}>
+                          {demoOutput ? '0%' : '0%'}
                         </span>
                       </div>
                       <div className="demo-qa-metric">
                         <span className="demo-qa-metric-name">Readability</span>
-                        <span className="demo-qa-metric-val demo-qa-metric-val--cyan">
-                          {demoHasHumanized ? '98%' : '0%'}
+                        <span className={`demo-qa-metric-val ${demoOutput ? 'demo-qa-metric-val--cyan' : 'demo-qa-metric-val--muted'}`}>
+                          {demoOutput ? '98%' : '0%'}
                         </span>
                       </div>
                       <div className="demo-qa-metric">
                         <span className="demo-qa-metric-name">Grammar</span>
-                        <span className="demo-qa-metric-val demo-qa-metric-val--green">
-                          {demoHasHumanized ? '100%' : '0%'}
+                        <span className={`demo-qa-metric-val ${demoOutput ? 'demo-qa-metric-val--green' : 'demo-qa-metric-val--muted'}`}>
+                          {demoOutput ? '100%' : '0%'}
                         </span>
                       </div>
                     </div>
@@ -636,13 +636,13 @@ export default function LandingHero({
         </div>
       </section>
 
-      {/* ── Feature Cards Section (Humanize, Detect, Improve) ───────────── */}
+      {/* ── Feature Cards Section (Humanize, Rewrite, Improve) ───────────── */}
       <section className="features-section" id="product">
         <div className="features-section__container">
           <div className="features-section__header">
-            <h2 className="features-section__title">Humanize, Detect, Improve</h2>
+            <h2 className="features-section__title">Humanize, Rewrite, Improve</h2>
             <p className="features-section__subtitle">
-              Paste Any Text Below To Instantly Check How Likely It Is To Be Flagged As AI-Generated. No Account Needed.
+              Transform AI-generated or rigid text into natural, human-sounding writing in seconds. No account needed to try.
             </p>
           </div>
 
@@ -653,7 +653,7 @@ export default function LandingHero({
               <div className="feature-card__content">
                 <h3 className="feature-card__title">AI Humanizer</h3>
                 <p className="feature-card__desc">
-                  Rewrites AI text with natural human phrasing. Choosing light, medium or aggressive rewrite levels
+                  Rewrites AI text with natural human phrasing. Choose standard or aggressive humanization levels.
                 </p>
               </div>
               <div className="feature-card__watermark feature-card__watermark--blue">
@@ -661,14 +661,14 @@ export default function LandingHero({
               </div>
             </div>
 
-            {/* Card 2: AI Detector */}
+            {/* Card 2: Bypass AI Detection */}
             <div className="feature-card feature-card--medium">
               <div className="feature-card__icon-badge feature-card__icon-badge--amber">
                 <Zap size={22} />
               </div>
-              <h3 className="feature-card__title">AI Detector</h3>
+              <h3 className="feature-card__title">Bypass AI Detection</h3>
               <p className="feature-card__desc">
-                Scan your text before and after humanizing. See exactly which sentence is flagged.
+                Ensure your rewritten text reads 100% human and bypasses automated AI detection filters seamlessly.
               </p>
             </div>
 
@@ -719,131 +719,159 @@ export default function LandingHero({
       <section className="landing-pricing-section" id="pricing">
         <div className="landing-pricing-section__container">
           <div className="landing-pricing-section__header">
-            <h2 className="landing-pricing-section__title">Humanize, Detect, Improve</h2>
+            <h2 className="landing-pricing-section__title">Pricing & Plans</h2>
             <p className="landing-pricing-section__subtitle">
-              Paste Any Text Below To Instantly Check How Likely It Is To Be Flagged As AI-Generated. No Account Needed.
+              Choose the perfect plan for your writing needs. Powered by proprietary Humyn neural rewriting engines.
             </p>
           </div>
 
           <div className="landing-pricing-grid">
-            {/* Plan 1: Free */}
+            {/* Plan 1: Free ($0) */}
             <div className="landing-pricing-card">
               <div className="landing-pricing-card__header">
                 <h3 className="landing-pricing-card__name">Free</h3>
                 <div className="landing-pricing-card__price">
                   <span className="amount">$0</span>
-                  <span className="period">/months</span>
+                  <span className="period">/month</span>
                 </div>
+                <div className="landing-pricing-model-tag">Humyn Lite Engine</div>
               </div>
 
               <div className="landing-pricing-card__features">
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 humanization / day</span>
+                  <span>2 humanizations / day</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 AI scans / day</span>
+                  <span>250 words per input</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>1000 words per input</span>
+                  <span>Standard Bypass Pipeline</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>Basic Processing Speed</span>
                 </div>
               </div>
 
               <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Get Started
+                Get Started Free
               </Link>
             </div>
 
-            {/* Plan 2: Starter */}
+            {/* Plan 2: Starter ($1) */}
             <div className="landing-pricing-card">
               <div className="landing-pricing-card__header">
                 <h3 className="landing-pricing-card__name">Starter</h3>
                 <div className="landing-pricing-card__price">
                   <span className="amount">$1</span>
-                  <span className="period">/months</span>
+                  <span className="period">/month</span>
                 </div>
+                <div className="landing-pricing-model-tag">Humyn SpeedEngine v1.5</div>
               </div>
 
               <div className="landing-pricing-card__features">
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 humanization / day</span>
+                  <span>10 humanizations / day</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 AI scans / day</span>
+                  <span>600 words per input</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>1000 words per input</span>
+                  <span>Enhanced Paraphrase Quality</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>Fast Processing Speed</span>
                 </div>
               </div>
 
               <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Choose Starter
+                Choose Starter ($1)
               </Link>
             </div>
 
-            {/* Plan 3: Plus */}
+            {/* Plan 3: Plus ($2) */}
             <div className="landing-pricing-card landing-pricing-card--popular">
               <div className="landing-pricing-card__popular-badge">Popular</div>
               <div className="landing-pricing-card__header">
                 <h3 className="landing-pricing-card__name">Plus</h3>
                 <div className="landing-pricing-card__price">
                   <span className="amount">$2</span>
-                  <span className="period">/months</span>
+                  <span className="period">/month</span>
                 </div>
+                <div className="landing-pricing-model-tag">Humyn Turbo Core v2.5</div>
               </div>
 
               <div className="landing-pricing-card__features">
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 humanization / day</span>
+                  <span>30 humanizations / day</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 AI scans / day</span>
+                  <span>1,200 words per input</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>1000 words per input</span>
+                  <span>Advanced Humanization Engine</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>High AI Detector Bypass Rate</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>Tone & Flow Controls</span>
                 </div>
               </div>
 
               <Link href="/register" className="landing-pricing-card__btn landing-pricing-card__btn--popular" style={{ textDecoration: 'none' }}>
-                Choose Plus
+                Choose Plus ($2)
               </Link>
             </div>
 
-            {/* Plan 4: Pro */}
+            {/* Plan 4: Pro ($5) */}
             <div className="landing-pricing-card">
               <div className="landing-pricing-card__header">
                 <h3 className="landing-pricing-card__name">Pro</h3>
                 <div className="landing-pricing-card__price">
                   <span className="amount">$5</span>
-                  <span className="period">/months</span>
+                  <span className="period">/month</span>
                 </div>
+                <div className="landing-pricing-model-tag">Humyn Ultra DeepRewrite v3.0</div>
               </div>
 
               <div className="landing-pricing-card__features">
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 humanization / day</span>
+                  <span>80 humanizations / day</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>5 AI scans / day</span>
+                  <span>2,500 words per input</span>
                 </div>
                 <div className="landing-pricing-feature">
                   <Check size={16} className="feature-check" />
-                  <span>1000 words per input</span>
+                  <span>Maximum Detection Bypass</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>Priority Processing Queue</span>
+                </div>
+                <div className="landing-pricing-feature">
+                  <Check size={16} className="feature-check" />
+                  <span>Full Export Options</span>
                 </div>
               </div>
 
               <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Choose Pro
+                Choose Pro ($5)
               </Link>
             </div>
           </div>
@@ -889,6 +917,60 @@ export default function LandingHero({
           </div>
         </div>
       </section>
+
+      {/* ── Ready To Humanize CTA Section ────────────────────────────────── */}
+      <section className="landing-cta-banner-section">
+        <div className="landing-cta-banner__container">
+          <h2 className="landing-cta-banner__title">Ready To Humanize Your Writing</h2>
+          <p className="landing-cta-banner__subtitle">
+            Join Thousands Of Writers Who Use Humyn To Humanize Their AI Content
+          </p>
+          <Link href="/register" className="landing-cta-banner__btn" style={{ textDecoration: 'none' }}>
+            <span>Get Started For Free</span>
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Landing Page Footer ─────────────────────────────────────────── */}
+      <footer className="landing-footer">
+        <div className="landing-footer__container">
+          {/* Main Nav Links Row */}
+          <div className="landing-footer__links-row">
+            <Link href="/login" className="landing-footer__link">Sign In</Link>
+            <Link href="/register" className="landing-footer__link">Sign Up</Link>
+            <a href="#hero" className="landing-footer__link">About Us</a>
+            <a href="#privacy" className="landing-footer__link">Privacy Policy</a>
+            <a href="#terms" className="landing-footer__link">Terms and Conditions</a>
+            <a href="#disclaimer" className="landing-footer__link">Disclaimer</a>
+            <a href="#payment-policy" className="landing-footer__link">Payment Policy</a>
+            <a href="#delivery-policy" className="landing-footer__link">Delivery Policy</a>
+            <a href="#refund-policy" className="landing-footer__link">Refund Policy</a>
+            <a href="#contact" className="landing-footer__link">Contact</a>
+          </div>
+
+          {/* Secondary Sub-links Row */}
+          <div className="landing-footer__sublinks-row">
+            <a href="#faq" className="landing-footer__link">FAQ</a>
+            <a href="#changelog" className="landing-footer__link">Changelog</a>
+          </div>
+
+          {/* Support Line */}
+          <div className="landing-footer__support-info">
+            <span>Support: contact@humyn.ai</span>
+            <span className="divider">|</span>
+            <span>+1 (307) 998-3768</span>
+            <span className="divider">|</span>
+            <span>Monday–Friday, 9:00 AM–5:00 PM Mountain Time</span>
+          </div>
+
+          {/* Copyright Line */}
+          <div className="landing-footer__copyright">
+            <Globe size={14} className="landing-footer__globe-icon" />
+            <span>© 2026 Humyn. All rights reserved. AIVantage LLC</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

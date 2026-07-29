@@ -79,7 +79,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  plan: 'free' | 'pro';
+  plan: 'free' | 'starter' | 'plus' | 'pro' | string;
   usage_count: number;
   created_at: string;
   avatar_url?: string;
@@ -194,6 +194,23 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   return await response.json();
 }
 
+export async function googleAuthUser(params: { credential?: string; code?: string; redirect_uri?: string }): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Google authentication failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
 export async function getCurrentUser(token: string): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/me`, {
     method: 'GET',
@@ -239,6 +256,26 @@ export async function updateProfile(token: string, data: { name?: string; avatar
   if (!response.ok) {
     const error: ApiError = await response.json().catch(() => ({
       detail: `Profile update failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function changePassword(token: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE}/api/auth/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Password change failed (${response.status})`,
     }));
     throw new Error(error.detail);
   }

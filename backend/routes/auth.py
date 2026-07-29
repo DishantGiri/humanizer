@@ -223,6 +223,40 @@ async def upgrade_to_pro(current_user: UserResponse = Depends(get_current_user_f
     current_user.plan = "pro"
     return current_user
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., description="User current password")
+    new_password: str = Field(..., min_length=6, description="User new password (min 6 chars)")
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Change user password after verifying current_password.
+    """
+    row = fetch_one("SELECT password_hash, salt FROM users WHERE id = ?", (current_user.id,))
+    if not row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    stored_hash = row["password_hash"]
+    stored_salt = row["salt"]
+
+    # Verify current password
+    check_hash, _ = hash_password(request.current_password, stored_salt)
+    if check_hash != stored_hash:
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    # Hash new password with fresh salt
+    new_hash, new_salt = hash_password(request.new_password)
+    execute_query(
+        "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
+        (new_hash, new_salt, current_user.id)
+    )
+
+    return {"message": "Password changed successfully."}
+
+
 @router.post("/logout")
 async def logout(authorization: Optional[str] = Header(None)):
     """
@@ -233,3 +267,138 @@ async def logout(authorization: Optional[str] = Header(None)):
         q_del = "DELETE FROM sessions WHERE token = ?"
         execute_query(q_del, (token,))
     return {"message": "Logged out successfully."}
+
+
+# ── Google OAuth 2.0 Endpoints ───────────────────────────────────────────────
+
+class GoogleAuthRequest(BaseModel):
+    credential: Optional[str] = Field(None, description="Google ID Token from Google Sign-In button")
+    code: Optional[str] = Field(None, description="Google OAuth 2.0 authorization code")
+    redirect_uri: Optional[str] = Field(None, description="Redirect URI used for OAuth code exchange")
+
+@router.get("/google/config")
+async def get_google_oauth_config():
+    """
+    Returns public Google OAuth Client ID for frontend button initialization.
+    """
+    client_id = os.getenv("CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID") or ""
+    return {"client_id": client_id}
+
+@router.post("/google", response_model=AuthResponse)
+async def google_auth(request: GoogleAuthRequest):
+    """
+    OAuth 2.0 Google Sign-In endpoint.
+    Accepts Google ID Token (credential) or authorization code, verifies user profile with Google,
+    creates or retrieves user from database, and returns session token.
+    """
+    import urllib.request
+    import urllib.parse
+    import json
+
+    user_info = None
+
+    # Case 1: ID Token credential passed directly from Google One Tap / Google Sign-In
+    if request.credential:
+        try:
+            tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={request.credential}"
+            req = urllib.request.Request(tokeninfo_url)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                if "email" in data:
+                    user_info = {
+                        "email": data.get("email"),
+                        "name": data.get("name", data.get("email").split("@")[0]),
+                        "picture": data.get("picture")
+                    }
+        except Exception as e:
+            logger.error("Failed to verify Google ID Token: %s", e)
+            raise HTTPException(status_code=400, detail="Invalid or expired Google authentication token.")
+
+    # Case 2: OAuth 2.0 Code exchange
+    elif request.code:
+        client_id = os.getenv("CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID", "")
+        client_secret = os.getenv("CLIENT_SECRET") or os.getenv("GOOGLE_CLIENT_SECRET", "")
+        redirect_uri = request.redirect_uri or "http://localhost:3000/api/auth/callback/google"
+
+        try:
+            token_url = "https://oauth2.googleapis.com/token"
+            post_data = urllib.parse.urlencode({
+                "code": request.code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code"
+            }).encode('utf-8')
+
+            req = urllib.request.Request(token_url, data=post_data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                tokens = json.loads(response.read().decode('utf-8'))
+                access_token = tokens.get("access_token")
+
+                if access_token:
+                    userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                    u_req = urllib.request.Request(userinfo_url, headers={'Authorization': f'Bearer {access_token}'})
+                    with urllib.request.urlopen(u_req, timeout=10) as u_resp:
+                        data = json.loads(u_resp.read().decode('utf-8'))
+                        if "email" in data:
+                            user_info = {
+                                "email": data.get("email"),
+                                "name": data.get("name", data.get("email").split("@")[0]),
+                                "picture": data.get("picture")
+                            }
+        except Exception as e:
+            logger.error("Failed Google OAuth code exchange: %s", e)
+            raise HTTPException(status_code=400, detail="Failed to complete Google OAuth authorization code exchange.")
+
+    if not user_info or not user_info.get("email"):
+        raise HTTPException(status_code=400, detail="Google authentication failed. No verified email returned.")
+
+    email_clean = user_info["email"].lower().strip()
+    name_clean = user_info["name"].strip()
+    avatar_url = user_info.get("picture")
+
+    # Check if user already exists
+    q_get = "SELECT id, name, email, plan, usage_count, avatar_url, created_at FROM users WHERE email = ?"
+    user_row = fetch_one(q_get, (email_clean,))
+
+    if user_row:
+        user_id = user_row["id"]
+        if avatar_url and not user_row.get("avatar_url"):
+            execute_query("UPDATE users SET avatar_url = ? WHERE id = ?", (avatar_url, user_id))
+        
+        plan = user_row.get("plan", "free")
+        usage_count = user_row.get("usage_count", 0)
+        created_at = str(user_row["created_at"])
+    else:
+        # Create new user for Google login
+        user_id = str(uuid.uuid4())
+        pwd_hash, salt = hash_password(uuid.uuid4().hex)
+        created_at = datetime.utcnow().isoformat()
+        plan = "free"
+        usage_count = 0
+
+        q_ins_u = """
+            INSERT INTO users (id, name, email, password_hash, salt, plan, usage_count, avatar_url, created_at)
+            VALUES (?, ?, ?, ?, ?, 'free', 0, ?, ?)
+        """
+        execute_query(q_ins_u, (user_id, name_clean, email_clean, pwd_hash, salt, avatar_url, created_at))
+
+    # Issue session token
+    token = uuid.uuid4().hex
+    q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
+    execute_query(q_ins_s, (token, user_id))
+
+    user_resp = UserResponse(
+        id=user_id,
+        name=name_clean,
+        email=email_clean,
+        plan=plan,
+        usage_count=usage_count,
+        avatar_url=avatar_url,
+        created_at=created_at
+    )
+    return AuthResponse(
+        user=user_resp,
+        token=token,
+        message="Google OAuth authentication successful."
+    )

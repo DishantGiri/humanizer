@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import {
   ArrowRight,
   MoreVertical,
   Type,
+
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -36,6 +37,7 @@ import PipelineLoader, { getPipelineStages } from '@/components/PipelineLoader';
 import AuthModal from '@/components/AuthModal';
 import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
+import AccountView from '@/components/AccountView';
 import LandingHero from '@/components/LandingHero';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
@@ -43,7 +45,7 @@ import {
   rewriteText,
   getCurrentUser,
   logoutUser,
-  updateProfile,
+
   type RewriteMode,
   type RewriteLevel,
   type RewriteResponse,
@@ -73,10 +75,7 @@ export default function Home() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
-  // Profile editing state
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [profileSaving, setProfileSaving] = useState(false);
+
 
   // Sidebar User Account Popover Menu State
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -205,21 +204,6 @@ export default function Home() {
     setToken(null);
     localStorage.removeItem('humanizer_token');
     localStorage.removeItem('humanizer_user');
-  };
-
-  const handleSaveProfile = async () => {
-    if (!token || !editName.trim()) return;
-    setProfileSaving(true);
-    try {
-      const updated = await updateProfile(token, { name: editName.trim() });
-      setUser(updated);
-      localStorage.setItem('humanizer_user', JSON.stringify(updated));
-      setEditingProfile(false);
-    } catch (err) {
-      console.error('Failed to update profile:', err);
-    } finally {
-      setProfileSaving(false);
-    }
   };
 
   const handleRewrite = async () => {
@@ -545,131 +529,17 @@ export default function Home() {
               onRequireAuth={() => router.push('/login')}
             />
           ) : activeMenu === 'account' ? (
-            <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '28px' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '8px' }}>User Account</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '20px' }}>
-                Manage your user profile and subscription settings.
-              </p>
-
-              {user ? (
-                <div className="account-profile-card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div className="account-profile-avatar">
-                      {user.avatar_url ? (
-                        <img src={user.avatar_url} alt={user.name} />
-                      ) : (
-                        user.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      {editingProfile ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="Your name"
-                            style={{
-                              padding: '8px 12px',
-                              background: 'var(--bg-input)',
-                              border: '1px solid var(--border-light)',
-                              borderRadius: '8px',
-                              color: 'var(--text-primary)',
-                              fontSize: '0.95rem',
-                            }}
-                          />
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="action-btn-solid"
-                              onClick={handleSaveProfile}
-                              disabled={profileSaving}
-                              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-                            >
-                              {profileSaving ? <Loader2 size={14} className="spinner-animate" /> : 'Save'}
-                            </button>
-                            <button
-                              type="button"
-                              className="action-btn-outline"
-                              onClick={() => setEditingProfile(false)}
-                              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <h4 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</h4>
-                          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.email}</p>
-                        </>
-                      )}
-                    </div>
-                    {!editingProfile && (
-                      <button
-                        type="button"
-                        className="action-btn-outline"
-                        onClick={() => { setEditName(user.name); setEditingProfile(true); }}
-                        style={{ fontSize: '0.75rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
-                      >
-                        Edit Profile
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="account-profile-row">
-                    <span style={{ color: 'var(--text-secondary)' }}>Account ID</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{user.id.slice(0, 18)}...</span>
-                  </div>
-                  <div className="account-profile-row">
-                    <span style={{ color: 'var(--text-secondary)' }}>Current Tier</span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, textTransform: 'uppercase' }}>
-                      {user.plan === 'pro' ? 'Pro ($1/mo)' : 'Free Tier ($0/mo)'}
-                    </span>
-                  </div>
-                  <div className="account-profile-row">
-                    <span style={{ color: 'var(--text-secondary)' }}>Usage Count</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{user.usage_count} humanizations</span>
-                  </div>
-
-                  {user.plan !== 'pro' && (
-                    <button
-                      type="button"
-                      className="action-btn-solid"
-                      onClick={() => setActiveMenu('plans')}
-                      style={{ marginTop: '8px', justifyContent: 'center' }}
-                    >
-                      Upgrade to Pro ($1/mo) <ArrowRight size={16} />
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    className="action-btn-outline"
-                    onClick={handleLogout}
-                    style={{ marginTop: '4px', justifyContent: 'center' }}
-                  >
-                    <LogOut size={16} />
-                    Log Out of Account
-                  </button>
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <User size={48} color="var(--text-tertiary)" style={{ marginBottom: '16px' }} />
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '8px' }}>You are not logged in</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px' }}>
-                    Log in or create an account to access features and manage your settings.
-                  </p>
-                  <Link
-                    href="/login"
-                    className="action-btn-solid"
-                    style={{ margin: '0 auto', textDecoration: 'none' }}
-                  >
-                    Log In / Register
-                  </Link>
-                </div>
-              )}
-            </div>
+            <AccountView
+              user={user}
+              token={token}
+              onUpdateUser={(updated) => {
+                setUser(updated);
+                localStorage.setItem('humanizer_user', JSON.stringify(updated));
+              }}
+              onRequireAuth={() => router.push('/login')}
+              onNavigateToPlans={() => setActiveMenu('plans')}
+              onLogout={handleLogout}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               <div className="content-header">
@@ -948,15 +818,29 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="dashboard-footer">
-          <p>
-            Powered by{' '}
-            <a href="https://groq.com" target="_blank" rel="noopener noreferrer">Groq</a>{' '}
-            · Built with{' '}
-            <a href="https://nextjs.org" target="_blank" rel="noopener noreferrer">Next.js</a>{' '}
-            &{' '}
-            <a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener noreferrer">FastAPI</a>
-          </p>
+        <footer className="landing-footer" style={{ marginTop: 'auto' }}>
+          <div className="landing-footer__container">
+            <div className="landing-footer__links-row">
+              <a href="#hero" className="landing-footer__link">About Us</a>
+              <a href="#privacy" className="landing-footer__link">Privacy Policy</a>
+              <a href="#terms" className="landing-footer__link">Terms and Conditions</a>
+              <a href="#disclaimer" className="landing-footer__link">Disclaimer</a>
+              <a href="#payment-policy" className="landing-footer__link">Payment Policy</a>
+              <a href="#delivery-policy" className="landing-footer__link">Delivery Policy</a>
+              <a href="#refund-policy" className="landing-footer__link">Refund Policy</a>
+              <a href="#contact" className="landing-footer__link">Contact</a>
+            </div>
+            <div className="landing-footer__support-info">
+              <span>Support: contact@humyn.ai</span>
+              <span className="divider">|</span>
+              <span>+1 (307) 998-3768</span>
+              <span className="divider">|</span>
+              <span>Monday–Friday, 9:00 AM–5:00 PM Mountain Time</span>
+            </div>
+            <div className="landing-footer__copyright">
+              <span>© 2026 Humyn. All rights reserved. AIVantage LLC</span>
+            </div>
+          </div>
         </footer>
       </main>
     </div>

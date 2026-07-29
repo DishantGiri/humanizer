@@ -3031,6 +3031,80 @@ body::before {
   margin-bottom: 20px;
 }
 
+/* ── Google OAuth Button & Social Divider ───────────────────────────────── */
+
+.auth-social-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.auth-google-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-google-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .auth-google-btn {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .auth-google-btn:hover {
+  background: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.22);
+}
+
+.auth-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  margin: 4px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .auth-divider::before,
+[data-theme="light"] .auth-divider::after {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+.auth-divider span {
+  padding: 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+}
+
 .auth-form-layout {
   display: flex;
   flex-direction: column;
@@ -4555,6 +4629,10 @@ body::before {
   color: #10b981;
 }
 
+.demo-qa-metric-val--muted {
+  color: var(--text-tertiary);
+}
+
 .demo-score-desc {
   font-size: 0.85rem;
   color: #94a3b8;
@@ -5010,6 +5088,25 @@ body::before {
   font-weight: 500;
 }
 
+.landing-pricing-model-tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #38bdf8;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="light"] .landing-pricing-model-tag {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: #0284c7;
+}
+
 .landing-pricing-card__features {
   display: flex;
   flex-direction: column;
@@ -5300,4 +5397,187 @@ html {
 
 [data-theme="light"] .landing-faq-item__body {
   border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Ready To Humanize CTA Section ──────────────────────────────────── */
+
+.landing-cta-banner-section {
+  width: 100%;
+  padding: 80px 24px;
+  background: #090a0f;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+[data-theme="light"] .landing-cta-banner-section {
+  background: #f8fafc;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.landing-cta-banner__container {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.landing-cta-banner__title {
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .landing-cta-banner__title {
+    font-size: 2.6rem;
+  }
+}
+
+.landing-cta-banner__subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 540px;
+  line-height: 1.6;
+}
+
+.landing-cta-banner__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 28px;
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+[data-theme="light"] .landing-cta-banner__btn {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.2);
+}
+
+.landing-cta-banner__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(255, 255, 255, 0.3);
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .landing-cta-banner__btn:hover {
+  background: #1e293b;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.35);
+}
+
+/* ── Landing Page Footer ───────────────────────────────────────────────── */
+
+.landing-footer {
+  width: 100%;
+  padding: 48px 24px 36px 24px;
+  background: #06070a;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+[data-theme="light"] .landing-footer {
+  background: #f1f5f9;
+  border-top-color: rgba(0, 0, 0, 0.08);
+  color: #64748b;
+}
+
+.landing-footer__container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+
+.landing-footer__links-row,
+.landing-footer__sublinks-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 18px 24px;
+}
+
+.landing-footer__link {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+[data-theme="light"] .landing-footer__link {
+  color: #64748b;
+}
+
+.landing-footer__link:hover {
+  color: #ffffff;
+}
+
+[data-theme="light"] .landing-footer__link:hover {
+  color: #0f172a;
+}
+
+.landing-footer__support-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  font-size: 0.83rem;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+[data-theme="light"] .landing-footer__support-info {
+  color: #64748b;
+}
+
+.landing-footer__support-info .divider {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .landing-footer__support-info .divider {
+  color: rgba(0, 0, 0, 0.15);
+}
+
+.landing-footer__copyright {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 12px;
+}
+
+[data-theme="light"] .landing-footer__copyright {
+  color: #94a3b8;
+}
+
+.landing-footer__globe-icon {
+  color: #64748b;
 }
