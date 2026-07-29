@@ -32,7 +32,7 @@ export default function GoogleCallbackPage() {
       .then((res) => {
         localStorage.setItem('humanizer_token', res.token);
         localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-        sessionStorage.setItem('humyn_auth_success', `Welcome back, ${res.user.name}! 🎉`);
+        sessionStorage.setItem('humyn_auth_success', `Welcome back, ${res.user.name}!`);
         router.replace('/');
       })
       .catch((err) => {
