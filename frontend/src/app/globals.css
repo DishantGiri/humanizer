@@ -1,3 +1,6 @@
+@import "@heroui/react/styles";
+
+
 /* ═══════════════════════════════════════════════════════════════════════════
    AI Humanizer — Global Design System
    Dark theme · Glassmorphism · Premium aesthetics
@@ -5580,4 +5583,45 @@ html {
 
 .landing-footer__globe-icon {
   color: #64748b;
+}
+
+/* ── Toast Notification Animations ──────────────────────────────────── */
+
+@keyframes toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(80px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toast-slide-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80px) scale(0.92);
+  }
+}
+
+.humyn-toast--enter {
+  animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.humyn-toast--exit {
+  animation: toast-slide-out 0.3s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }

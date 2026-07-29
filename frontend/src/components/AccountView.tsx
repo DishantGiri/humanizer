@@ -10,10 +10,9 @@ import {
   Lock,
   ArrowRight,
   LogOut,
-  CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 import { updateProfile, changePassword, type User } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 interface AccountViewProps {
   user: User | null;
@@ -37,7 +36,6 @@ export default function AccountView({
   // General Tab state
   const [displayName, setDisplayName] = useState(user?.name || '');
   const [savingGeneral, setSavingGeneral] = useState(false);
-  const [generalMsg, setGeneralMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Avatar Upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +46,6 @@ export default function AccountView({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingSecurity, setSavingSecurity] = useState(false);
-  const [securityMsg, setSecurityMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   if (!user || !token) {
     return (
@@ -71,12 +68,11 @@ export default function AccountView({
     if (!file || !token) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setGeneralMsg({ type: 'error', text: 'Image file size must be less than 5MB.' });
+      toast.danger('Image file size must be less than 5MB.');
       return;
     }
 
     setAvatarUploading(true);
-    setGeneralMsg(null);
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -84,10 +80,10 @@ export default function AccountView({
       try {
         const updated = await updateProfile(token, { avatar_url: dataUrl });
         onUpdateUser(updated);
-        setGeneralMsg({ type: 'success', text: 'Profile picture updated successfully!' });
+        toast.success('Profile picture updated successfully!');
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to update avatar.';
-        setGeneralMsg({ type: 'error', text: msg });
+        toast.danger(msg);
       } finally {
         setAvatarUploading(false);
       }
@@ -101,15 +97,14 @@ export default function AccountView({
     if (!token || !displayName.trim()) return;
 
     setSavingGeneral(true);
-    setGeneralMsg(null);
 
     try {
       const updated = await updateProfile(token, { name: displayName.trim() });
       onUpdateUser(updated);
-      setGeneralMsg({ type: 'success', text: 'Display name updated successfully!' });
+      toast.success('Display name updated successfully!');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to update name.';
-      setGeneralMsg({ type: 'error', text: msg });
+      toast.danger(msg);
     } finally {
       setSavingGeneral(false);
     }
@@ -121,30 +116,29 @@ export default function AccountView({
     if (!token) return;
 
     if (!currentPassword) {
-      setSecurityMsg({ type: 'error', text: 'Please enter your current password.' });
+      toast.danger('Please enter your current password.');
       return;
     }
     if (newPassword.length < 6) {
-      setSecurityMsg({ type: 'error', text: 'New password must be at least 6 characters long.' });
+      toast.danger('New password must be at least 6 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setSecurityMsg({ type: 'error', text: 'New passwords do not match.' });
+      toast.danger('New passwords do not match.');
       return;
     }
 
     setSavingSecurity(true);
-    setSecurityMsg(null);
 
     try {
       const res = await changePassword(token, currentPassword, newPassword);
-      setSecurityMsg({ type: 'success', text: res.message || 'Password changed successfully!' });
+      toast.success(res.message || 'Password changed successfully!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to change password.';
-      setSecurityMsg({ type: 'error', text: msg });
+      toast.danger(msg);
     } finally {
       setSavingSecurity(false);
     }
@@ -358,25 +352,7 @@ export default function AccountView({
                 </p>
               </div>
 
-              {generalMsg && (
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: generalMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                    border: `1px solid ${generalMsg.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                    color: generalMsg.type === 'success' ? '#34d399' : '#f87171',
-                  }}
-                >
-                  {generalMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                  {generalMsg.text}
-                </div>
-              )}
+
 
               {/* Display Name Input */}
               <div>
@@ -474,25 +450,7 @@ export default function AccountView({
                 </p>
               </div>
 
-              {securityMsg && (
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: securityMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                    border: `1px solid ${securityMsg.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                    color: securityMsg.type === 'success' ? '#34d399' : '#f87171',
-                  }}
-                >
-                  {securityMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                  {securityMsg.text}
-                </div>
-              )}
+
 
               {/* Current Password */}
               <div>

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Mail, Lock, ArrowRight, Loader2, AlertCircle, Wand2, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Mail, Lock, ArrowRight, Loader2, Wand2, CheckCircle2 } from 'lucide-react';
 import { loginUser, googleAuthUser } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,7 +13,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // Pick up auth errors from OAuth redirect sessionStorage
+  useEffect(() => {
+    const authError = sessionStorage.getItem('humyn_auth_error');
+    if (authError) {
+      toast.danger(authError);
+      sessionStorage.removeItem('humyn_auth_error');
+    }
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -31,7 +40,7 @@ export default function LoginPage() {
           router.push('/');
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Google OAuth login failed.');
+          toast.danger(err instanceof Error ? err.message : 'Google OAuth login failed.');
         })
         .finally(() => {
           setLoading(false);
@@ -49,10 +58,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!email.trim() || !password.trim()) {
-      setError('Please fill in all required fields.');
+      toast.danger('Please fill in all required fields.');
       return;
     }
 
@@ -65,7 +73,7 @@ export default function LoginPage() {
       router.push('/');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Invalid login credentials.';
-      setError(msg);
+      toast.danger(msg);
     } finally {
       setLoading(false);
     }
@@ -101,12 +109,7 @@ export default function LoginPage() {
             <p className="auth-subtitle">Log in to access your Humyn account & dashboard.</p>
           </div>
 
-          {error && (
-            <div className="auth-error-alert" role="alert">
-              <AlertCircle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
+
 
           {/* Google OAuth Button */}
           <div className="auth-social-section" style={{ marginBottom: 20 }}>

@@ -38,6 +38,7 @@ import AuthModal from '@/components/AuthModal';
 import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
 import AccountView from '@/components/AccountView';
+import { toast } from '@/components/Toast';
 import LandingHero from '@/components/LandingHero';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
@@ -185,6 +186,19 @@ export default function Home() {
           setUser(null);
         });
     }
+
+    // Pick up auth success/error messages from OAuth redirect
+    const authSuccess = sessionStorage.getItem('humyn_auth_success');
+    const authError = sessionStorage.getItem('humyn_auth_error');
+    if (authSuccess) {
+      toast.success(authSuccess);
+      sessionStorage.removeItem('humyn_auth_success');
+    }
+    if (authError) {
+      toast.danger(authError);
+      sessionStorage.removeItem('humyn_auth_error');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Handlers ───────────────────────────────────────────────────────────
@@ -208,8 +222,7 @@ export default function Home() {
 
   const handleRewrite = async () => {
     if (!inputText.trim()) {
-      setError('Please enter some text to rewrite.');
-      setIsLimitError(false);
+      toast.danger('Please enter some text to rewrite.');
       return;
     }
 
@@ -228,6 +241,7 @@ export default function Home() {
       const response = await rewriteText({ text: inputText, mode, level }, token);
       setOutputText(response.rewritten);
       setResult(response);
+      toast.success('Text humanized successfully!');
 
       // Refresh user stats if logged in
       if (token) {
@@ -238,11 +252,13 @@ export default function Home() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setError(message);
       setOutputText('');
       setResult(null);
       if (message.toLowerCase().includes('limit reached')) {
         setIsLimitError(true);
+        setError(message);
+      } else {
+        toast.danger(message);
       }
     } finally {
       setLoading(false);

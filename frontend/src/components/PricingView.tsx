@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Check, Crown, Sparkles, Zap, Shield, Loader2, ArrowRight } from 'lucide-react';
 import { upgradeToPro, type User } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 interface PricingViewProps {
   user: User | null;
@@ -18,28 +19,26 @@ export default function PricingView({
   onRequireAuth,
 }: PricingViewProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const currentPlan = user?.plan || 'free';
 
   const handleUpgrade = async (planName: string) => {
     if (!user || !token) {
+      toast.info('Please log in or register to select a plan.');
       onRequireAuth();
       return;
     }
 
     setLoadingPlan(planName);
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
-      const updatedUser = await upgradeToPro(token);
+      toast.info(`Activating ${planName.toUpperCase()} plan...`);
+      const updatedUser = await upgradeToPro(token, planName);
       onUpdateUser({ ...updatedUser, plan: planName });
-      setSuccessMsg(`🎉 Successfully activated ${planName.toUpperCase()} Plan!`);
+      toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upgrade failed.';
-      setErrorMsg(msg);
+      toast.danger(msg);
     } finally {
       setLoadingPlan(null);
     }
@@ -70,39 +69,7 @@ export default function PricingView({
         </p>
       </div>
 
-      {successMsg && (
-        <div
-          style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '12px',
-            padding: '16px',
-            color: '#34d399',
-            textAlign: 'center',
-            fontWeight: 600,
-            fontSize: '0.92rem',
-          }}
-        >
-          {successMsg}
-        </div>
-      )}
 
-      {errorMsg && (
-        <div
-          style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '12px',
-            padding: '16px',
-            color: '#f87171',
-            textAlign: 'center',
-            fontWeight: 600,
-            fontSize: '0.92rem',
-          }}
-        >
-          {errorMsg}
-        </div>
-      )}
 
       {/* Pricing Cards Grid (4 Plans) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', paddingTop: '16px' }}>

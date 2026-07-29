@@ -212,15 +212,22 @@ async def update_profile(
         
     return current_user
 
+class UpgradeRequest(BaseModel):
+    plan: Optional[str] = "pro"
+
 @router.post("/upgrade", response_model=UserResponse)
-async def upgrade_to_pro(current_user: UserResponse = Depends(get_current_user_from_token)):
+async def upgrade_to_pro(
+    request: Optional[UpgradeRequest] = None,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
     """
-    Upgrade current user account to Pro ($1/mo).
+    Upgrade current user account to specified plan.
     """
-    q_upg = "UPDATE users SET plan = 'pro' WHERE id = ?"
-    execute_query(q_upg, (current_user.id,))
+    target_plan = (request.plan if request and request.plan else "pro").lower()
+    q_upg = "UPDATE users SET plan = ? WHERE id = ?"
+    execute_query(q_upg, (target_plan, current_user.id))
     
-    current_user.plan = "pro"
+    current_user.plan = target_plan
     return current_user
 
 class ChangePasswordRequest(BaseModel):

@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Mail, Lock, User as UserIcon, ArrowRight, Loader2, AlertCircle, Wand2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Sparkles, Mail, Lock, User as UserIcon, ArrowRight, Loader2, Wand2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { registerUser, googleAuthUser } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,7 +15,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -33,7 +33,7 @@ export default function RegisterPage() {
           router.push('/');
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Google OAuth registration failed.');
+          toast.danger(err instanceof Error ? err.message : 'Google OAuth registration failed.');
         })
         .finally(() => {
           setLoading(false);
@@ -51,25 +51,24 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!name.trim() || !email.trim() || !password.trim()) {
-      setError('Please fill in all required fields.');
+      toast.danger('Please fill in all required fields.');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      toast.danger('Password must be at least 6 characters long.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      toast.danger('Passwords do not match.');
       return;
     }
 
     if (!agreeTerms) {
-      setError('You must agree to the Terms of Service to create an account.');
+      toast.danger('You must agree to the Terms of Service to create an account.');
       return;
     }
 
@@ -82,7 +81,7 @@ export default function RegisterPage() {
       router.push('/');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Registration failed.';
-      setError(msg);
+      toast.danger(msg);
     } finally {
       setLoading(false);
     }
@@ -118,12 +117,7 @@ export default function RegisterPage() {
             <p className="auth-subtitle">Join Humyn and start transforming AI text today.</p>
           </div>
 
-          {error && (
-            <div className="auth-error-alert" role="alert">
-              <AlertCircle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
+
 
           {/* Google OAuth Button */}
           <div className="auth-social-section" style={{ marginBottom: 20 }}>

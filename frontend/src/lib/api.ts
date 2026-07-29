@@ -227,10 +227,14 @@ export async function getCurrentUser(token: string): Promise<User> {
   return await response.json();
 }
 
-export async function upgradeToPro(token: string): Promise<User> {
+export async function upgradeToPro(token: string, plan: string = 'pro'): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/upgrade`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ plan }),
   });
 
   if (!response.ok) {
