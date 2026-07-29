@@ -21,6 +21,8 @@ import {
   RefreshCw,
   ChevronDown,
   Loader2,
+  AlertTriangle,
+  Type,
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
@@ -90,6 +92,27 @@ export default function LandingHero({
         'Yes! Humyn offers a free tier with 5 daily humanizations and 5 AI scans so you can test our engine before upgrading to one of our affordable monthly plans.',
     },
   ];
+
+  const hasMarkdown = (text: string): boolean => {
+    if (!text || !text.trim()) return false;
+    return /(\*\*|\*|__|_|#|`|\[.*?\]\(.*?\)|^[\s]*[\-\*]\s+|\d+\.\s+)/m.test(text);
+  };
+
+  const handleRemoveMarkdownDemo = () => {
+    if (!demoText) return;
+    const clean = demoText
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      .replace(/_(.*?)_/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/^#+\s+/gm, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/^\s*[\-\*]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '');
+    setDemoText(clean);
+  };
 
   const wordCount = demoText.trim() ? demoText.trim().split(/\s+/).filter(Boolean).length : 0;
   const charCount = demoText.length;
@@ -427,13 +450,31 @@ export default function LandingHero({
 
               <div className="demo-card__body">
                 {!demoOutput ? (
-                  <textarea
-                    className="demo-card__textarea"
-                    placeholder="Paste your AI-generated text here (under 100 words)..."
-                    value={demoText}
-                    onChange={(e) => setDemoText(e.target.value)}
-                    spellCheck="true"
-                  />
+                  <>
+                    <textarea
+                      className="demo-card__textarea"
+                      placeholder="Paste your AI-generated text here (under 100 words)..."
+                      value={demoText}
+                      onChange={(e) => setDemoText(e.target.value)}
+                      spellCheck="true"
+                    />
+                    {hasMarkdown(demoText) && (
+                      <div className="markdown-warning-box">
+                        <div className="markdown-warning-left">
+                          <AlertTriangle size={15} className="markdown-warning-icon" />
+                          <span>Markdown formatting can raise AI detection scores.</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="remove-markdown-btn"
+                          onClick={handleRemoveMarkdownDemo}
+                        >
+                          <Type size={13} />
+                          <span>Remove Markdown</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="demo-output__content">
                     <p className="demo-output__clear">{demoOutput.firstHalf}</p>

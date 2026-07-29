@@ -4371,6 +4371,69 @@ body::before {
   line-height: 1.5;
 }
 
+/* ── Markdown Detection & Warning Box ──────────────────────────────────── */
+
+.markdown-warning-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+[data-theme="light"] .markdown-warning-box {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.markdown-warning-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.markdown-warning-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.remove-markdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+[data-theme="light"] .remove-markdown-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.remove-markdown-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .remove-markdown-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* ── Quality Analysis Section ─────────────────────────────────────────── */
 
 .demo-qa-container {

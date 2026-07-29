@@ -25,6 +25,7 @@ import {
   LogOut,
   ArrowRight,
   MoreVertical,
+  Type,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -303,6 +304,27 @@ export default function Home() {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+  };
+
+  const hasMarkdown = (text: string): boolean => {
+    if (!text || !text.trim()) return false;
+    return /(\*\*|\*|__|_|#|`|\[.*?\]\(.*?\)|^[\s]*[\-\*]\s+|\d+\.\s+)/m.test(text);
+  };
+
+  const handleRemoveMarkdown = () => {
+    if (!inputText) return;
+    const clean = inputText
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      .replace(/_(.*?)_/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/^#+\s+/gm, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/^\s*[\-\*]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '');
+    setInputText(clean);
   };
 
   // Dynamic quality scores (Human percentage strictly above 85% when humanized)
@@ -689,6 +711,23 @@ export default function Home() {
                     onChange={setInputText}
                     placeholder="Paste your AI-generated text here (ChatGPT, Claude, Jasper, etc.)..."
                   />
+
+                  {hasMarkdown(inputText) && (
+                    <div className="markdown-warning-box">
+                      <div className="markdown-warning-left">
+                        <AlertTriangle size={15} className="markdown-warning-icon" />
+                        <span>Markdown formatting can raise AI detection scores.</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="remove-markdown-btn"
+                        onClick={handleRemoveMarkdown}
+                      >
+                        <Type size={13} />
+                        <span>Remove Markdown</span>
+                      </button>
+                    </div>
+                  )}
 
                   <div className="card-footer-bar">
                     <div className="counter-chips">
