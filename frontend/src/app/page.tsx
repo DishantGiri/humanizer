@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   LogOut,
   ArrowRight,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -34,6 +36,7 @@ import AuthModal from '@/components/AuthModal';
 import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
 import LandingHero from '@/components/LandingHero';
+import Logo from '@/components/Logo';
 import {
   rewriteText,
   getCurrentUser,
@@ -78,6 +81,22 @@ export default function Home() {
     step: 1,
     total: 5,
   });
+
+  // Theme state ('dark' | 'light')
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    const savedTheme = (localStorage.getItem('humyn_theme') as 'dark' | 'light') || 'dark';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('humyn_theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
 
   // Check saved session on mount
   useEffect(() => {
@@ -245,11 +264,8 @@ export default function Home() {
 
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside className="sidebar">
-        <div className="sidebar__brand">
-          <div className="sidebar__logo-wrapper">
-            <Wand2 className="sidebar__logo-icon" size={20} />
-          </div>
-          <span className="sidebar__brand-name">Humyn</span>
+        <div className="sidebar__brand" style={{ cursor: 'pointer' }} onClick={() => setActiveMenu('humanizer')}>
+          <Logo variant={sidebarCollapsed ? 'icon' : 'full'} size="md" theme={theme} />
         </div>
 
         <nav className="sidebar__menu">
@@ -288,13 +304,13 @@ export default function Home() {
         </nav>
 
         <div className="sidebar__footer">
+          <button type="button" className="sidebar__menu-item" onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <span className="sidebar__menu-text">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
           <button type="button" className="sidebar__menu-item">
             <HelpCircle size={18} />
             <span className="sidebar__menu-text">FAQ</span>
-          </button>
-          <button type="button" className="sidebar__menu-item">
-            <LifeBuoy size={18} />
-            <span className="sidebar__menu-text">Support</span>
           </button>
           <button
             type="button"
@@ -323,6 +339,27 @@ export default function Home() {
             </span>
           </div>
           <div className="navbar__actions">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '50%',
+                width: '34px',
+                height: '34px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
             {user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span

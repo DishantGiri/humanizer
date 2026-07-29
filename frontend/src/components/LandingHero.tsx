@@ -17,6 +17,8 @@ import {
   Lock,
 } from 'lucide-react';
 
+import Logo from '@/components/Logo';
+
 interface LandingHeroProps {
   onOpenAuth?: (mode: 'login' | 'register') => void;
   isDarkMode?: boolean;
@@ -62,10 +64,7 @@ export default function LandingHero({
         {/* ── Navbar ───────────────────────────────────────────────────────── */}
         <nav className="landing-nav">
           <div className="landing-nav__brand">
-            <div className="landing-nav__logo-box">
-              <Shield className="landing-nav__logo-icon" size={18} />
-            </div>
-            <span className="landing-nav__brand-name">Humyn</span>
+            <Logo variant="full" size="md" theme={isDarkMode ? 'dark' : 'light'} />
           </div>
 
           <div className="landing-nav__menu">
