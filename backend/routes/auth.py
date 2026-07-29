@@ -3,6 +3,8 @@ Authentication API routes integrated with MySQL / DB abstraction.
 """
 
 import os
+import hmac
+import requests
 import hashlib
 import uuid
 import logging
@@ -228,6 +230,100 @@ async def upgrade_to_pro(
     execute_query(q_upg, (target_plan, current_user.id))
     
     current_user.plan = target_plan
+    return current_user
+
+class CreateRazorpayOrderRequest(BaseModel):
+    plan: str = Field(..., description="Plan name: starter, plus, or pro")
+
+class VerifyRazorpayPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    plan: str
+
+PLAN_PRICES_INR_PAISA = {
+    "starter": 8800,   # ~$1 (₹88)
+    "plus": 17500,     # ~$2 (₹175)
+    "pro": 43000,      # ~$5 (₹430)
+}
+
+@router.post("/razorpay/create-order")
+async def create_razorpay_order(
+    request: CreateRazorpayOrderRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Create Razorpay Order for testing subscription upgrade.
+    """
+    plan = request.plan.lower()
+    amount = PLAN_PRICES_INR_PAISA.get(plan, 8800)
+    
+    key_id = os.getenv("RAZORPAY_API_KEY", "")
+    key_secret = os.getenv("RAZORPAY_SECRET", "")
+    
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=500, detail="Razorpay API keys not configured on server.")
+        
+    try:
+        url = "https://api.razorpay.com/v1/orders"
+        payload = {
+            "amount": amount,
+            "currency": "INR",
+            "receipt": f"rcpt_{current_user.id[:8]}_{int(datetime.utcnow().timestamp())}",
+            "notes": {
+                "user_id": current_user.id,
+                "user_email": current_user.email,
+                "plan": plan
+            }
+        }
+        res = requests.post(url, json=payload, auth=(key_id, key_secret), timeout=10)
+        if res.status_code not in (200, 201):
+            logger.error("Razorpay order creation failed: %s", res.text)
+            raise HTTPException(status_code=res.status_code, detail=f"Razorpay order failed: {res.text}")
+            
+        data = res.json()
+        return {
+            "order_id": data.get("id"),
+            "amount": data.get("amount"),
+            "currency": data.get("currency"),
+            "key_id": key_id,
+            "plan": plan
+        }
+    except Exception as exc:
+        logger.exception("Error creating Razorpay order: %s", exc)
+        if isinstance(exc, HTTPException):
+            raise exc
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@router.post("/razorpay/verify-payment", response_model=UserResponse)
+async def verify_razorpay_payment(
+    request: VerifyRazorpayPaymentRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Verify Razorpay payment signature and upgrade user plan.
+    """
+    key_secret = os.getenv("RAZORPAY_SECRET", "")
+    if not key_secret:
+        raise HTTPException(status_code=500, detail="Razorpay secret not configured on server.")
+        
+    msg = f"{request.razorpay_order_id}|{request.razorpay_payment_id}"
+    generated_sig = hmac.new(
+        key_secret.encode("utf-8"),
+        msg.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    
+    if generated_sig != request.razorpay_signature:
+        logger.error("Razorpay signature mismatch: expected %s, got %s", generated_sig, request.razorpay_signature)
+        raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
+        
+    target_plan = request.plan.lower()
+    q_upg = "UPDATE users SET plan = ? WHERE id = ?"
+    execute_query(q_upg, (target_plan, current_user.id))
+    
+    current_user.plan = target_plan
+    logger.info("Successfully verified Razorpay payment for user %s -> plan %s", current_user.id, target_plan)
     return current_user
 
 class ChangePasswordRequest(BaseModel):
