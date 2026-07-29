@@ -19,9 +19,6 @@ export default function TextInput({
   isOutput = false,
   maxLength = 10000,
 }: TextInputProps) {
-  const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
-  const charCount = value.length;
-
   return (
     <div className="text-panel__wrapper">
       <textarea
@@ -37,16 +34,6 @@ export default function TextInput({
         readOnly={readOnly}
         spellCheck={!readOnly}
       />
-      {!isOutput && (
-        <div className="text-panel__counter">
-          {wordCount} words · {charCount.toLocaleString()}/{maxLength.toLocaleString()} chars
-        </div>
-      )}
-      {isOutput && value && (
-        <div className="text-panel__counter">
-          {wordCount} words · {charCount.toLocaleString()} chars
-        </div>
-      )}
     </div>
   );
 }
