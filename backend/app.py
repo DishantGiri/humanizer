@@ -2,6 +2,7 @@
 FastAPI application entry point.
 """
 
+import os
 import logging
 from fastapi import FastAPI, Request    
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,14 +28,13 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ── CORS ────────────────────────────────────────────────────────────────────
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+cors_origins = [o.strip() for o in cors_origins if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=cors_origins if cors_origins else ["*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
