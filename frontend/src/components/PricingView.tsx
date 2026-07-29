@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Check, Crown, Sparkles, Zap, Shield, Loader2, ArrowRight } from 'lucide-react';
-import { upgradeToPro, type User } from '@/lib/api';
+import { createRazorpayOrder, verifyRazorpayPayment, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
 interface PricingViewProps {
@@ -29,17 +29,63 @@ export default function PricingView({
       return;
     }
 
+    if (currentPlan === planName) {
+      toast.info(`You are already on the ${planName.toUpperCase()} plan.`);
+      return;
+    }
+
     setLoadingPlan(planName);
 
     try {
-      toast.info(`Activating ${planName.toUpperCase()} plan...`);
-      const updatedUser = await upgradeToPro(token, planName);
-      onUpdateUser({ ...updatedUser, plan: planName });
-      toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);
+      const order = await createRazorpayOrder(token, planName);
+
+      const options = {
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Humyn',
+        description: `${planName.charAt(0).toUpperCase() + planName.slice(1)} Plan Subscription`,
+        order_id: order.order_id,
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const updatedUser = await verifyRazorpayPayment(token!, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: planName,
+            });
+            onUpdateUser({ ...updatedUser, plan: planName });
+            toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Payment verification failed.';
+            toast.danger(msg);
+          } finally {
+            setLoadingPlan(null);
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+        },
+        theme: { color: '#38bdf8' },
+        modal: {
+          ondismiss: () => {
+            toast.info('Payment cancelled.');
+            setLoadingPlan(null);
+          },
+        },
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Upgrade failed.';
+      const msg = err instanceof Error ? err.message : 'Failed to initiate payment.';
       toast.danger(msg);
-    } finally {
       setLoadingPlan(null);
     }
   };

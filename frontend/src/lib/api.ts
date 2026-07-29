@@ -247,6 +247,56 @@ export async function upgradeToPro(token: string, plan: string = 'pro'): Promise
   return await response.json();
 }
 
+export async function createRazorpayOrder(token: string, plan: string): Promise<{
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+  plan: string;
+}> {
+  const response = await fetch(`${API_BASE}/api/auth/razorpay/create-order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ plan }),
+  });
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Failed to create order (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+  return await response.json();
+}
+
+export async function verifyRazorpayPayment(
+  token: string,
+  data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    plan: string;
+  }
+): Promise<User> {
+  const response = await fetch(`${API_BASE}/api/auth/razorpay/verify-payment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Payment verification failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+  return await response.json();
+}
+
 export async function updateProfile(token: string, data: { name?: string; avatar_url?: string }): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/profile`, {
     method: 'PATCH',
