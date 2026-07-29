@@ -137,9 +137,92 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
+[data-theme="light"] .card-footer-bar {
+  background: #f1f5f9;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 [data-theme="light"] .chip {
-  background: rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .text-panel__counter {
+  color: #475569;
+  font-weight: 600;
+}
+
+[data-theme="light"] .gauge-track {
+  stroke: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .gauge-fill {
+  stroke: #0f172a;
+  filter: drop-shadow(0 0 4px rgba(15, 23, 42, 0.2));
+}
+
+[data-theme="light"] .gauge-subtitle {
+  color: #64748b;
+  font-weight: 700;
+}
+
+[data-theme="light"] .detector-badge {
+  background: #f1f5f9;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+}
+
+[data-theme="light"] .detector-badge__check {
+  color: #0f172a;
+}
+
+[data-theme="light"] .progress-metric-item__track {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .mode-tabs {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .mode-tab-btn {
+  color: #475569;
+}
+
+[data-theme="light"] .mode-tab-btn:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .mode-tab-btn--active {
+  background: #0f172a;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+[data-theme="light"] .level-select-trigger {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #475569;
+}
+
+[data-theme="light"] .level-select-dropdown {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .level-select-option:hover {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .level-select-option--active {
+  background: #e2e8f0;
+}
+
+[data-theme="light"] .level-select-option__label {
   color: #0f172a;
 }
 
@@ -2416,8 +2499,8 @@ body::before {
   flex-direction: column;
   gap: 16px;
   padding: 24px;
-  background: rgba(18, 19, 26, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
   margin-top: 16px;
 }
@@ -2426,15 +2509,16 @@ body::before {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #ffffff;
-  color: #000000;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   font-size: 1.4rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  border: 1px solid var(--border-light);
 }
 
 .account-profile-avatar img {
@@ -2447,7 +2531,7 @@ body::before {
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 0.85rem;
 }
 

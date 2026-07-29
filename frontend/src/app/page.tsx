@@ -481,10 +481,10 @@ export default function Home() {
                             placeholder="Your name"
                             style={{
                               padding: '8px 12px',
-                              background: 'rgba(255, 255, 255, 0.06)',
-                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              background: 'var(--bg-input)',
+                              border: '1px solid var(--border-light)',
                               borderRadius: '8px',
-                              color: 'white',
+                              color: 'var(--text-primary)',
                               fontSize: '0.95rem',
                             }}
                           />
@@ -510,7 +510,7 @@ export default function Home() {
                         </div>
                       ) : (
                         <>
-                          <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{user.name}</h4>
+                          <h4 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</h4>
                           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.email}</p>
                         </>
                       )}
@@ -529,17 +529,17 @@ export default function Home() {
 
                   <div className="account-profile-row">
                     <span style={{ color: 'var(--text-secondary)' }}>Account ID</span>
-                    <span style={{ fontFamily: 'var(--font-mono)' }}>{user.id.slice(0, 18)}...</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{user.id.slice(0, 18)}...</span>
                   </div>
                   <div className="account-profile-row">
                     <span style={{ color: 'var(--text-secondary)' }}>Current Tier</span>
-                    <span style={{ color: '#ffffff', fontWeight: 700, textTransform: 'uppercase' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, textTransform: 'uppercase' }}>
                       {user.plan === 'pro' ? 'Pro ($1/mo)' : 'Free Tier ($0/mo)'}
                     </span>
                   </div>
                   <div className="account-profile-row">
                     <span style={{ color: 'var(--text-secondary)' }}>Usage Count</span>
-                    <span>{user.usage_count} humanizations</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{user.usage_count} humanizations</span>
                   </div>
 
                   {user.plan !== 'pro' && (
