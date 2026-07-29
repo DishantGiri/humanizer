@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ── App ─────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="AI Humanizer API",
+    title="Humyn API",
     description="Rewrite text to sound more natural using Groq-hosted LLMs.",
     version="1.0.0",
 )

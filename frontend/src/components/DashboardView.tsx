@@ -60,11 +60,12 @@ export default function DashboardView({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Welcome Banner */}
+      {/* Welcome Banner */}
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, rgba(13, 22, 54, 0.9), rgba(18, 30, 75, 0.7))',
-          border: '1px solid rgba(79, 140, 255, 0.2)',
+          background: 'rgba(18, 19, 26, 0.75)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
           padding: '28px',
           borderRadius: '16px',
           display: 'flex',
@@ -102,9 +103,9 @@ export default function DashboardView({
               Current Plan
             </span>
             {isPro ? (
-              <Crown size={20} color="var(--accent-amber)" />
+              <Crown size={20} color="#ffffff" />
             ) : (
-              <Sparkles size={20} color="var(--accent-blue)" />
+              <Sparkles size={20} color="#ffffff" />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
@@ -123,7 +124,7 @@ export default function DashboardView({
                 marginTop: '12px',
                 background: 'none',
                 border: 'none',
-                color: 'var(--accent-blue)',
+                color: '#ffffff',
                 fontSize: '0.82rem',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -144,7 +145,7 @@ export default function DashboardView({
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Humanizations Used
             </span>
-            <Zap size={20} color={usageCount >= limit && !isPro ? '#f87171' : 'var(--accent-blue)'} />
+            <Zap size={20} color={usageCount >= limit && !isPro ? '#f87171' : '#ffffff'} />
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{ fontSize: '1.6rem', fontWeight: 800 }}>
@@ -161,7 +162,7 @@ export default function DashboardView({
               style={{
                 height: '100%',
                 width: `${usagePercentage}%`,
-                background: isPro ? '#10b981' : usageCount >= 8 ? '#f87171' : 'var(--accent-blue)',
+                background: usageCount >= limit && !isPro ? '#f87171' : '#ffffff',
                 borderRadius: '999px',
                 transition: 'width 0.3s ease',
               }}
@@ -175,9 +176,9 @@ export default function DashboardView({
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Remaining Quota
             </span>
-            <CheckCircle2 size={20} color="#10b981" />
+            <CheckCircle2 size={20} color="#ffffff" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#10b981' }}>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff' }}>
             {remaining}
           </div>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '8px', display: 'block' }}>
@@ -216,7 +217,6 @@ export default function DashboardView({
             type="button"
             className="action-btn-solid"
             onClick={onNavigateToPricing}
-            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
           >
             Upgrade for $1/mo
           </button>
@@ -227,7 +227,7 @@ export default function DashboardView({
       <div className="card" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <History size={18} color="var(--accent-blue)" />
+            <History size={18} color="#ffffff" />
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Recent Humanizations</h3>
           </div>
           {user && (
@@ -270,8 +270,8 @@ export default function DashboardView({
               <div
                 key={item.id}
                 style={{
-                  background: 'rgba(8, 12, 30, 0.6)',
-                  border: '1px solid rgba(79, 140, 255, 0.1)',
+                  background: 'rgba(14, 15, 21, 0.6)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '10px',
                   padding: '16px',
                   display: 'flex',

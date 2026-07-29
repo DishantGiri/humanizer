@@ -41,7 +41,12 @@ class UserResponse(BaseModel):
     email: str
     plan: str = "free"
     usage_count: int = 0
+    avatar_url: Optional[str] = None
     created_at: str
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class AuthResponse(BaseModel):
     user: UserResponse
@@ -65,7 +70,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
     
     token = authorization.split(" ")[1]
     query = """
-        SELECT u.id, u.name, u.email, u.plan, u.usage_count, u.created_at
+        SELECT u.id, u.name, u.email, u.plan, u.usage_count, u.avatar_url, u.created_at
         FROM sessions s
         JOIN users u ON s.user_id = u.id
         WHERE s.token = ?
@@ -80,6 +85,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         email=user_row["email"],
         plan=user_row.get("plan", "free"),
         usage_count=user_row.get("usage_count", 0),
+        avatar_url=user_row.get("avatar_url"),
         created_at=str(user_row["created_at"])
     )
 
@@ -141,7 +147,7 @@ async def login(request: LoginRequest):
     """
     email_clean = request.email.lower().strip()
     
-    q_get = "SELECT id, name, email, password_hash, salt, plan, usage_count, created_at FROM users WHERE email = ?"
+    q_get = "SELECT id, name, email, password_hash, salt, plan, usage_count, avatar_url, created_at FROM users WHERE email = ?"
     user_row = fetch_one(q_get, (email_clean,))
     
     if not user_row:
@@ -162,6 +168,7 @@ async def login(request: LoginRequest):
         email=user_row["email"],
         plan=user_row.get("plan", "free"),
         usage_count=user_row.get("usage_count", 0),
+        avatar_url=user_row.get("avatar_url"),
         created_at=str(user_row["created_at"])
     )
     return AuthResponse(
@@ -175,6 +182,34 @@ async def get_me(current_user: UserResponse = Depends(get_current_user_from_toke
     """
     Retrieve profile of current user.
     """
+    return current_user
+
+@router.patch("/profile", response_model=UserResponse)
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Update profile details (name, avatar_url).
+    """
+    updates = []
+    params = []
+    
+    if request.name is not None and request.name.strip():
+        updates.append("name = ?")
+        params.append(request.name.strip())
+        current_user.name = request.name.strip()
+        
+    if request.avatar_url is not None:
+        updates.append("avatar_url = ?")
+        params.append(request.avatar_url.strip())
+        current_user.avatar_url = request.avatar_url.strip()
+        
+    if updates:
+        params.append(current_user.id)
+        q_upd = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+        execute_query(q_upd, tuple(params))
+        
     return current_user
 
 @router.post("/upgrade", response_model=UserResponse)

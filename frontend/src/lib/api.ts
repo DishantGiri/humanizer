@@ -82,6 +82,7 @@ export interface User {
   plan: 'free' | 'pro';
   usage_count: number;
   created_at: string;
+  avatar_url?: string;
 }
 
 export interface AuthResponse {
@@ -218,6 +219,26 @@ export async function upgradeToPro(token: string): Promise<User> {
   if (!response.ok) {
     const error: ApiError = await response.json().catch(() => ({
       detail: `Upgrade failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function updateProfile(token: string, data: { name?: string; avatar_url?: string }): Promise<User> {
+  const response = await fetch(`${API_BASE}/api/auth/profile`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Profile update failed (${response.status})`,
     }));
     throw new Error(error.detail);
   }

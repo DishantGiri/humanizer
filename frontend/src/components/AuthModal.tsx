@@ -81,15 +81,15 @@ export default function AuthModal({
 
         <div className="auth-modal-header">
           <div className="auth-modal-logo">
-            <Sparkles size={24} color="var(--accent-blue)" />
+            <Sparkles size={24} color="#ffffff" />
           </div>
           <h3 className="auth-modal-title">
             {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
           </h3>
           <p className="auth-modal-subtitle">
             {mode === 'login'
-              ? 'Log in to access your HumanizePro account'
-              : 'Join HumanizePro to get started'}
+              ? 'Log in to access your Humyn account'
+              : 'Join Humyn to get started'}
           </p>
         </div>
 

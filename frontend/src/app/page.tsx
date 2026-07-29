@@ -33,10 +33,12 @@ import PipelineLoader, { getPipelineStages } from '@/components/PipelineLoader';
 import AuthModal from '@/components/AuthModal';
 import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
+import LandingHero from '@/components/LandingHero';
 import {
   rewriteText,
   getCurrentUser,
   logoutUser,
+  updateProfile,
   type RewriteMode,
   type RewriteLevel,
   type RewriteResponse,
@@ -65,6 +67,11 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+
+  // Profile editing state
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const [currentStage, setCurrentStage] = useState<{ label: string; step: number; total: number }>({
     label: 'Analyzing structure...',
@@ -115,6 +122,21 @@ export default function Home() {
     setToken(null);
     localStorage.removeItem('humanizer_token');
     localStorage.removeItem('humanizer_user');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!token || !editName.trim()) return;
+    setProfileSaving(true);
+    try {
+      const updated = await updateProfile(token, { name: editName.trim() });
+      setUser(updated);
+      localStorage.setItem('humanizer_user', JSON.stringify(updated));
+      setEditingProfile(false);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const handleRewrite = async () => {
@@ -202,10 +224,14 @@ export default function Home() {
   };
 
   // Dynamic quality scores
-  const humanScore = result ? Math.round(result.rewritten_stats.readability_score) : 99;
-  const aiRisk = result ? Math.max(5, 100 - humanScore) : 10;
-  const readabilityVal = result ? Math.min(95, Math.round(result.rewritten_stats.vocabulary_diversity * 100)) : 90;
-  const grammarVal = result ? (result.meaning_preserved ? 95 : 75) : 75;
+  const humanScore = result ? Math.round(result.rewritten_stats.readability_score) : 0;
+  const aiRisk = result ? Math.max(5, 100 - humanScore) : 0;
+  const readabilityVal = result ? Math.min(95, Math.round(result.rewritten_stats.vocabulary_diversity * 100)) : 0;
+  const grammarVal = result ? (result.meaning_preserved ? 95 : 75) : 0;
+
+  if (!user) {
+    return <LandingHero />;
+  }
 
   return (
     <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
@@ -223,7 +249,7 @@ export default function Home() {
           <div className="sidebar__logo-wrapper">
             <Wand2 className="sidebar__logo-icon" size={20} />
           </div>
-          <span className="sidebar__brand-name">HumanizePro</span>
+          <span className="sidebar__brand-name">Humyn</span>
         </div>
 
         <nav className="sidebar__menu">
@@ -305,9 +331,10 @@ export default function Home() {
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: '999px',
-                    background: user.plan === 'pro' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(79, 140, 255, 0.15)',
-                    color: user.plan === 'pro' ? 'var(--accent-amber)' : 'var(--accent-blue)',
+                    background: user.plan === 'pro' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+                    color: user.plan === 'pro' ? '#ffffff' : 'var(--text-secondary)',
                     textTransform: 'uppercase',
+                    border: user.plan === 'pro' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
                   }}
                 >
                   {user.plan === 'pro' ? 'PRO' : 'FREE'}
@@ -318,16 +345,21 @@ export default function Home() {
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, var(--accent-blue), #6366f1)',
-                      color: 'white',
+                      background: user.avatar_url ? 'transparent' : '#ffffff',
+                      color: '#000000',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       fontSize: '0.85rem',
+                      overflow: 'hidden',
                     }}
                   >
-                    {user.name.charAt(0).toUpperCase()}
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
                     {user.name}
@@ -395,12 +427,66 @@ export default function Home() {
                 <div className="account-profile-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div className="account-profile-avatar">
-                      {user.name.charAt(0).toUpperCase()}
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.name} />
+                      ) : (
+                        user.name.charAt(0).toUpperCase()
+                      )}
                     </div>
-                    <div>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{user.name}</h4>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.email}</p>
+                    <div style={{ flex: 1 }}>
+                      {editingProfile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Your name"
+                            style={{
+                              padding: '8px 12px',
+                              background: 'rgba(255, 255, 255, 0.06)',
+                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              borderRadius: '8px',
+                              color: 'white',
+                              fontSize: '0.95rem',
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="action-btn-solid"
+                              onClick={handleSaveProfile}
+                              disabled={profileSaving}
+                              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+                            >
+                              {profileSaving ? <Loader2 size={14} className="spinner-animate" /> : 'Save'}
+                            </button>
+                            <button
+                              type="button"
+                              className="action-btn-outline"
+                              onClick={() => setEditingProfile(false)}
+                              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{user.name}</h4>
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.email}</p>
+                        </>
+                      )}
                     </div>
+                    {!editingProfile && (
+                      <button
+                        type="button"
+                        className="action-btn-outline"
+                        onClick={() => { setEditName(user.name); setEditingProfile(true); }}
+                        style={{ fontSize: '0.75rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                      >
+                        Edit Profile
+                      </button>
+                    )}
                   </div>
 
                   <div className="account-profile-row">
@@ -409,7 +495,7 @@ export default function Home() {
                   </div>
                   <div className="account-profile-row">
                     <span style={{ color: 'var(--text-secondary)' }}>Current Tier</span>
-                    <span style={{ color: user.plan === 'pro' ? 'var(--accent-amber)' : 'var(--accent-blue)', fontWeight: 700, textTransform: 'uppercase' }}>
+                    <span style={{ color: '#ffffff', fontWeight: 700, textTransform: 'uppercase' }}>
                       {user.plan === 'pro' ? 'Pro ($1/mo)' : 'Free Tier ($0/mo)'}
                     </span>
                   </div>
@@ -457,19 +543,21 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="content-grid">
-              {/* Left Column: Input, Mode selectors, output panels */}
-              <div className="content-column-left">
-                <div className="content-header">
-                  <h2 className="content-title">AI Content Humanizer</h2>
-                  <p className="content-subtitle">Paste your AI-generated text below and humanize it.</p>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+              <div className="content-header">
+                <h2 className="content-title">AI Content Humanizer</h2>
+                <p className="content-subtitle">Paste your AI-generated text below and humanize it.</p>
+              </div>
 
-                {/* Mode Bar Selector */}
-                <div className="controls-bar-row">
-                  <ModeSelector value={mode} onChange={setMode} />
-                  <LevelSelector value={level} onChange={setLevel} />
-                </div>
+              {/* Mode Bar Selector */}
+              <div className="controls-bar-row">
+                <ModeSelector value={mode} onChange={setMode} />
+                <LevelSelector value={level} onChange={setLevel} />
+              </div>
+
+              <div className="content-grid">
+                {/* Left Column: Input and output panels */}
+                <div className="content-column-left">
 
                 {/* Input Area */}
                 <div className="card text-panel-box">
@@ -709,9 +797,9 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
             </div>
-          )}
+          </div>
+        )}
         </div>
 
         {/* Footer */}

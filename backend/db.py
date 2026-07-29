@@ -108,6 +108,7 @@ def init_db():
                     salt VARCHAR(255) NOT NULL,
                     plan VARCHAR(32) DEFAULT 'free',
                     usage_count INT DEFAULT 0,
+                    avatar_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """,
@@ -138,6 +139,10 @@ def init_db():
                     cursor.execute(stmt)
                 except Exception as ex:
                     logger.info("MySQL table setup note: %s", ex)
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+            except Exception:
+                pass
             conn.close()
         else:
             with conn:
@@ -151,6 +156,7 @@ def init_db():
                         salt TEXT NOT NULL,
                         plan TEXT DEFAULT 'free',
                         usage_count INTEGER DEFAULT 0,
+                        avatar_url TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -175,6 +181,10 @@ def init_db():
                         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                     )
                 """)
+                try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+                except Exception:
+                    pass
     finally:
         if engine == "sqlite":
             conn.close()

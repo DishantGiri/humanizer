@@ -72,17 +72,17 @@ export default function RegisterPage() {
           <div className="auth-brand-logo">
             <Wand2 size={22} color="white" />
           </div>
-          <span className="auth-brand-title">HumanizePro</span>
+          <span className="auth-brand-title">Humyn</span>
         </Link>
 
         {/* Card */}
         <div className="auth-page-card animate-fadeIn">
           <div className="auth-card-header">
-            <div className="auth-icon-badge" style={{ background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
-              <Sparkles size={24} color="#818cf8" />
+            <div className="auth-icon-badge">
+              <Sparkles size={24} color="#ffffff" />
             </div>
             <h1 className="auth-title">Create Account</h1>
-            <p className="auth-subtitle">Join HumanizePro and start transforming AI text today.</p>
+            <p className="auth-subtitle">Join Humyn and start transforming AI text today.</p>
           </div>
 
           {error && (
@@ -184,7 +184,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               className="auth-primary-btn"
-              style={{ background: 'linear-gradient(135deg, #6366f1, var(--accent-blue))' }}
+              style={{ background: '#ffffff', color: '#000000' }}
               disabled={loading}
             >
               {loading ? (
@@ -200,11 +200,11 @@ export default function RegisterPage() {
           {/* Social / Direct Feature Callouts */}
           <div className="auth-feature-bullets">
             <div className="auth-feature-item">
-              <CheckCircle2 size={14} color="#10b981" />
+              <CheckCircle2 size={14} color="#ffffff" />
               <span>Includes 10 Free Humanizations instantly</span>
             </div>
             <div className="auth-feature-item">
-              <ShieldCheck size={14} color="#10b981" />
+              <ShieldCheck size={14} color="#ffffff" />
               <span>No credit card required for free signup</span>
             </div>
           </div>

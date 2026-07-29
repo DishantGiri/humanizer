@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Humanizer — Rewrite Text Naturally",
+  title: "Humyn — Rewrite Text Naturally",
   description:
     "Transform AI-generated or awkward text into natural, human-sounding writing. Supports academic, professional, casual, and 6 more styles with meaning preservation.",
-  keywords: ["AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
+  keywords: ["Humyn", "AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
   openGraph: {
-    title: "AI Humanizer — Rewrite Text Naturally",
+    title: "Humyn — Rewrite Text Naturally",
     description:
       "Transform text into natural, human-sounding writing with AI-powered rewriting.",
     type: "website",

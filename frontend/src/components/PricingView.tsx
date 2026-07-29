@@ -53,7 +53,7 @@ export default function PricingView({
           style={{
             fontSize: '0.8rem',
             fontWeight: 700,
-            color: 'var(--accent-blue)',
+            color: 'var(--text-secondary)',
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
             display: 'inline-block',
@@ -73,11 +73,11 @@ export default function PricingView({
       {successMsg && (
         <div
           style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
             borderRadius: '12px',
             padding: '16px',
-            color: '#10b981',
+            color: '#ffffff',
             textAlign: 'center',
             fontWeight: 600,
             fontSize: '0.92rem',
@@ -121,7 +121,7 @@ export default function PricingView({
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Sparkles size={20} color="var(--accent-blue)" />
+              <Sparkles size={20} color="#ffffff" />
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Free Plan</h3>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
@@ -129,18 +129,18 @@ export default function PricingView({
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>/ month</span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
-              Perfect for trying out HumanizePro and light writing tasks.
+              Perfect for trying out Humyn and light writing tasks.
             </p>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> 10 Free Humanizations Limit
+                <Check size={16} color="#ffffff" /> 10 Free Humanizations Limit
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> All standard rewrite modes
+                <Check size={16} color="#ffffff" /> All standard rewrite modes
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> Sentence diff visualization
+                <Check size={16} color="#ffffff" /> Sentence diff visualization
               </li>
             </ul>
           </div>
@@ -189,9 +189,9 @@ export default function PricingView({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'linear-gradient(135deg, rgba(13, 24, 60, 0.95), rgba(24, 38, 90, 0.9))',
-            border: '2px solid var(--accent-blue)',
-            boxShadow: '0 0 30px rgba(79, 140, 255, 0.2)',
+            background: 'rgba(18, 19, 26, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
             position: 'relative',
           }}
         >
@@ -201,15 +201,15 @@ export default function PricingView({
               position: 'absolute',
               top: '-12px',
               right: '24px',
-              background: 'linear-gradient(135deg, var(--accent-blue), #3b82f6)',
-              color: 'white',
+              background: '#ffffff',
+              color: '#000000',
               fontSize: '0.72rem',
-              fontWeight: 700,
+              fontWeight: 800,
               padding: '4px 12px',
               borderRadius: '999px',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              boxShadow: '0 4px 10px rgba(59, 130, 246, 0.4)',
+              boxShadow: '0 4px 12px rgba(255, 255, 255, 0.2)',
             }}
           >
             BEST VALUE
@@ -217,11 +217,11 @@ export default function PricingView({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Crown size={20} color="var(--accent-amber)" />
+              <Crown size={20} color="#ffffff" />
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Pro Model</h3>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--accent-blue)' }}>$1</span>
+              <span style={{ fontSize: '2.4rem', fontWeight: 800, color: '#ffffff' }}>$1</span>
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>/ month</span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
@@ -230,19 +230,19 @@ export default function PricingView({
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem', fontWeight: 600 }}>
-                <Zap size={16} color="var(--accent-amber)" /> UNLIMITED Humanizations
+                <Zap size={16} color="#ffffff" /> UNLIMITED Humanizations
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> Priority Groq LLM processing
+                <Check size={16} color="#ffffff" /> Priority Groq LLM processing
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> Level 3 Heavy restructuring pipeline
+                <Check size={16} color="#ffffff" /> Level 3 Heavy restructuring pipeline
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Check size={16} color="#10b981" /> Translation bounce & grammar polish
+                <Check size={16} color="#ffffff" /> Translation bounce & grammar polish
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Shield size={16} color="#10b981" /> Unlimited saved history
+                <Shield size={16} color="#ffffff" /> Unlimited saved history
               </li>
             </ul>
           </div>
@@ -254,12 +254,12 @@ export default function PricingView({
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
                   textAlign: 'center',
                   fontWeight: 700,
                   fontSize: '0.9rem',
-                  color: '#10b981',
+                  color: '#ffffff',
                 }}
               >
                 ✓ Active Pro Plan

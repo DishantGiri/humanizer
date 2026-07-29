@@ -55,17 +55,17 @@ export default function LoginPage() {
           <div className="auth-brand-logo">
             <Wand2 size={22} color="white" />
           </div>
-          <span className="auth-brand-title">HumanizePro</span>
+          <span className="auth-brand-title">Humyn</span>
         </Link>
 
         {/* Card */}
         <div className="auth-page-card animate-fadeIn">
           <div className="auth-card-header">
             <div className="auth-icon-badge">
-              <Sparkles size={24} color="var(--accent-blue)" />
+              <Sparkles size={24} color="#ffffff" />
             </div>
             <h1 className="auth-title">Welcome Back</h1>
-            <p className="auth-subtitle">Log in to access your HumanizePro account & dashboard.</p>
+            <p className="auth-subtitle">Log in to access your Humyn account & dashboard.</p>
           </div>
 
           {error && (
@@ -149,11 +149,11 @@ export default function LoginPage() {
           {/* Social / Direct Feature Callouts */}
           <div className="auth-feature-bullets">
             <div className="auth-feature-item">
-              <CheckCircle2 size={14} color="#10b981" />
+              <CheckCircle2 size={14} color="#ffffff" />
               <span>10 Free Humanizations for New Accounts</span>
             </div>
             <div className="auth-feature-item">
-              <CheckCircle2 size={14} color="#10b981" />
+              <CheckCircle2 size={14} color="#ffffff" />
               <span>Only $1/mo for Unlimited Access</span>
             </div>
           </div>
