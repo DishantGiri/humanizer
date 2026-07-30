@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Crown, Sparkles, Zap, Shield, Loader2, ArrowRight } from 'lucide-react';
-import { createRazorpayOrder, verifyRazorpayPayment, type User } from '@/lib/api';
+import { Check, Crown, Sparkles, Zap, Shield, Loader2, ArrowRight, X, Ticket } from 'lucide-react';
+import { createRazorpayOrder, verifyRazorpayPayment, redeemCoupon, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
 interface PricingViewProps {
@@ -19,32 +19,71 @@ export default function PricingView({
   onRequireAuth,
 }: PricingViewProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [paymentModalPlan, setPaymentModalPlan] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   const currentPlan = user?.plan || 'free';
 
-  const handleUpgrade = async (planName: string) => {
+  const openPaymentModal = (planName: string) => {
     if (!user || !token) {
       toast.info('Please log in or register to select a plan.');
       onRequireAuth();
       return;
     }
-
     if (currentPlan === planName) {
       toast.info(`You are already on the ${planName.toUpperCase()} plan.`);
       return;
     }
+    setCouponCode('');
+    setCouponError(null);
+    setPaymentModalPlan(planName);
+  };
 
-    setLoadingPlan(planName);
+  const closePaymentModal = () => {
+    setPaymentModalPlan(null);
+    setCouponCode('');
+    setCouponError(null);
+  };
+
+  const handleCouponRedeem = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code.');
+      return;
+    }
+    if (!token || !paymentModalPlan) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
 
     try {
-      const order = await createRazorpayOrder(token, planName);
+      const updatedUser = await redeemCoupon(token, couponCode.trim());
+      onUpdateUser({ ...updatedUser, plan: updatedUser.plan || paymentModalPlan });
+      toast.success(`Coupon redeemed! ${updatedUser.plan.toUpperCase()} plan activated.`);
+      closePaymentModal();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Coupon redemption failed.';
+      setCouponError(msg);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRazorpayPayment = async () => {
+    if (!user || !token || !paymentModalPlan) return;
+
+    setLoadingPlan(paymentModalPlan);
+
+    try {
+      const order = await createRazorpayOrder(token, paymentModalPlan);
 
       const options = {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
         name: 'Humyn',
-        description: `${planName.charAt(0).toUpperCase() + planName.slice(1)} Plan Subscription`,
+        description: `${paymentModalPlan.charAt(0).toUpperCase() + paymentModalPlan.slice(1)} Plan Subscription`,
         order_id: order.order_id,
         handler: async (response: {
           razorpay_order_id: string;
@@ -56,10 +95,11 @@ export default function PricingView({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              plan: planName,
+              plan: paymentModalPlan,
             });
-            onUpdateUser({ ...updatedUser, plan: planName });
-            toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);
+            onUpdateUser({ ...updatedUser, plan: paymentModalPlan });
+            toast.success(`Successfully activated ${paymentModalPlan.toUpperCase()} Plan!`);
+            closePaymentModal();
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Payment verification failed.';
             toast.danger(msg);
@@ -90,8 +130,211 @@ export default function PricingView({
     }
   };
 
+  const planDisplayName = paymentModalPlan
+    ? paymentModalPlan.charAt(0).toUpperCase() + paymentModalPlan.slice(1)
+    : '';
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+
+      {/* ── Payment Modal ──────────────────────────────────────────────── */}
+      {paymentModalPlan && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(6px)',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closePaymentModal(); }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '16px',
+              padding: '32px 28px',
+              position: 'relative',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={closePaymentModal}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-tertiary)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Modal Header */}
+            <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' }}>
+                Activate {planDisplayName} Plan
+              </h3>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                Choose how you&apos;d like to subscribe
+              </p>
+            </div>
+
+            {/* ── Coupon Section ── */}
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  marginBottom: '10px',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <Ticket size={16} color="#38bdf8" />
+                Have a coupon code?
+              </label>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => { setCouponCode(e.target.value); setCouponError(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCouponRedeem(); }}
+                  placeholder="e.g. HUMYN-a7f3e9c1b2d04815"
+                  style={{
+                    flex: 1,
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    border: couponError
+                      ? '1px solid rgba(239, 68, 68, 0.6)'
+                      : '1px solid var(--border-subtle)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.02em',
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCouponRedeem}
+                  disabled={couponLoading || !couponCode.trim()}
+                  style={{
+                    padding: '11px 18px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#38bdf8',
+                    color: '#0f172a',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: couponLoading || !couponCode.trim() ? 'not-allowed' : 'pointer',
+                    opacity: couponLoading || !couponCode.trim() ? 0.6 : 1,
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'opacity 0.2s',
+                  }}
+                >
+                  {couponLoading ? (
+                    <Loader2 size={15} className="spinner-animate" />
+                  ) : (
+                    'Redeem'
+                  )}
+                </button>
+              </div>
+
+              {/* Coupon Error */}
+              {couponError && (
+                <p style={{
+                  color: '#f87171',
+                  fontSize: '0.8rem',
+                  marginTop: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}>
+                  {couponError}
+                </p>
+              )}
+            </div>
+
+            {/* ── OR Divider ── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                margin: '24px 0',
+              }}
+            >
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                or
+              </span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+            </div>
+
+            {/* ── Razorpay Section ── */}
+            <button
+              type="button"
+              onClick={handleRazorpayPayment}
+              disabled={loadingPlan === paymentModalPlan}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 50%, #2563EB 100%)',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: '0.92rem',
+                cursor: loadingPlan === paymentModalPlan ? 'not-allowed' : 'pointer',
+                opacity: loadingPlan === paymentModalPlan ? 0.7 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 18px rgba(59, 130, 246, 0.35)',
+                transition: 'all 0.2s',
+              }}
+            >
+              {loadingPlan === paymentModalPlan ? (
+                <Loader2 size={16} className="spinner-animate" />
+              ) : (
+                <>
+                  Pay with Razorpay <ArrowRight size={15} />
+                </>
+              )}
+            </button>
+
+            <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '16px' }}>
+              Secure payment powered by Razorpay. Cancel anytime.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ textAlign: 'center' }}>
         <span
@@ -260,8 +503,7 @@ export default function PricingView({
               <button
                 type="button"
                 className="action-btn-solid"
-                disabled={loadingPlan === 'starter'}
-                onClick={() => handleUpgrade('starter')}
+                onClick={() => openPaymentModal('starter')}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
@@ -269,11 +511,7 @@ export default function PricingView({
                   fontSize: '0.88rem',
                 }}
               >
-                {loadingPlan === 'starter' ? (
-                  <Loader2 size={16} className="spinner-animate" />
-                ) : (
-                  <>Select Starter ($1)</>
-                )}
+                Select Starter ($1)
               </button>
             )}
           </div>
@@ -368,8 +606,7 @@ export default function PricingView({
               <button
                 type="button"
                 className="action-btn-solid"
-                disabled={loadingPlan === 'plus'}
-                onClick={() => handleUpgrade('plus')}
+                onClick={() => openPaymentModal('plus')}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
@@ -377,13 +614,7 @@ export default function PricingView({
                   fontSize: '0.88rem',
                 }}
               >
-                {loadingPlan === 'plus' ? (
-                  <Loader2 size={16} className="spinner-animate" />
-                ) : (
-                  <>
-                    Choose Plus ($2) <ArrowRight size={15} />
-                  </>
-                )}
+                Choose Plus ($2) <ArrowRight size={15} />
               </button>
             )}
           </div>
@@ -455,8 +686,7 @@ export default function PricingView({
               <button
                 type="button"
                 className="action-btn-solid"
-                disabled={loadingPlan === 'pro'}
-                onClick={() => handleUpgrade('pro')}
+                onClick={() => openPaymentModal('pro')}
                 style={{
                   width: '100%',
                   justifyContent: 'center',
@@ -464,13 +694,7 @@ export default function PricingView({
                   fontSize: '0.88rem',
                 }}
               >
-                {loadingPlan === 'pro' ? (
-                  <Loader2 size={16} className="spinner-animate" />
-                ) : (
-                  <>
-                    Upgrade to Pro ($5) <ArrowRight size={15} />
-                  </>
-                )}
+                Upgrade to Pro ($5) <ArrowRight size={15} />
               </button>
             )}
           </div>

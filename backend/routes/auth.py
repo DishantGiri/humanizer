@@ -505,3 +505,67 @@ async def google_auth(request: GoogleAuthRequest):
         token=token,
         message="Google OAuth authentication successful."
     )
+
+
+# ── Coupon Redemption Endpoints ─────────────────────────────────────────────
+
+class RedeemCouponRequest(BaseModel):
+    code: str = Field(..., description="Coupon code to redeem")
+
+@router.post("/redeem-coupon", response_model=UserResponse)
+async def redeem_coupon(
+    request: RedeemCouponRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Redeem a one-time coupon code to upgrade user's plan.
+    Each coupon can only be redeemed once.
+    """
+    code_clean = request.code.strip()
+
+    # Look up coupon
+    coupon = fetch_one("SELECT code, plan, redeemed_by FROM coupons WHERE code = ?", (code_clean,))
+
+    if not coupon:
+        raise HTTPException(status_code=400, detail="Invalid coupon code. Please check and try again.")
+
+    if coupon.get("redeemed_by"):
+        raise HTTPException(status_code=400, detail="This coupon has already been redeemed.")
+
+    # Mark coupon as redeemed
+    redeemed_at = datetime.utcnow().isoformat()
+    execute_query(
+        "UPDATE coupons SET redeemed_by = ?, redeemed_at = ? WHERE code = ?",
+        (current_user.id, redeemed_at, code_clean)
+    )
+
+    # Upgrade user plan
+    target_plan = coupon["plan"]
+    execute_query("UPDATE users SET plan = ? WHERE id = ?", (target_plan, current_user.id))
+
+    current_user.plan = target_plan
+    logger.info("Coupon %s redeemed by user %s -> plan %s", code_clean, current_user.id, target_plan)
+    return current_user
+
+
+@router.get("/coupons/list")
+async def list_coupons():
+    """
+    List all coupon codes and their redemption status.
+    Utility endpoint for admin use.
+    """
+    coupons = fetch_all("SELECT code, plan, redeemed_by, redeemed_at, created_at FROM coupons ORDER BY created_at")
+    return {
+        "total": len(coupons),
+        "coupons": [
+            {
+                "code": c["code"],
+                "plan": c["plan"],
+                "is_redeemed": bool(c.get("redeemed_by")),
+                "redeemed_by": c.get("redeemed_by"),
+                "redeemed_at": str(c["redeemed_at"]) if c.get("redeemed_at") else None,
+                "created_at": str(c["created_at"]),
+            }
+            for c in coupons
+        ],
+    }

@@ -297,6 +297,26 @@ export async function verifyRazorpayPayment(
   return await response.json();
 }
 
+export async function redeemCoupon(token: string, code: string): Promise<User> {
+  const response = await fetch(`${API_BASE}/api/auth/redeem-coupon`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Coupon redemption failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
 export async function updateProfile(token: string, data: { name?: string; avatar_url?: string }): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/profile`, {
     method: 'PATCH',

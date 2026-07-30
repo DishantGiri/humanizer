@@ -4,6 +4,7 @@ Database abstraction layer supporting MySQL with automatic SQLite fallback.
 
 import os
 import sqlite3
+import secrets
 import logging
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
@@ -122,6 +123,15 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """,
                 """
+                CREATE TABLE IF NOT EXISTS coupons (
+                    code VARCHAR(48) PRIMARY KEY,
+                    plan VARCHAR(32) NOT NULL,
+                    redeemed_by VARCHAR(64) DEFAULT NULL,
+                    redeemed_at DATETIME DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS history (
                     id VARCHAR(64) PRIMARY KEY,
                     user_id VARCHAR(64) NOT NULL,
@@ -167,6 +177,15 @@ def init_db():
                         user_id TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS coupons (
+                        code TEXT PRIMARY KEY,
+                        plan TEXT NOT NULL,
+                        redeemed_by TEXT DEFAULT NULL,
+                        redeemed_at TIMESTAMP DEFAULT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 cursor.execute("""
@@ -242,3 +261,36 @@ def fetch_all(query: str, params: tuple = ()) -> List[Dict[str, Any]]:
         return list(rows)
     finally:
         conn.close()
+
+
+# ── Coupon Seeding ──────────────────────────────────────────────────────────
+
+def seed_coupons():
+    """
+    Seed 10 cryptographically random coupon codes if the coupons table is empty.
+    Codes use HUMYN- prefix + 16-char hex, making them impossible to guess.
+    """
+    existing = fetch_one("SELECT code FROM coupons LIMIT 1")
+    if existing:
+        logger.info("Coupons already seeded, skipping.")
+        return
+
+    # Distribution: 4 starter, 3 plus, 3 pro
+    plan_distribution = (
+        ['starter'] * 4 +
+        ['plus'] * 3 +
+        ['pro'] * 3
+    )
+
+    for plan in plan_distribution:
+        code = f"HUMYN-{secrets.token_hex(8)}"
+        execute_query(
+            "INSERT INTO coupons (code, plan) VALUES (?, ?)",
+            (code, plan)
+        )
+        logger.info("Seeded coupon: %s -> %s plan", code, plan)
+
+    logger.info("Successfully seeded 10 coupon codes.")
+
+
+seed_coupons()
