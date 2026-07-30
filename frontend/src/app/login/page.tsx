@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Mail, Lock, ArrowRight, Loader2, Wand2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, ArrowDown } from 'lucide-react';
 import { loginUser, googleAuthUser } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
@@ -11,8 +11,15 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // Sync active app/system theme on mount without toggle control
+  useEffect(() => {
+    const savedTheme =
+      (localStorage.getItem('humyn_theme') as 'dark' | 'light') ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
 
   // Pick up auth errors from OAuth redirect sessionStorage
   useEffect(() => {
@@ -23,7 +30,7 @@ export default function LoginPage() {
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -37,7 +44,8 @@ export default function LoginPage() {
         .then((res) => {
           localStorage.setItem('humanizer_token', res.token);
           localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-          router.push('/');
+          document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
+          router.push('/dashboard');
         })
         .catch((err) => {
           toast.danger(err instanceof Error ? err.message : 'Google OAuth login failed.');
@@ -70,7 +78,8 @@ export default function LoginPage() {
       const res = await loginUser(email, password);
       localStorage.setItem('humanizer_token', res.token);
       localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-      router.push('/');
+      document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
+      router.push('/dashboard');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Invalid login credentials.';
       toast.danger(msg);
@@ -80,94 +89,63 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page-wrapper auth-page-wrapper--login">
-      {/* Dynamic Background Image & Ambient Light Elements */}
-      <div className="auth-page-bg-overlay" />
-      <div className="auth-ambient-glow auth-ambient-glow--blue" />
-      <div className="auth-ambient-glow auth-ambient-glow--purple" />
-
-      {/* Grid Pattern Overlay */}
-      <div className="auth-grid-pattern" />
-
-      {/* Main Container */}
-      <div className="auth-page-container">
-        {/* Brand Header */}
-        <Link href="/" className="auth-page-brand">
-          <div className="auth-brand-logo">
-            <Wand2 size={22} color="white" />
-          </div>
-          <span className="auth-brand-title">Humyn</span>
+    <div className="auth-split-wrapper">
+      {/* ── Main Container ────────────────────────────────────────── */}
+      <div className="auth-split-main">
+        {/* Back Link */}
+        <Link href="/" className="auth-back-link">
+          <ArrowLeft size={16} />
+          <span>Back to home</span>
         </Link>
 
-        {/* Card */}
-        <div className="auth-page-card animate-fadeIn">
-          <div className="auth-card-header">
-            <div className="auth-icon-badge">
-              <Sparkles size={24} color="#ffffff" />
-            </div>
-            <h1 className="auth-title">Welcome Back</h1>
-            <p className="auth-subtitle">Log in to access your Humyn account & dashboard.</p>
-          </div>
+        {/* ── Split Card Container ────────────────────────────────── */}
+        <div className="auth-split-card">
+          {/* Left Column: Form */}
+          <div className="auth-left-col">
+            <h1 className="auth-split-title">Welcome back</h1>
+            <p className="auth-split-subtitle">
+              Enter your email below to sign in to your account
+            </p>
 
-
-
-          {/* Google OAuth Button */}
-          <div className="auth-social-section" style={{ marginBottom: 20 }}>
-            <button
-              type="button"
-              className="auth-google-btn"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" className="auth-google-icon">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            <div className="auth-divider">
-              <span>or continue with email</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="auth-form-layout">
-            <div className="auth-form-field">
-              <label className="auth-field-label" htmlFor="login-email">
-                Email Address
-              </label>
-              <div className="auth-field-input-box">
-                <Mail size={18} className="auth-field-icon" />
+            <form onSubmit={handleSubmit} className="auth-split-form">
+              {/* Email */}
+              <div className="auth-split-field">
+                <label className="auth-split-label" htmlFor="email">
+                  Email
+                </label>
                 <input
-                  id="login-email"
+                  id="email"
                   type="email"
-                  className="auth-field-input"
-                  placeholder="name@example.com"
+                  className="auth-split-input"
+                  placeholder="m@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                   required
                 />
               </div>
-            </div>
 
-            <div className="auth-form-field">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="auth-field-label" htmlFor="login-password">
-                  Password
-                </label>
-                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Password reset link sent to your email address.'); }} className="auth-forgot-link">
-                  Forgot password?
-                </a>
-              </div>
-              <div className="auth-field-input-box">
-                <Lock size={18} className="auth-field-icon" />
+              {/* Password */}
+              <div className="auth-split-field">
+                <div className="auth-split-label-row">
+                  <label className="auth-split-label" htmlFor="password">
+                    Password
+                  </label>
+                  <a
+                    href="#forgot"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toast.info('Password reset link sent to your email address.');
+                    }}
+                    className="auth-split-forgot"
+                  >
+                    Forgot your password?
+                  </a>
+                </div>
                 <input
-                  id="login-password"
+                  id="password"
                   type="password"
-                  className="auth-field-input"
+                  className="auth-split-input"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -175,54 +153,100 @@ export default function LoginPage() {
                   required
                 />
               </div>
-            </div>
 
-            <div className="auth-checkbox-row">
-              <label className="auth-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="auth-checkbox"
-                />
-                <span>Remember me on this device</span>
-              </label>
-            </div>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="auth-split-submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 size={16} className="spinner-animate" />
+                ) : (
+                  'Sign In'
+                )}
+              </button>
 
-            <button
-              type="submit"
-              className="auth-primary-btn"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 size={18} className="spinner-animate" />
-              ) : (
-                <>
-                  Log In <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
+              {/* Divider */}
+              <div className="auth-split-divider">
+                <span>Or</span>
+              </div>
 
-          {/* Social / Direct Feature Callouts */}
-          <div className="auth-feature-bullets">
-            <div className="auth-feature-item">
-              <CheckCircle2 size={14} color="#ffffff" />
-              <span>10 Free Humanizations for New Accounts</span>
-            </div>
-            <div className="auth-feature-item">
-              <CheckCircle2 size={14} color="#ffffff" />
-              <span>Only $1/mo for Unlimited Access</span>
+              {/* Google Login Button */}
+              <button
+                type="button"
+                className="auth-split-google-btn"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Login with Google</span>
+              </button>
+            </form>
+
+            <div className="auth-split-footer">
+              <span>Don&apos;t have an account?</span>
+              <Link href="/register" className="auth-split-footer-link">
+                Sign up
+              </Link>
             </div>
           </div>
 
-          <div className="auth-card-footer">
-            <p>
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="auth-accent-link">
-                Create Account
-              </Link>
-            </p>
+          {/* Right Column: Live AI Humanizer Showcase */}
+          <div className="auth-right-col">
+            <div className="auth-preview-header">
+              <div className="auth-preview-title">
+                <Sparkles size={16} color="#38bdf8" />
+                <span>CloakWriter Engine v3.0</span>
+              </div>
+              <div className="auth-preview-badge--live">
+                <div className="auth-preview-badge__dot--green" />
+                <span>Live Pipeline</span>
+              </div>
+            </div>
+
+            <div className="auth-showcase-container">
+              {/* Before AI */}
+              <div className="auth-showcase-card auth-showcase-card--ai">
+                <div className="auth-showcase-tag auth-showcase-tag--red">
+                  AI DETECTED (98%)
+                </div>
+                <p className="auth-showcase-text">
+                  &ldquo;The implementation of strategic initiatives facilitates optimal synergy across operations...&rdquo;
+                </p>
+              </div>
+
+              <div className="auth-showcase-arrow">
+                <ArrowDown size={18} />
+              </div>
+
+              {/* After Humanized */}
+              <div className="auth-showcase-card auth-showcase-card--human">
+                <div className="auth-showcase-tag auth-showcase-tag--green">
+                  100% HUMAN SCORE
+                </div>
+                <p className="auth-showcase-text">
+                  &ldquo;We put key strategies to work so our teams could naturally collaborate better...&rdquo;
+                </p>
+              </div>
+            </div>
+
+            <div className="auth-preview-footer-metrics">
+              <div className="auth-gauge-row">
+                <div className="auth-gauge-circle--green">
+                  <span>98%</span>
+                </div>
+                <div className="auth-metric-details">
+                  <span className="auth-metric-score--green">98% Humanized</span>
+                  <span className="auth-metric-tag--green">Bypass Verified</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

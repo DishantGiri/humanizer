@@ -32,8 +32,9 @@ export default function GoogleCallbackPage() {
       .then((res) => {
         localStorage.setItem('humanizer_token', res.token);
         localStorage.setItem('humanizer_user', JSON.stringify(res.user));
+        document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
         sessionStorage.setItem('humyn_auth_success', `Welcome back, ${res.user.name}!`);
-        router.replace('/');
+        router.replace('/dashboard');
       })
       .catch((err) => {
         const msg = err instanceof Error ? err.message : 'Google authentication failed.';

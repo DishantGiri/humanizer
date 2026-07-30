@@ -3,12 +3,12 @@ import "./globals.css";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-  title: "Humyn - Rewrite Text Naturally",
+  title: "CloakWriter - Rewrite Text Naturally",
   description:
     "Transform AI-generated or awkward text into natural, human-sounding writing. Supports academic, professional, casual, and 6 more styles with meaning preservation.",
-  keywords: ["Humyn", "AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
+  keywords: ["CloakWriter", "AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
   openGraph: {
-    title: "Humyn - Rewrite Text Naturally",
+    title: "CloakWriter - Rewrite Text Naturally",
     description:
       "Transform text into natural, human-sounding writing with AI-powered rewriting.",
     type: "website",

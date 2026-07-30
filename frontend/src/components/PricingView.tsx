@@ -82,7 +82,7 @@ export default function PricingView({
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: 'Humyn',
+        name: 'CloakWriter',
         description: `${paymentModalPlan.charAt(0).toUpperCase() + paymentModalPlan.slice(1)} Plan Subscription`,
         order_id: order.order_id,
         handler: async (response: {
@@ -348,13 +348,13 @@ export default function PricingView({
             marginBottom: '8px',
           }}
         >
-          HUMYN REWRITING ENGINES
+          CLOAKWRITER REWRITING ENGINES
         </span>
         <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: '8px' }}>
           Flexible Plans for Every Writer
         </h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto' }}>
-          Choose the plan that fits your writing workflow. Powered by proprietary Humyn neural rewriting models.
+          Choose the plan that fits your writing workflow. Powered by proprietary CloakWriter neural rewriting models.
         </p>
       </div>
 
@@ -386,7 +386,7 @@ export default function PricingView({
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
             <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              Humyn Lite Engine
+              CloakWriter Lite Engine
             </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -463,7 +463,7 @@ export default function PricingView({
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
             <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              Humyn SpeedEngine v1.5
+              CloakWriter SpeedEngine v1.5
             </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -563,7 +563,7 @@ export default function PricingView({
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
             <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              Humyn Turbo Core v2.5
+              CloakWriter Turbo Core v2.5
             </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -643,7 +643,7 @@ export default function PricingView({
               <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
             </div>
             <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              Humyn Ultra DeepRewrite v3.0
+              CloakWriter Ultra DeepRewrite v3.0
             </div>
 
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>

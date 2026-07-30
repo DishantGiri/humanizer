@@ -28,9 +28,11 @@ export default function Logo({
   const heightMap = { sm: 34, md: 44, lg: 62 };
   const h = heightMap[size];
 
+  const logoSrc = isLight ? '/logo-white.png' : '/logo-dark.png';
+
   const LogoIcon = () => (
     <Image
-      src="/logo.png"
+      src={logoSrc}
       alt="CloakWriter logo"
       width={h}
       height={h}

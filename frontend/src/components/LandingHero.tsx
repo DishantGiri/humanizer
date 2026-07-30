@@ -30,7 +30,7 @@ import Logo from '@/components/Logo';
 interface LandingHeroProps {
   onOpenAuth?: (mode: 'login' | 'register') => void;
   isDarkMode?: boolean;
-  onToggleTheme?: () => void;
+  onToggleTheme?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export default function LandingHero({
@@ -46,50 +46,59 @@ export default function LandingHero({
   const [demoIsLoading, setDemoIsLoading] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
+  const [isScrolled, setIsScrolled] = useState(false);
+
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const used = localStorage.getItem('humyn_demo_used_v1');
       if (used === 'true') {
         setDemoHasHumanized(true);
       }
+
+      const handleScroll = () => {
+        setIsScrolled(window.scrollY > 20);
+      };
+      handleScroll();
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      return () => window.removeEventListener('scroll', handleScroll);
     }
   }, []);
 
   const faqs = [
     {
-      question: 'What is Humyn AI?',
+      question: 'What is CloakWriter AI?',
       answer:
-        'Humyn is an advanced AI text humanizer designed to rewrite AI-generated content (from ChatGPT, Claude, Gemini, etc.) into natural, human-sounding prose that bypasses leading AI detectors like Turnitin, ZeroGPT, CopyLeaks, and GPTZero.',
+        'CloakWriter is an advanced AI text humanizer designed to rewrite AI-generated content (from ChatGPT, Claude, Gemini, etc.) into natural, human-sounding prose that bypasses leading AI detectors like Turnitin, ZeroGPT, CopyLeaks, and GPTZero.',
     },
     {
-      question: 'How does Humyn bypass AI detectors?',
+      question: 'How does CloakWriter bypass AI detectors?',
       answer:
-        'Unlike simple synonym swappers, Humyn restructures sentence cadences, adjusts burstiness and perplexity, and eliminates repetitive machine phrasing patterns that AI detectors flag.',
+        'Unlike simple synonym swappers, CloakWriter restructures sentence cadences, adjusts burstiness and perplexity, and eliminates repetitive machine phrasing patterns that AI detectors flag.',
     },
     {
       question: 'Will my humanized text be flagged for plagiarism?',
       answer:
-        'No. Humyn produces 100% original, plagiarism-free rewrites while preserving your core message, intended tone, and vocabulary quality.',
+        'No. CloakWriter produces 100% original, plagiarism-free rewrites while preserving your core message, intended tone, and vocabulary quality.',
     },
     {
-      question: 'What rewrite levels does Humyn offer?',
+      question: 'What rewrite levels does CloakWriter offer?',
       answer:
-        'Humyn provides three distinct rewrite intensity levels: Light (minor polish), Medium (balanced restructuring), and Aggressive (deep natural rewriting for strict AI detectors like Turnitin).',
+        'CloakWriter provides three distinct rewrite intensity levels: Light (minor polish), Medium (balanced restructuring), and Aggressive (deep natural rewriting for strict AI detectors like Turnitin).',
     },
     {
       question: 'Is my text stored or shared with third parties?',
       answer:
-        'Your privacy is paramount. Humyn never sells or shares your text with third parties, and all processed text is kept strictly confidential in your secure account history.',
+        'Your privacy is paramount. CloakWriter never sells or shares your text with third parties, and all processed text is kept strictly confidential in your secure account history.',
     },
     {
       question: 'What happens when AI detectors update their algorithms?',
       answer:
-        'Our engineering team continuously monitors and fine-tunes our underlying natural language models to ensure Humyn stays ahead of all major AI detector model updates.',
+        'Our engineering team continuously monitors and fine-tunes our underlying natural language models to ensure CloakWriter stays ahead of all major AI detector model updates.',
     },
     {
       question: 'Is there a free plan available?',
       answer:
-        'Yes! Humyn offers a free tier with daily humanizations so you can test our engine before upgrading to one of our affordable monthly plans.',
+        'Yes! CloakWriter offers a free tier with daily humanizations so you can test our engine before upgrading to one of our affordable monthly plans.',
     },
   ];
 
@@ -265,7 +274,7 @@ export default function LandingHero({
   return (
     <div className="landing-page">
       {/* ── Navbar ───────────────────────────────────────────────────────── */}
-      <nav className="landing-nav">
+      <nav className={`landing-nav ${isScrolled ? 'landing-nav--scrolled' : ''}`}>
         <div className="landing-nav__container">
           <div className="landing-nav__brand">
             <a href="#hero" className="landing-nav__brand-link" aria-label="Go to top" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
@@ -292,7 +301,7 @@ export default function LandingHero({
             <button
               type="button"
               className="landing-nav__theme-btn"
-              onClick={onToggleTheme}
+              onClick={(e) => onToggleTheme?.(e)}
               aria-label="Toggle Theme"
               title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
             >
@@ -311,6 +320,7 @@ export default function LandingHero({
       </nav>
 
       <div className="landing-hero-screen">
+        <div className="landing-hero-bg-layer" />
         {/* ── Hero Section ─────────────────────────────────────────────────── */}
         <section className="landing-hero" id="hero">
           <div className="landing-hero__grid">
@@ -318,7 +328,7 @@ export default function LandingHero({
             <div className="landing-hero__content">
               <div className="landing-hero__badge">
                 <Sparkles size={14} className="landing-hero__badge-icon" />
-                <span>Humyn AI</span>
+                <span>CloakWriter AI</span>
               </div>
 
               <h1 className="landing-hero__title">
@@ -369,7 +379,7 @@ export default function LandingHero({
                   </div>
                   <div className="landing-hero__card-engine">
                     <Sparkles size={13} className="text-accent" />
-                    <span>Humyn Engine v2.4</span>
+                    <span>CloakWriter Engine v2.4</span>
                   </div>
                 </div>
 
@@ -721,7 +731,7 @@ export default function LandingHero({
           <div className="landing-pricing-section__header">
             <h2 className="landing-pricing-section__title">Pricing & Plans</h2>
             <p className="landing-pricing-section__subtitle">
-              Choose the perfect plan for your writing needs. Powered by proprietary Humyn neural rewriting engines.
+              Choose the perfect plan for your writing needs. Powered by proprietary CloakWriter neural rewriting engines.
             </p>
           </div>
 
@@ -734,7 +744,7 @@ export default function LandingHero({
                   <span className="amount">$0</span>
                   <span className="period">/month</span>
                 </div>
-                <div className="landing-pricing-model-tag">Humyn Lite Engine</div>
+                <div className="landing-pricing-model-tag">CloakWriter Lite Engine</div>
               </div>
 
               <div className="landing-pricing-card__features">
@@ -769,7 +779,7 @@ export default function LandingHero({
                   <span className="amount">$1</span>
                   <span className="period">/month</span>
                 </div>
-                <div className="landing-pricing-model-tag">Humyn SpeedEngine v1.5</div>
+                <div className="landing-pricing-model-tag">CloakWriter SpeedEngine v1.5</div>
               </div>
 
               <div className="landing-pricing-card__features">
@@ -805,7 +815,7 @@ export default function LandingHero({
                   <span className="amount">$2</span>
                   <span className="period">/month</span>
                 </div>
-                <div className="landing-pricing-model-tag">Humyn Turbo Core v2.5</div>
+                <div className="landing-pricing-model-tag">CloakWriter Turbo Core v2.5</div>
               </div>
 
               <div className="landing-pricing-card__features">
@@ -844,7 +854,7 @@ export default function LandingHero({
                   <span className="amount">$5</span>
                   <span className="period">/month</span>
                 </div>
-                <div className="landing-pricing-model-tag">Humyn Ultra DeepRewrite v3.0</div>
+                <div className="landing-pricing-model-tag">CloakWriter Ultra DeepRewrite v3.0</div>
               </div>
 
               <div className="landing-pricing-card__features">
@@ -883,7 +893,7 @@ export default function LandingHero({
         <div className="landing-faq-section__container">
           <div className="landing-faq-section__header">
             <h2 className="landing-faq-section__title">Frequently Asked Questions</h2>
-            <p className="landing-faq-section__subtitle">Everything You Need To Know About Humyn</p>
+            <p className="landing-faq-section__subtitle">Everything You Need To Know About CloakWriter</p>
           </div>
 
           <div className="landing-faq-list">
@@ -923,7 +933,7 @@ export default function LandingHero({
         <div className="landing-cta-banner__container">
           <h2 className="landing-cta-banner__title">Ready To Humanize Your Writing</h2>
           <p className="landing-cta-banner__subtitle">
-            Join Thousands Of Writers Who Use Humyn To Humanize Their AI Content
+            Join Thousands Of Writers Who Use CloakWriter To Humanize Their AI Content
           </p>
           <Link href="/register" className="landing-cta-banner__btn" style={{ textDecoration: 'none' }}>
             <span>Get Started For Free</span>
@@ -957,7 +967,7 @@ export default function LandingHero({
 
           {/* Support Line */}
           <div className="landing-footer__support-info">
-            <span>Support: contact@humyn.ai</span>
+            <span>Support: contact@cloakwriter.com</span>
             <span className="divider">|</span>
             <span>+1 (307) 998-3768</span>
             <span className="divider">|</span>
@@ -967,7 +977,7 @@ export default function LandingHero({
           {/* Copyright Line */}
           <div className="landing-footer__copyright">
             <Globe size={14} className="landing-footer__globe-icon" />
-            <span>© 2026 Humyn. All rights reserved. AIVantage LLC</span>
+            <span>© 2026 CloakWriter. All rights reserved. AIVantage LLC</span>
           </div>
         </div>
       </footer>

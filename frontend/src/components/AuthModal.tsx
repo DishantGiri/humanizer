@@ -96,8 +96,8 @@ export default function AuthModal({
           </h3>
           <p className="auth-modal-subtitle">
             {mode === 'login'
-              ? 'Log in to access your Humyn account'
-              : 'Join Humyn to get started'}
+              ? 'Log in to access your CloakWriter account'
+              : 'Join CloakWriter to get started'}
           </p>
         </div>
 
