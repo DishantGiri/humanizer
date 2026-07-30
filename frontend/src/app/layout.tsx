@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   description:
     "Transform AI-generated or awkward text into natural, human-sounding writing. Supports academic, professional, casual, and 6 more styles with meaning preservation.",
   keywords: ["CloakWriter", "AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.png",
+  },
   openGraph: {
     title: "CloakWriter - Rewrite Text Naturally",
     description:
