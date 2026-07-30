@@ -25,23 +25,23 @@ export const getPipelineStages = (level: number): PipelineStage[] => {
   const stages: PipelineStage[] = [
     {
       id: 1,
-      title: 'Deconstructing Text Dynamics',
-      subtitle: 'Analyzing sentence cadence, complexity metrics, and baseline profiles...',
+      title: 'Analyzing Text Patterns',
+      subtitle: 'Evaluating sentence structure, rhythm, and baseline tone...',
       buttonLabel: 'Analyzing structure...',
       icon: ScanSearch,
     },
     {
       id: 2,
-      title: 'Formulating Expression Strategy',
-      subtitle: 'Building transformation blueprint and tone preservation mapping...',
+      title: 'Refining Flow & Structure',
+      subtitle: 'Mapping vocabulary variations and natural human expressions...',
       buttonLabel: 'Planning strategy...',
       icon: Layers,
     },
     {
       id: 3,
-      title: 'Maximizing Linguistic Perplexity',
-      subtitle: 'Applying high-temperature paraphrasing to maximize sentence perplexity...',
-      buttonLabel: 'Optimizing perplexity...',
+      title: 'Enhancing Natural Variety',
+      subtitle: 'Introducing organic phrasing variations and cadence shifts...',
+      buttonLabel: 'Optimizing flow...',
       icon: Wand2,
     },
   ];
@@ -49,26 +49,26 @@ export const getPipelineStages = (level: number): PipelineStage[] => {
   if (level >= 3) {
     stages.push({
       id: stages.length + 1,
-      title: 'Multi-Stage Translation Chain',
-      subtitle: 'Executing bounce pipeline (EN -> ZH -> JA -> FI -> EN) for natural linguistic drift...',
-      buttonLabel: 'Bouncing languages...',
+      title: 'Deep Humanization Pass',
+      subtitle: 'Restructuring complex phrasing for complete AI detector bypass...',
+      buttonLabel: 'Applying deep pass...',
       icon: RefreshCw,
     });
   }
 
   stages.push({
     id: stages.length + 1,
-    title: 'Applying Natural Flow & Structure',
-    subtitle: 'Rebalancing sentence burstiness and structural variations...',
-    buttonLabel: 'Rewriting flow...',
+    title: 'Polishing Readability',
+    subtitle: 'Smoothing sentence transitions and vocabulary flow...',
+    buttonLabel: 'Polishing text...',
     icon: SlidersHorizontal,
   });
 
   stages.push({
     id: stages.length + 1,
-    title: 'Verifying Semantic Integrity',
-    subtitle: 'Confirming factual accuracy, readability, and natural tone...',
-    buttonLabel: 'Verifying fidelity...',
+    title: 'Final Quality Check',
+    subtitle: 'Preserving original meaning, accuracy, and tone...',
+    buttonLabel: 'Verifying result...',
     icon: ShieldCheck,
   });
 

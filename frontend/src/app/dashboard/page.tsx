@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeMenu, setActiveMenu] = useState('humanizer');
   const [copied, setCopied] = useState(false);
+  const [showHighlight, setShowHighlight] = useState(true);
 
   // Auth state
   const [user, setUser] = useState<UserType | null>(null);
@@ -339,6 +340,7 @@ export default function DashboardPage() {
   if (authChecking) {
     return (
       <div
+        suppressHydrationWarning
         style={{
           minHeight: '100vh',
           backgroundColor: '#090A0F',
@@ -347,9 +349,10 @@ export default function DashboardPage() {
           justifyContent: 'center',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div suppressHydrationWarning style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
           <Logo size="md" theme="dark" />
           <div
+            suppressHydrationWarning
             style={{
               width: '28px',
               height: '28px',
@@ -370,7 +373,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
+    <div suppressHydrationWarning className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
       {/* ── Auth Modal ───────────────────────────────────────────────────── */}
       <AuthModal
         isOpen={authModalOpen}
@@ -718,7 +721,21 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="output-text-content">
-                      {outputText}
+                      {showHighlight && result?.word_diff && result.word_diff.length > 0 ? (
+                        result.word_diff.map((item, idx) => {
+                          if (item.type === 'delete') return null;
+                          if (item.type === 'insert') {
+                            return (
+                              <mark key={idx} className="highlight-change-green">
+                                {item.value}
+                              </mark>
+                            );
+                          }
+                          return <span key={idx}>{item.value}</span>;
+                        })
+                      ) : (
+                        outputText
+                      )}
                     </div>
 
                     <div style={{ marginTop: 'var(--space-md)' }}>

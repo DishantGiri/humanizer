@@ -44,6 +44,7 @@ export default function Logo({
   if (variant === 'icon') {
     return (
       <div
+        suppressHydrationWarning
         className={`logo-icon-wrapper ${className}`}
         style={{
           width: h,
@@ -64,6 +65,7 @@ export default function Logo({
 
   return (
     <div
+      suppressHydrationWarning
       className={`logo-full-wrapper ${className}`}
       style={{
         display: 'inline-flex',
