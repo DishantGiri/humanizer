@@ -375,6 +375,17 @@ def remove_ai_cliches(text: str) -> str:
         (r'\bone\s+step\s+at\s+a\s+time\b', 'step by step'),
         (r'\bat\s+least\s+in\s+most\s+cases\b', ''),
         (r'\bpretty\s+much\b', ''),
+        # Top AI Detector High-Ratio Bigrams/Trigrams (Purged)
+        (r'\bcatch\s+bugs\s+(?:early|right\s+away),?\b', 'spot bugs before release'),
+        (r'\b(?:tasks|jobs|work)\s+into\s+tiny\b', 'work into small'),
+        (r'\bhandle\s+sudden\s+(?:changes|shifts)\b', 'deal with quick shifts'),
+        (r'\bwhat\s+keeps\s+us\s+on\b', 'how we stay on'),
+        (r'\brunning\s+smoothly\.\s+That\b', 'working fine. This'),
+        (r'\bthat\.\s+Staying\s+focused\b', 'that. Keeping our focus'),
+        (r'\bthat\s+moves\s+too\b', 'moving too'),
+        (r'\bpatches\s+to\s+keep\b', 'fixes that keep'),
+        (r'\byou\s+tackle\s+each\b', 'when facing each'),
+        (r'\bstays\s+exactly\s+the\s+same,?\b', 'remains unchanged,'),
     ]
 
     for pattern, replacement in cliches:
@@ -756,9 +767,6 @@ def humanize(text: str, intensity: float = 0.5) -> str:
     text = remove_ai_cliches(text)
     text = break_textbook_starters(text)
 
-    # Step 1b: Enforce strict sentence length capping (max 15 words)
-    text = enforce_short_sentences(text, max_words=15)
-
     # Step 2: Replace AI transitions
     text = replace_ai_transitions(text)
 
@@ -796,6 +804,9 @@ def humanize(text: str, intensity: float = 0.5) -> str:
     text = text.replace("\u2013", ", ")
     text = text.replace(" - ", ", ")
     text = text.replace(" -- ", ", ")
+
+    # Step 8: FINAL MANDATORY CHECK - Cap every sentence strictly under 12-14 words
+    text = enforce_short_sentences(text, max_words=12)
 
     # Final cleanup
     return text

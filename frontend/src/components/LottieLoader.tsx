@@ -7,19 +7,27 @@ import Logo from '@/components/Logo';
 interface LottieLoaderProps {
   message?: string;
   size?: number;
+  fullScreen?: boolean;
 }
 
-export default function LottieLoader({ message = 'Loading...', size = 160 }: LottieLoaderProps) {
+export default function LottieLoader({
+  message = 'Loading...',
+  size = 140,
+  fullScreen = true,
+}: LottieLoaderProps) {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: fullScreen ? '100vh' : '260px',
+        width: '100%',
         backgroundColor: '#090A0F',
+        borderRadius: fullScreen ? '0px' : '16px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '20px',
+        gap: '16px',
+        padding: '24px',
       }}
     >
       <Logo size="md" theme="dark" />

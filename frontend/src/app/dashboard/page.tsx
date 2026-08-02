@@ -39,6 +39,7 @@ import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
 import LottieLoader from '@/components/LottieLoader';
+import TypewriterText from '@/components/TypewriterText';
 import {
   rewriteText,
   getCurrentUser,
@@ -641,13 +642,11 @@ export default function DashboardPage() {
 
                 {/* Output / Loading Area */}
                 {loading && (
-                  <div className="card text-panel-box text-panel-box--loading">
-                    <PipelineLoader
-                      isLoading={loading}
-                      level={level}
-                      onStageChange={(stage, step, total) => {
-                        setCurrentStage({ label: stage.buttonLabel, step, total });
-                      }}
+                  <div className="card text-panel-box text-panel-box--loading" style={{ padding: 0, overflow: 'hidden' }}>
+                    <LottieLoader
+                      message="Humanizing AI text..."
+                      size={130}
+                      fullScreen={false}
                     />
                   </div>
                 )}
@@ -708,7 +707,7 @@ export default function DashboardPage() {
                           return <span key={idx}>{item.value}</span>;
                         })
                       ) : (
-                        outputText
+                        <TypewriterText text={outputText} speed={18} />
                       )}
                     </div>
 
