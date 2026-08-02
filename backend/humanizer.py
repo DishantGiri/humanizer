@@ -383,6 +383,18 @@ def remove_ai_cliches(text: str) -> str:
         (r'\bpatches\s+to\s+keep\b', 'fixes that keep'),
         (r'\byou\s+tackle\s+each\b', 'when facing each'),
         (r'\bstays\s+exactly\s+the\s+same,?\b', 'remains unchanged,'),
+        # Flagged AI Bigrams & Formal Cadence Purges
+        (r'\bdrive\s+long-term\s+business\s+growth\s+without\s+relying\s+solely?\s+on\s+paid\s+advertising\b', 'grow our business steadily without paying for ads'),
+        (r'\bcontinuous\s+testing\s+to\s+stay\s+up\s+to\s+date\b', 'testing things regularly to stay ahead'),
+        (r'\brefine\s+our\s+optimization\s+strategies\s+over\s+time\b', 'tweak our plan over time'),
+        (r'\bsince\s+search\s+engine\s+algorithms\s+(?:are\s+constantly\s+evolving|continue\s+to\s+evolve)\b', 'as search algorithms change all the time'),
+        (r'\bthe\s+quality\s+of\s+our\s+content,\s+and\s+how\s+easy\s+it\'s\s+for\s+users\s+to\s+navigate\b', 'good content and an easy-to-use site'),
+        (r'\bmeasurably\b', 'clearly'),
+        (r'\bdemonstrably\b', 'really'),
+        (r'\bmeaningfully\b', 'actually'),
+        (r'\balgorithmic\s+bias\b', 'system bias'),
+        (r'\bstructured\s+data\s+markup\b', 'site data tags'),
+        (r'\boptimization\s+strategies\b', 'plans and tweaks'),
     ]
 
     for pattern, replacement in cliches:
@@ -454,15 +466,13 @@ _FINAL_MARKER_RE = re.compile(
 def extract_final_output(text: str) -> str:
     """
     Handles models (like Qwen3) that output inline thinking without <think> tags.
-    Pattern: clean prose -> 'This is better. Let's check...' -> prose -> 'Let's try:' -> final prose.
-
-    Strategy:
-    1. If no inline thinking detected, return as-is.
-    2. If a 'Let's try:' / '*Heavy Rewrite:*' marker exists, take text after the LAST one.
-    3. If thinking starts after the first paragraph, take only the leading clean paragraphs.
-    4. Fallback: take the last long prose paragraph that doesn't look like thinking.
+    Preserves ALL paragraphs of the output text.
     """
     stripped = text.strip()
+
+    # If no inline thinking indicators exist at all, return full text
+    if not _INLINE_THINKING_RE.search(stripped):
+        return stripped
 
     # Strategy 0: Split on draft markers like "Let's try:", "Let's rewrite carefully:", "I'll change to:"
     custom_chunks = re.split(r'(?i)(?:Let\'s try|Let\'s rewrite carefully|Let\'s draft|I\'ll change to|Here is the rewrite|Full draft)[:\s\n]+', stripped)
@@ -479,30 +489,17 @@ def extract_final_output(text: str) -> str:
         if candidate and len(candidate) > 30 and not _INLINE_THINKING_RE.match(candidate):
             return candidate
 
-    # Strategy 2: take paragraphs until thinking commentary begins
+    # Strategy 2: take all clean paragraphs before any thinking block starts
     paragraphs = re.split(r'\n\s*\n', stripped)
     clean_paras = []
     for para in paragraphs:
         first_line = para.strip().split('\n')[0]
         if _INLINE_THINKING_RE.match(para.strip()) or _INLINE_THINKING_RE.match(first_line):
             break
-        clean_paras.append(para)
+        clean_paras.append(para.strip())
 
     if clean_paras:
-        result = '\n\n'.join(clean_paras).strip()
-        if len(result) < len(stripped) - 20:
-            return result
-
-    # Strategy 3: last long prose paragraph that looks clean
-    prose_candidates = [
-        p.strip() for p in paragraphs
-        if p.strip()
-        and len(p.strip()) > 40
-        and not _INLINE_THINKING_RE.match(p.strip())
-        and not re.match(r'^[*_]', p.strip())
-    ]
-    if prose_candidates:
-        return prose_candidates[-1]
+        return '\n\n'.join(clean_paras).strip()
 
     return stripped
 
@@ -656,46 +653,52 @@ def vary_sentence_openers(text: str, intensity: float = 0.5) -> str:
     return _process_per_paragraph(text, _vary_paragraph)
 
 
-def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 15) -> str:
+def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 12) -> str:
     """
-    Mandatory sentence length cap: splits any sentence over max_words (e.g. 15 words)
+    Mandatory sentence length cap: recursively splits any sentence over max_words (12 words)
     at logical boundaries to defeat the ~29-word average AI detection pattern.
     """
     sentences = _split_sentences(paragraph)
     result = []
-    for sent in sentences:
+
+    def _split_one(sent: str):
         words = sent.split()
         if len(words) <= max_words:
             result.append(sent)
-            continue
-        
-        # Find split points around conjunctions or commas near midpoint
+            return
+
         mid = len(words) // 2
         split_index = -1
-        for i in range(min(mid + 3, len(words) - 3), max(mid - 4, 3), -1):
+        for i in range(min(mid + 3, len(words) - 2), max(mid - 3, 2), -1):
             w = words[i].lower().rstrip(',;')
-            if w in ('and', 'but', 'while', 'because', 'which', 'that', 'where', 'as', 'to', 'for', 'when', 'so'):
+            if w in ('and', 'but', 'while', 'because', 'which', 'that', 'where', 'as', 'to', 'for', 'when', 'so', 'with', 'or', 'in'):
                 split_index = i
                 break
             if words[i].endswith(','):
                 split_index = i + 1
                 break
 
-        if split_index > 3 and split_index < len(words) - 3:
+        if split_index == -1 and len(words) > max_words:
+            split_index = mid
+
+        if split_index > 1 and split_index < len(words) - 1:
             part1 = " ".join(words[:split_index]).rstrip(',;') + "."
             remainder_words = words[split_index:]
-            if remainder_words[0].lower().rstrip(',') in ('and', 'but', 'which', 'that', 'while', 'so'):
+            if remainder_words[0].lower().rstrip(',') in ('and', 'but', 'which', 'that', 'while', 'so', 'to', 'or'):
                 remainder_words = remainder_words[1:]
             if remainder_words:
                 remainder_words[0] = remainder_words[0].capitalize()
                 part2 = " ".join(remainder_words)
-                result.append(part1)
-                result.append(part2)
+                _split_one(part1)
+                _split_one(part2)
             else:
                 result.append(part1)
         else:
             result.append(sent)
-            
+
+    for sent in sentences:
+        _split_one(sent)
+
     return _join_sentences(result)
 
 
@@ -738,13 +741,14 @@ def clean_parenthetical_word_counts(text: str) -> str:
     return text.strip()
 
 
-def humanize(text: str, intensity: float = 0.5) -> str:
+def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
     """
     Main humanization function. Applies all post-processing steps.
 
     Args:
         text: The LLM-rewritten text
         intensity: 0.0 = minimal changes, 1.0 = aggressive humanization
+        original_text: Optional original input text to enforce paragraph parity
 
     Returns:
         Text with human-like imperfections introduced
@@ -783,18 +787,18 @@ def humanize(text: str, intensity: float = 0.5) -> str:
         text = inject_casual_starters(text, rate=0.06 * intensity)
 
     # Step 6: Vary punctuation
-    text = vary_punctuation(text, rate=0.1 * intensity)
+    text = vary_punctuation(text, rate=0.04 * intensity)
 
     # Step 6b: Introduce vocabulary diversity (synonym swapping) to break generic language
-    text = introduce_vocabulary_diversity(text, rate=0.20 * intensity)
+    text = introduce_vocabulary_diversity(text, rate=0.10 * intensity)
 
-    # Step 6c: Inject subtle opinion/stance markers to break neutral tone
-    if intensity > 0.3:
-        text = inject_opinion_markers(text, rate=0.08 * intensity)
+    # Step 6c: Inject subtle opinion/stance markers to break neutral tone (minimal to preserve word count)
+    if intensity > 0.6:
+        text = inject_opinion_markers(text, rate=0.02 * intensity)
 
     # Step 6d: Randomize sentence syntax patterns (inversions, pivots, fragments, questions)
-    if intensity > 0.25:
-        text = randomize_syntax_patterns(text, intensity=intensity)
+    if intensity > 0.6:
+        text = randomize_syntax_patterns(text, intensity=0.15)
 
     # Step 7: Absolute check: eliminate all em-dashes, en-dashes, and spaced hyphens/dashes
     text = text.replace("\u2014", ", ")
@@ -802,11 +806,18 @@ def humanize(text: str, intensity: float = 0.5) -> str:
     text = text.replace(" - ", ", ")
     text = text.replace(" -- ", ", ")
 
-    # Step 8: FINAL MANDATORY CHECK - Cap every sentence strictly under 12-14 words
+    # Step 8: Cap every sentence strictly under 12 words
     text = enforce_short_sentences(text, max_words=12)
 
+    # Step 9: Enforce exact paragraph structure matching original input
+    if original_text:
+        orig_paras = [p.strip() for p in original_text.strip().split('\n\n') if p.strip()]
+        if len(orig_paras) <= 1:
+            clean_single = re.sub(r'\s*\n+\s*', ' ', text.strip())
+            text = re.sub(r'  +', ' ', clean_single)
+
     # Final cleanup
-    return text
+    return text.strip()
 
 
 def inject_opinion_markers(text: str, rate: float = 0.08) -> str:

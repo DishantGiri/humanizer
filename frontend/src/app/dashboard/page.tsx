@@ -654,9 +654,15 @@ export default function DashboardPage() {
                 {outputText && !loading && (
                   <div className="card text-panel-box text-panel-box--output animate-fadeIn">
                     <div className="card-header-bar">
-                      <span className="card-header-bar__title">
+                      <span className="card-header-bar__title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <Check size={16} className="text-emerald" />
                         Humanized Result
+                        <div className="counter-chips" style={{ marginLeft: '4px' }}>
+                          <span className="chip" style={{ color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                            {outputText.trim() ? outputText.trim().split(/\s+/).length : 0} words
+                          </span>
+                          <span className="chip">{outputText.length} chars</span>
+                        </div>
                       </span>
                       <div className="card-header-actions">
                         <button
@@ -695,6 +701,15 @@ export default function DashboardPage() {
 
                     <div className="output-text-content">
                       <TypewriterText text={outputText} speed={12} />
+                    </div>
+
+                    <div className="card-footer-bar">
+                      <div className="counter-chips">
+                        <span className="chip" style={{ color: '#10b981', fontWeight: 600 }}>
+                          {outputText.trim() ? outputText.trim().split(/\s+/).length : 0} words
+                        </span>
+                        <span className="chip">{outputText.length} chars</span>
+                      </div>
                     </div>
 
                     <div style={{ marginTop: 'var(--space-md)' }}>

@@ -142,7 +142,7 @@ async def rewrite_text(
 
         # Step 3: Fast Python Post-Processing & Anti-AI Humanization (< 5ms)
         intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
-        rewritten = humanize(rewritten, intensity=intensity)
+        rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
 
         meaning_preserved = True
         meaning_reason = "Factual accuracy preserved."
