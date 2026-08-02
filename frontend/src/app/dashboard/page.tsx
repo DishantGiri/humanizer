@@ -694,21 +694,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="output-text-content">
-                      {showHighlight && result?.word_diff && result.word_diff.length > 0 ? (
-                        result.word_diff.map((item, idx) => {
-                          if (item.type === 'delete') return null;
-                          if (item.type === 'insert') {
-                            return (
-                              <mark key={idx} className="highlight-change-green">
-                                {item.value}
-                              </mark>
-                            );
-                          }
-                          return <span key={idx}>{item.value}</span>;
-                        })
-                      ) : (
-                        <TypewriterText text={outputText} speed={18} />
-                      )}
+                      <TypewriterText text={outputText} speed={12} />
                     </div>
 
                     <div style={{ marginTop: 'var(--space-md)' }}>
