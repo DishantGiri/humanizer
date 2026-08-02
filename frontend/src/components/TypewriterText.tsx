@@ -38,7 +38,17 @@ export default function TypewriterText({ text, speed = 12, onComplete }: Typewri
   }, [text, speed, onComplete]);
 
   return (
-    <span style={{ position: 'relative', whiteSpace: 'pre-wrap', lineHeight: '1.75' }}>
+    <span
+      style={{
+        position: 'relative',
+        whiteSpace: 'pre-wrap',
+        fontFamily: 'var(--font-body, "Inter", sans-serif)',
+        fontSize: '0.95rem',
+        lineHeight: '1.7',
+        color: 'var(--text-primary, #F8FAFC)',
+        display: 'block',
+      }}
+    >
       {displayedText}
       {isTyping && (
         <span

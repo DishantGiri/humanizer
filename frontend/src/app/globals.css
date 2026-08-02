@@ -2424,7 +2424,7 @@ body::before {
 .output-text-content {
   padding: var(--space-md);
   font-size: 0.95rem;
-  line-height: 1.8;
+  line-height: 1.7;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
