@@ -45,6 +45,7 @@ export default function LandingHero({
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoIsLoading, setDemoIsLoading] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annually'>('monthly');
 
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -726,164 +727,194 @@ export default function LandingHero({
       </section>
 
       {/* ── Landing Page Pricing Section ─────────────────────────────────── */}
-      <section className="landing-pricing-section" id="pricing">
-        <div className="landing-pricing-section__container">
-          <div className="landing-pricing-section__header">
-            <h2 className="landing-pricing-section__title">Pricing & Plans</h2>
-            <p className="landing-pricing-section__subtitle">
-              Choose the perfect plan for your writing needs. Powered by proprietary CloakWriter neural rewriting engines.
+      <section className="landing-pricing-section" id="pricing" style={{ padding: '60px 20px' }}>
+        <div className="pricing-section-container">
+          
+          {/* Header & Billing Cycle Toggle */}
+          <div className="pricing-header">
+            <h2 className="pricing-header-title">Flexible Plans for Every Writer</h2>
+            <p className="pricing-header-subtitle">
+              Choose the plan that fits your writing workflow. Powered by proprietary CloakWriter neural rewriting models.
             </p>
+
+            {/* Toggle Capsule */}
+            <div className="pricing-billing-toggle-container">
+              <button
+                type="button"
+                className={`pricing-billing-toggle-btn ${billingCycle === 'monthly' ? 'pricing-billing-toggle-btn--active' : ''}`}
+                onClick={() => setBillingCycle('monthly')}
+              >
+                Monthly
+              </button>
+              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className={`pricing-billing-toggle-btn ${billingCycle === 'annually' ? 'pricing-billing-toggle-btn--active' : ''}`}
+                  onClick={() => setBillingCycle('annually')}
+                >
+                  Annually
+                </button>
+                <span className="pricing-billing-badge">Save 25%</span>
+              </div>
+            </div>
           </div>
 
-          <div className="landing-pricing-grid">
+          {/* 4 Cards Grid */}
+          <div className="pricing-cards-grid">
+            
             {/* Plan 1: Free ($0) */}
-            <div className="landing-pricing-card">
-              <div className="landing-pricing-card__header">
-                <h3 className="landing-pricing-card__name">Free</h3>
-                <div className="landing-pricing-card__price">
-                  <span className="amount">$0</span>
-                  <span className="period">/month</span>
+            <div className="pricing-card">
+              <div>
+                <h3 className="pricing-card-title">Free</h3>
+                <div className="pricing-card-price-container">
+                  <span className="pricing-card-price-amount">$0</span>
+                  <span className="pricing-card-price-period">Per month</span>
                 </div>
-                <div className="landing-pricing-model-tag">CloakWriter Lite Engine</div>
-              </div>
+                <p className="pricing-card-description">
+                  Paste Any Text Below To Instantly Check How Likely
+                </p>
 
-              <div className="landing-pricing-card__features">
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>2 humanizations / day</span>
+                <div style={{ marginBottom: '28px' }}>
+                  <Link href="/register" className="pricing-btn-outlined" style={{ display: 'block', textDecoration: 'none' }}>
+                    Try It for Free
+                  </Link>
                 </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>250 words per input</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Standard Bypass Pipeline</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Basic Processing Speed</span>
-                </div>
-              </div>
 
-              <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Get Started Free
-              </Link>
+                <ul className="pricing-features-list">
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 2 humanizations / day
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 250 words per input
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Standard Bypass Pipeline
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Basic Processing Speed
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            {/* Plan 2: Starter ($1) */}
-            <div className="landing-pricing-card">
-              <div className="landing-pricing-card__header">
-                <h3 className="landing-pricing-card__name">Starter</h3>
-                <div className="landing-pricing-card__price">
-                  <span className="amount">$1</span>
-                  <span className="period">/month</span>
+            {/* Plan 2: Plus Plan ($1) - Popular */}
+            <div className="pricing-card pricing-card--popular">
+              <div className="pricing-popular-badge">Popular</div>
+              <div>
+                <h3 className="pricing-card-title">Plus Plan</h3>
+                <div className="pricing-card-price-container">
+                  <span className="pricing-card-price-amount">
+                    {billingCycle === 'annually' ? '$0.75' : '$1'}
+                  </span>
+                  <span className="pricing-card-price-period">Per month</span>
                 </div>
-                <div className="landing-pricing-model-tag">CloakWriter SpeedEngine v1.5</div>
-              </div>
+                <p className="pricing-card-description">
+                  Paste Any Text Below To Instantly Check How Likely
+                </p>
 
-              <div className="landing-pricing-card__features">
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>10 humanizations / day</span>
+                <div style={{ marginBottom: '28px' }}>
+                  <Link href="/register" className="pricing-btn-white" style={{ display: 'block', textDecoration: 'none' }}>
+                    Purchase Now
+                  </Link>
                 </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>600 words per input</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Enhanced Paraphrase Quality</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Fast Processing Speed</span>
-                </div>
-              </div>
 
-              <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Choose Starter ($1)
-              </Link>
+                <ul className="pricing-features-list">
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 10 humanizations / day
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 600 words per input
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Enhanced Paraphrase Quality
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Fast Processing Speed
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            {/* Plan 3: Plus ($2) */}
-            <div className="landing-pricing-card landing-pricing-card--popular">
-              <div className="landing-pricing-card__popular-badge">Popular</div>
-              <div className="landing-pricing-card__header">
-                <h3 className="landing-pricing-card__name">Plus</h3>
-                <div className="landing-pricing-card__price">
-                  <span className="amount">$2</span>
-                  <span className="period">/month</span>
+            {/* Plan 3: Pro Plan ($2) */}
+            <div className="pricing-card">
+              <div>
+                <h3 className="pricing-card-title">Pro Plan</h3>
+                <div className="pricing-card-price-container">
+                  <span className="pricing-card-price-amount">
+                    {billingCycle === 'annually' ? '$1.50' : '$2'}
+                  </span>
+                  <span className="pricing-card-price-period">Per month</span>
                 </div>
-                <div className="landing-pricing-model-tag">CloakWriter Turbo Core v2.5</div>
-              </div>
+                <p className="pricing-card-description">
+                  Paste Any Text Below To Instantly Check How Likely
+                </p>
 
-              <div className="landing-pricing-card__features">
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>30 humanizations / day</span>
+                <div style={{ marginBottom: '28px' }}>
+                  <Link href="/register" className="pricing-btn-dark" style={{ display: 'block', textDecoration: 'none' }}>
+                    Purchase Now
+                  </Link>
                 </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>1,200 words per input</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Advanced Humanization Engine</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>High AI Detector Bypass Rate</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Tone & Flow Controls</span>
-                </div>
-              </div>
 
-              <Link href="/register" className="landing-pricing-card__btn landing-pricing-card__btn--popular" style={{ textDecoration: 'none' }}>
-                Choose Plus ($2)
-              </Link>
+                <ul className="pricing-features-list">
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 30 humanization / day
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 1,200 words per input
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Advanced Humanization Engine
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> High AI Detector Bypass Rate
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Tone & Flow Controls
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            {/* Plan 4: Pro ($5) */}
-            <div className="landing-pricing-card">
-              <div className="landing-pricing-card__header">
-                <h3 className="landing-pricing-card__name">Pro</h3>
-                <div className="landing-pricing-card__price">
-                  <span className="amount">$5</span>
-                  <span className="period">/month</span>
+            {/* Plan 4: Enterprise ($5) */}
+            <div className="pricing-card">
+              <div>
+                <h3 className="pricing-card-title">Enterprise</h3>
+                <div className="pricing-card-price-container">
+                  <span className="pricing-card-price-amount">
+                    {billingCycle === 'annually' ? '$3.75' : '$5'}
+                  </span>
+                  <span className="pricing-card-price-period">Per month</span>
                 </div>
-                <div className="landing-pricing-model-tag">CloakWriter Ultra DeepRewrite v3.0</div>
-              </div>
+                <p className="pricing-card-description">
+                  Paste Any Text Below To Instantly Check How Likely
+                </p>
 
-              <div className="landing-pricing-card__features">
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>80 humanizations / day</span>
+                <div style={{ marginBottom: '28px' }}>
+                  <Link href="/register" className="pricing-btn-dark" style={{ display: 'block', textDecoration: 'none' }}>
+                    Purchase Now
+                  </Link>
                 </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>2,500 words per input</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Maximum Detection Bypass</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Priority Processing Queue</span>
-                </div>
-                <div className="landing-pricing-feature">
-                  <Check size={16} className="feature-check" />
-                  <span>Full Export Options</span>
-                </div>
-              </div>
 
-              <Link href="/register" className="landing-pricing-card__btn" style={{ textDecoration: 'none' }}>
-                Choose Pro ($5)
-              </Link>
+                <ul className="pricing-features-list">
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 80 Humanizations / day
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> 2,500 words per input
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Maximum Detection Bypass
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Priority Processing Queue
+                  </li>
+                  <li className="pricing-feature-item">
+                    <Check size={16} /> Full Export Options
+                  </li>
+                </ul>
+              </div>
             </div>
+
           </div>
         </div>
       </section>

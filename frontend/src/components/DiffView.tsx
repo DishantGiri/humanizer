@@ -24,8 +24,8 @@ export default function DiffView({ wordDiff, original, rewritten }: DiffViewProp
           className={`diff-toggle__btn ${showDiff ? 'diff-toggle__btn--active' : ''}`}
           onClick={() => setShowDiff(!showDiff)}
         >
-          {showDiff ? <X size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> : <ArrowLeftRight size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />}
-          {showDiff ? 'Hide Changes' : 'Show Changes'}
+          {showDiff ? <X size={14} /> : <ArrowLeftRight size={14} />}
+          <span>{showDiff ? 'Hide Detailed Diff' : 'Show Detailed Diff'}</span>
         </button>
       </div>
 

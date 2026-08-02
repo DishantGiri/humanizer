@@ -38,6 +38,7 @@ import AccountView from '@/components/AccountView';
 import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
+import LottieLoader from '@/components/LottieLoader';
 import {
   rewriteText,
   getCurrentUser,
@@ -338,34 +339,7 @@ export default function DashboardPage() {
 
   // Render seamless dark loader while verifying auth on refresh
   if (authChecking) {
-    return (
-      <div
-        suppressHydrationWarning
-        style={{
-          minHeight: '100vh',
-          backgroundColor: '#090A0F',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div suppressHydrationWarning style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <Logo size="md" theme="dark" />
-          <div
-            suppressHydrationWarning
-            style={{
-              width: '28px',
-              height: '28px',
-              border: '3px solid rgba(56, 189, 248, 0.15)',
-              borderTopColor: '#38bdf8',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }}
-          />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      </div>
-    );
+    return <LottieLoader message="Verifying authentication..." size={160} />;
   }
 
   if (!user) {

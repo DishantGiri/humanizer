@@ -23,6 +23,7 @@ export default function PricingView({
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annually'>('monthly');
 
   const currentPlan = user?.plan || 'free';
 
@@ -135,7 +136,7 @@ export default function PricingView({
     : '';
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+    <div className="pricing-section-container">
 
       {/* ── Payment Modal ──────────────────────────────────────────────── */}
       {paymentModalPlan && (
@@ -335,368 +336,228 @@ export default function PricingView({
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ textAlign: 'center' }}>
-        <span
-          style={{
-            fontSize: '0.8rem',
-            fontWeight: 700,
-            color: '#38bdf8',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            display: 'inline-block',
-            marginBottom: '8px',
-          }}
-        >
-          CLOAKWRITER REWRITING ENGINES
-        </span>
-        <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: '8px' }}>
-          Flexible Plans for Every Writer
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto' }}>
+      {/* Header & Billing Cycle Toggle */}
+      <div className="pricing-header">
+        <h2 className="pricing-header-title">Flexible Plans for Every Writer</h2>
+        <p className="pricing-header-subtitle">
           Choose the plan that fits your writing workflow. Powered by proprietary CloakWriter neural rewriting models.
         </p>
+
+        {/* Toggle Capsule */}
+        <div className="pricing-billing-toggle-container">
+          <button
+            type="button"
+            className={`pricing-billing-toggle-btn ${billingCycle === 'monthly' ? 'pricing-billing-toggle-btn--active' : ''}`}
+            onClick={() => setBillingCycle('monthly')}
+          >
+            Monthly
+          </button>
+          <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`pricing-billing-toggle-btn ${billingCycle === 'annually' ? 'pricing-billing-toggle-btn--active' : ''}`}
+              onClick={() => setBillingCycle('annually')}
+            >
+              Annually
+            </button>
+            <span className="pricing-billing-badge">Save 25%</span>
+          </div>
+        </div>
       </div>
 
-
-
-      {/* Pricing Cards Grid (4 Plans) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', paddingTop: '16px' }}>
+      {/* 4 Cards Grid */}
+      <div className="pricing-cards-grid">
         
         {/* Plan 1: Free ($0) */}
-        <div
-          className="card"
-          style={{
-            padding: '28px 24px',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--bg-card)',
-          }}
-        >
+        <div className="pricing-card">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Sparkles size={18} color="var(--text-primary)" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Free</h3>
+            <h3 className="pricing-card-title">Free</h3>
+            <div className="pricing-card-price-container">
+              <span className="pricing-card-price-amount">$0</span>
+              <span className="pricing-card-price-period">Per month</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$0</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
-            </div>
-            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              CloakWriter Lite Engine
+            <p className="pricing-card-description">
+              Paste Any Text Below To Instantly Check How Likely
+            </p>
+
+            <div style={{ marginBottom: '28px' }}>
+              {currentPlan === 'free' ? (
+                <div className="pricing-btn-active">
+                  ✓ Current Active Plan
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="pricing-btn-outlined"
+                  onClick={() => openPaymentModal('free')}
+                >
+                  Try It for Free
+                </button>
+              )}
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 2 humanizations / day
+            <ul className="pricing-features-list">
+              <li className="pricing-feature-item">
+                <Check size={16} /> 2 humanizations / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 250 words per input
+              <li className="pricing-feature-item">
+                <Check size={16} /> 250 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Standard Bypass Pipeline
+              <li className="pricing-feature-item">
+                <Check size={16} /> Standard Bypass Pipeline
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Basic Processing Speed
+              <li className="pricing-feature-item">
+                <Check size={16} /> Basic Processing Speed
               </li>
             </ul>
-          </div>
-
-          <div style={{ marginTop: '28px' }}>
-            {currentPlan === 'free' ? (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.06)',
-                  textAlign: 'center',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Current Active Plan
-              </div>
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  background: 'var(--border-subtle)',
-                  textAlign: 'center',
-                  fontWeight: 500,
-                  fontSize: '0.85rem',
-                  color: 'var(--text-tertiary)',
-                }}
-              >
-                Included
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Plan 2: Starter ($1) */}
-        <div
-          className="card"
-          style={{
-            padding: '28px 24px',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--bg-card)',
-          }}
-        >
+        {/* Plan 2: Plus Plan ($1) - Popular */}
+        <div className="pricing-card pricing-card--popular">
+          <div className="pricing-popular-badge">Popular</div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Zap size={18} color="#38bdf8" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Starter</h3>
+            <h3 className="pricing-card-title">Plus Plan</h3>
+            <div className="pricing-card-price-container">
+              <span className="pricing-card-price-amount">
+                {billingCycle === 'annually' ? '$0.75' : '$1'}
+              </span>
+              <span className="pricing-card-price-period">Per month</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$1</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
-            </div>
-            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              CloakWriter SpeedEngine v1.5
+            <p className="pricing-card-description">
+              Paste Any Text Below To Instantly Check How Likely
+            </p>
+
+            <div style={{ marginBottom: '28px' }}>
+              {currentPlan === 'starter' ? (
+                <div className="pricing-btn-active">
+                  ✓ Current Active Plan
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="pricing-btn-white"
+                  onClick={() => openPaymentModal('starter')}
+                >
+                  Purchase Now
+                </button>
+              )}
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 10 humanizations / day
+            <ul className="pricing-features-list">
+              <li className="pricing-feature-item">
+                <Check size={16} /> 10 humanizations / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 600 words per input
+              <li className="pricing-feature-item">
+                <Check size={16} /> 600 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Enhanced Paraphrase Quality
+              <li className="pricing-feature-item">
+                <Check size={16} /> Enhanced Paraphrase Quality
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Fast Processing Speed
+              <li className="pricing-feature-item">
+                <Check size={16} /> Fast Processing Speed
               </li>
             </ul>
-          </div>
-
-          <div style={{ marginTop: '28px' }}>
-            {currentPlan === 'starter' ? (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
-                  color: '#38bdf8',
-                }}
-              >
-                ✓ Active Plan
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="action-btn-solid"
-                onClick={() => openPaymentModal('starter')}
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  padding: '12px',
-                  fontSize: '0.88rem',
-                }}
-              >
-                Select Starter ($1)
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Plan 3: Plus ($2) - Popular */}
-        <div
-          className="card"
-          style={{
-            padding: '28px 24px',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            background: 'var(--bg-card)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            boxShadow: '0 8px 30px rgba(56, 189, 248, 0.15)',
-            position: 'relative',
-            overflow: 'visible',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '-12px',
-              right: '20px',
-              background: '#38bdf8',
-              color: '#0f172a',
-              fontSize: '0.7rem',
-              fontWeight: 800,
-              padding: '4px 12px',
-              borderRadius: '999px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              boxShadow: '0 4px 12px rgba(56, 189, 248, 0.4)',
-              zIndex: 2,
-            }}
-          >
-            POPULAR
-          </div>
-
+        {/* Plan 3: Pro Plan ($2) */}
+        <div className="pricing-card">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Shield size={18} color="#38bdf8" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Plus</h3>
+            <h3 className="pricing-card-title">Pro Plan</h3>
+            <div className="pricing-card-price-container">
+              <span className="pricing-card-price-amount">
+                {billingCycle === 'annually' ? '$1.50' : '$2'}
+              </span>
+              <span className="pricing-card-price-period">Per month</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>$2</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
-            </div>
-            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              CloakWriter Turbo Core v2.5
+            <p className="pricing-card-description">
+              Paste Any Text Below To Instantly Check How Likely
+            </p>
+
+            <div style={{ marginBottom: '28px' }}>
+              {currentPlan === 'plus' ? (
+                <div className="pricing-btn-active">
+                  ✓ Current Active Plan
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="pricing-btn-dark"
+                  onClick={() => openPaymentModal('plus')}
+                >
+                  Purchase Now
+                </button>
+              )}
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 30 humanizations / day
+            <ul className="pricing-features-list">
+              <li className="pricing-feature-item">
+                <Check size={16} /> 30 humanization / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 1,200 words per input
+              <li className="pricing-feature-item">
+                <Check size={16} /> 1,200 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Advanced Humanization Engine
+              <li className="pricing-feature-item">
+                <Check size={16} /> Advanced Humanization Engine
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> High AI Detector Bypass Rate
+              <li className="pricing-feature-item">
+                <Check size={16} /> High AI Detector Bypass Rate
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Tone & Flow Controls
+              <li className="pricing-feature-item">
+                <Check size={16} /> Tone & Flow Controls
               </li>
             </ul>
-          </div>
-
-          <div style={{ marginTop: '28px' }}>
-            {currentPlan === 'plus' ? (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
-                  color: '#38bdf8',
-                }}
-              >
-                ✓ Active Plan
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="action-btn-solid"
-                onClick={() => openPaymentModal('plus')}
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  padding: '12px',
-                  fontSize: '0.88rem',
-                }}
-              >
-                Choose Plus ($2) <ArrowRight size={15} />
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Plan 4: Pro ($5) */}
-        <div
-          className="card"
-          style={{
-            padding: '28px 24px',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--bg-card)',
-          }}
-        >
+        {/* Plan 4: Enterprise ($5) */}
+        <div className="pricing-card">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Crown size={18} color="#f59e0b" />
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Pro</h3>
+            <h3 className="pricing-card-title">Enterprise</h3>
+            <div className="pricing-card-price-container">
+              <span className="pricing-card-price-amount">
+                {billingCycle === 'annually' ? '$3.75' : '$5'}
+              </span>
+              <span className="pricing-card-price-period">Per month</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 800 }}>$5</span>
-              <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>/ month</span>
-            </div>
-            <div className="landing-pricing-model-tag" style={{ marginBottom: '20px' }}>
-              CloakWriter Ultra DeepRewrite v3.0
+            <p className="pricing-card-description">
+              Paste Any Text Below To Instantly Check How Likely
+            </p>
+
+            <div style={{ marginBottom: '28px' }}>
+              {currentPlan === 'pro' ? (
+                <div className="pricing-btn-active">
+                  ✓ Current Active Plan
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="pricing-btn-dark"
+                  onClick={() => openPaymentModal('pro')}
+                >
+                  Purchase Now
+                </button>
+              )}
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 80 humanizations / day
+            <ul className="pricing-features-list">
+              <li className="pricing-feature-item">
+                <Check size={16} /> 80 Humanizations / day
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> 2,500 words per input
+              <li className="pricing-feature-item">
+                <Check size={16} /> 2,500 words per input
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Maximum Detection Bypass
+              <li className="pricing-feature-item">
+                <Check size={16} /> Maximum Detection Bypass
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Priority Processing Queue
+              <li className="pricing-feature-item">
+                <Check size={16} /> Priority Processing Queue
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <Check size={16} color="#34d399" /> Full Export Options
+              <li className="pricing-feature-item">
+                <Check size={16} /> Full Export Options
               </li>
             </ul>
-          </div>
-
-          <div style={{ marginTop: '28px' }}>
-            {currentPlan === 'pro' ? (
-              <div
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  background: 'rgba(245, 158, 11, 0.12)',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
-                  color: '#f59e0b',
-                }}
-              >
-                ✓ Active Pro Plan
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="action-btn-solid"
-                onClick={() => openPaymentModal('pro')}
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  padding: '12px',
-                  fontSize: '0.88rem',
-                }}
-              >
-                Upgrade to Pro ($5) <ArrowRight size={15} />
-              </button>
-            )}
           </div>
         </div>
 

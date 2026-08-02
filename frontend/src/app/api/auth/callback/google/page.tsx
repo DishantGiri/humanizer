@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import LottieLoader from '@/components/LottieLoader';
 import { googleAuthUser } from '@/lib/api';
 
 export default function GoogleCallbackPage() {
@@ -43,28 +44,7 @@ export default function GoogleCallbackPage() {
       });
   }, [router]);
 
-  // Minimal transparent loading — no ugly card UI
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'var(--bg-primary, #090a0f)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          width: '32px',
-          height: '32px',
-          border: '3px solid rgba(56, 189, 248, 0.15)',
-          borderTopColor: '#38bdf8',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }}
-      />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+  return <LottieLoader message="Signing in with Google..." size={160} />;
 }
+
+
