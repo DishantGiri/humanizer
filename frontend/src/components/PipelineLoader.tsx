@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import {
   ScanSearch,
   Layers,
@@ -170,7 +171,17 @@ export default function PipelineLoader({
           <h4 className="pipeline-loader__active-title">{currentStage.title}</h4>
           <p className="pipeline-loader__active-subtitle">{currentStage.subtitle}</p>
         </div>
-        <Loader2 size={18} className="pipeline-loader__spinner" />
+        <div style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Image
+            src="/loading.svg"
+            alt="Humanizing..."
+            width={42}
+            height={42}
+            unoptimized
+            priority
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
       </div>
 
       {/* Step List Overview */}

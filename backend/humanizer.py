@@ -350,6 +350,31 @@ def remove_ai_cliches(text: str) -> str:
         (r'\bcutting\s+costs\b', 'saving money'),
         (r'\bmake\s+informed\s+decisions\b', 'make smart choices'),
         (r'\bmake\s+decisions\s+way\s+more\s+effective\b', 'make much better choices'),
+        # Textbook & Heavy AI patterns
+        (r'\b([A-Z][a-z]+(?:\s+[a-z]+)?)\s+is\s+a\s+dynamic\s+discipline\s+that\b', r'\1'),
+        (r'\bsoftware\s+development\s+is\s+a\s+dynamic\s+discipline\s+that\b', 'building software'),
+        (r'\bmodern\s+development\s+practices\s+emphasize\b', 'today\'s dev teams focus on'),
+        (r'\bversion\s+control\s+systems\b', 'git and version control'),
+        (r'\bcloud\s+infrastructure\b', 'cloud setups'),
+        (r'\bagile\s+methodologies\b', 'agile methods'),
+        (r'\bincremental\s+improvements\b', 'small updates'),
+        (r'\btechnical\s+expertise\b', 'tech skills'),
+        (r'\buser-focused\s+design\b', 'user design'),
+        (r'\bcommitment\s+to\s+continuous\s+learning\b', 'focus on constant learning'),
+        (r'\blogical\s+problem-solving\b', 'solving problems'),
+        (r'\breal-world\s+challenges\b', 'real problems'),
+        (r'\bclean\s+architecture,\s+maintainable\s+code,\s+automated\s+testing,\s+and\s+continuous\s+integration\b', 'clean code, auto tests, and steady builds'),
+        # Additional AI Bigrams & Signal Words
+        (r'\bgenuine\s+collaboration\b', 'real teamwork'),
+        (r'\buser\s+needs\s+front\s+and\s+center\b', 'what users need first'),
+        (r'\bnever\s+stopping\s+the\s+learning\s+process\b', 'always learning'),
+        (r'\bkeep\s+the\s+chaos\s+at\b', 'keep things organized'),
+        (r'\bmanageable\s+chunks\b', 'small steps'),
+        (r'\bturn\s+into\s+major\s+headaches\b', 'cause big problems'),
+        (r'\bshifting\s+the\s+end\s+goal\b', 'changing our goal'),
+        (r'\bone\s+step\s+at\s+a\s+time\b', 'step by step'),
+        (r'\bat\s+least\s+in\s+most\s+cases\b', ''),
+        (r'\bpretty\s+much\b', ''),
     ]
 
     for pattern, replacement in cliches:
@@ -376,14 +401,21 @@ _INLINE_THINKING_RE = re.compile(
     r'This (?:version|draft|attempt|rewrite|output) |'
     # Hedging / uncertainty markers
     r'Wait[,.!]|'
-    r"Hmm[,.!]|'"
+    r'Hmm[,.!]|'
+    r"Actually,?\s*(?:the\s+prompt|I|this|let's)|"
+    r'Avg\s+is\s+around|'
+    r'Average\s+is\s+|'
+    r"Thing\s+is,?\s*i\s+need|"
+    r"Now,?\s*i'll\s+deliberately|"
+    r"I'll\s+rewrite\s+to|"
+    r"I'm\s+overcomplicating|"
     # "Let's" planning phrases
-    r"Let'?s (?:check|verify|refine|adjust|review|look|re-read|reconsider|craft|try|push|think|go back|now look|now check|now try|see if)|'"
+    r"Let'?s (?:check|verify|refine|adjust|review|look|re-read|reconsider|craft|try|push|think|go back|now look|now check|now try|see if|draft|rewrite|aim)|"
     # "I ..." self-referential phrases
-    r"I'?m (?:overthinking|stuck|still too close|still getting|going in circles|looping)|'"
-    r'I need to (?:actually|really|go back|re-read|re-check|rewrite)|'
-    r"Let me (?:re-?)?(?:check|verify|refine|adjust|review|look|reconsider|craft|try|think|go|fix|re-read|actually)|'"
-    r"I'?ll (?:adjust|try|push|craft|refine|rephrase|change|deliberately|now|go with|keep trying)|'"
+    r"I'?m (?:overthinking|stuck|still too close|still getting|going in circles|looping)|"
+    r'I need to (?:actually|really|go back|re-read|re-check|rewrite|push)|'
+    r"Let me (?:re-?)?(?:check|verify|refine|adjust|review|look|reconsider|craft|try|think|go|fix|re-read|actually|draft)|"
+    r"I'?ll (?:adjust|try|push|craft|refine|rephrase|change|deliberately|now|go with|keep trying|rewrite|just write|combine|make)|"
     # Named section markers
     r'New version[: (]|'
     r'Final (?:answer|output|version|draft|rewrite|text|Polish|Attempt)(?:\s+Text)?[: ]|'
@@ -392,6 +424,7 @@ _INLINE_THINKING_RE = re.compile(
     r'Original: |'
     r'[\*_ ]*(?:Heavy Rewrite|Final Polish(?: Text)?|Another Attempt|Version \d|Refined Version|Polish Text)[\*_ ]*[: ]|'
     r'One more (?:try|attempt|version|pass)|'
+    r'->\s*(?:I\'ll|Let\'s|We|This)|'
     # Explicit check lists
     r'(?:Let me|Now|I need to) check (?:the )?(?:constraints|facts|rhythm|structure|flow|paragraph)|'
     r"I'?m (?:overthinking|stuck in a loop|going to)"
@@ -423,8 +456,12 @@ def extract_final_output(text: str) -> str:
     """
     stripped = text.strip()
 
-    if not _INLINE_THINKING_RE.search(stripped):
-        return stripped
+    # Strategy 0: Split on draft markers like "Let's try:", "Let's rewrite carefully:", "I'll change to:"
+    custom_chunks = re.split(r'(?i)(?:Let\'s try|Let\'s rewrite carefully|Let\'s draft|I\'ll change to|Here is the rewrite|Full draft)[:\s\n]+', stripped)
+    if len(custom_chunks) > 1:
+        last_block = custom_chunks[-1].strip()
+        if len(last_block) > 20 and not _INLINE_THINKING_RE.match(last_block):
+            return last_block
 
     # Strategy 1: last "Let's try:" / "*Final Polish:*" style marker
     all_markers = list(_FINAL_MARKER_RE.finditer(stripped))
@@ -611,6 +648,88 @@ def vary_sentence_openers(text: str, intensity: float = 0.5) -> str:
     return _process_per_paragraph(text, _vary_paragraph)
 
 
+def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 15) -> str:
+    """
+    Mandatory sentence length cap: splits any sentence over max_words (e.g. 15 words)
+    at logical boundaries to defeat the ~29-word average AI detection pattern.
+    """
+    sentences = _split_sentences(paragraph)
+    result = []
+    for sent in sentences:
+        words = sent.split()
+        if len(words) <= max_words:
+            result.append(sent)
+            continue
+        
+        # Find split points around conjunctions or commas near midpoint
+        mid = len(words) // 2
+        split_index = -1
+        for i in range(min(mid + 3, len(words) - 3), max(mid - 4, 3), -1):
+            w = words[i].lower().rstrip(',;')
+            if w in ('and', 'but', 'while', 'because', 'which', 'that', 'where', 'as', 'to', 'for', 'when', 'so'):
+                split_index = i
+                break
+            if words[i].endswith(','):
+                split_index = i + 1
+                break
+
+        if split_index > 3 and split_index < len(words) - 3:
+            part1 = " ".join(words[:split_index]).rstrip(',;') + "."
+            remainder_words = words[split_index:]
+            if remainder_words[0].lower().rstrip(',') in ('and', 'but', 'which', 'that', 'while', 'so'):
+                remainder_words = remainder_words[1:]
+            if remainder_words:
+                remainder_words[0] = remainder_words[0].capitalize()
+                part2 = " ".join(remainder_words)
+                result.append(part1)
+                result.append(part2)
+            else:
+                result.append(part1)
+        else:
+            result.append(sent)
+            
+    return _join_sentences(result)
+
+
+def enforce_short_sentences(text: str, max_words: int = 18) -> str:
+    """Apply strict sentence length capping across paragraphs."""
+    return _process_per_paragraph(text, lambda p: _enforce_short_sentences_paragraph(p, max_words))
+
+
+def break_textbook_starters(text: str) -> str:
+    """
+    Transforms formal textbook sentence openers that trigger AI detectors:
+    'As technologies continue...', 'Modern practices emphasize...', '[Noun] is a dynamic discipline that...'
+    """
+    patterns = [
+        (r'\bAs\s+([a-z0-9\s]+?)\s+continue(?:s)?\s+to\s+([a-z]+),?\s*', r'When \1 \2, '),
+        (r'\bModern\s+([a-z0-9\s]+?)\s+practices\s+emphasize\b', r'Today, \1 teams focus on'),
+        (r'\bModern\s+([a-z0-9\s]+?)\s+emphasize\b', r'Today, \1 focuses on'),
+        (r'\b([A-Z][a-z]+(?:\s+[a-z]+)?)\s+is\s+a\s+(?:dynamic|complex|vital|important)\s+(?:discipline|field|area)\s+that\b', r'\1'),
+    ]
+    for pattern, replacement in patterns:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
+def clean_parenthetical_word_counts(text: str) -> str:
+    """
+    Strips inline parenthetical word count annotations like '(10)', '(7)', '(6)', '(12)', '(Too definitely short)'
+    and self-talk line fragments that models emit when reasoning out loud.
+    """
+    # Strip parenthetical counts e.g. "teamwork. (10)" -> "teamwork."
+    text = re.sub(r'\s*\(\d{1,3}\)', '', text)
+    # Strip paren commentary e.g. "(Too definitely short)", "(Too long)"
+    text = re.sub(r'\s*\((?:Too\s+[a-z]+|~?\d+\s*words?|[a-z\s]+short|[a-z\s]+long)\)', '', text, flags=re.IGNORECASE)
+    # Strip stray arrows like "->"
+    text = re.sub(r'^\s*->\s*', '', text, flags=re.MULTILINE)
+    # Strip self-talk sentences that slip into paragraph text
+    text = re.sub(r'(?:I\'ll|Let\'s|Actually, the prompt|I\'m overcomplicating|Avg is around|Thing is, i need|Now, i\'ll|I\'ll change to|Let\'s aim for|Let\'s try)[^\n\.]*[\.\:\n]?', '', text, flags=re.IGNORECASE)
+    # Clean up double spaces from removals
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
+
 def humanize(text: str, intensity: float = 0.5) -> str:
     """
     Main humanization function. Applies all post-processing steps.
@@ -627,14 +746,18 @@ def humanize(text: str, intensity: float = 0.5) -> str:
 
     # Step 0a: Extract final prose from models that dump inline thinking (e.g. Qwen3)
     text = extract_final_output(text)
+    text = clean_parenthetical_word_counts(text)
 
     # Step 0b: Strip any conversational preambles and outer quotes
-
     text = strip_preamble(text)
     text = strip_outer_quotes(text)
 
-    # Step 1: Remove any AI cliches that slipped through
+    # Step 1: Remove any AI cliches and textbook starters that slipped through
     text = remove_ai_cliches(text)
+    text = break_textbook_starters(text)
+
+    # Step 1b: Enforce strict sentence length capping (max 15 words)
+    text = enforce_short_sentences(text, max_words=15)
 
     # Step 2: Replace AI transitions
     text = replace_ai_transitions(text)
@@ -768,6 +891,20 @@ SYNONYM_MAP = {
     r'\bgenerally\b': ['usually', 'typically', 'most of the time'],
     r'\bregarding\b': ['about', 'on', 'when it comes to'],
     r'\butilizing\b': ['using', 'working with'],
+    r'\binfrastructure\b': ['cloud setup', 'systems', 'tools'],
+    r'\bmethodologies\b': ['methods', 'ways', 'processes'],
+    r'\bcollaboration\b': ['teamwork', 'working together'],
+    r'\bincremental\b': ['step-by-step', 'small', 'gradual'],
+    r'\bexpertise\b': ['skills', 'know-how'],
+    r'\bcommitment\b': ['focus', 'dedication'],
+    r'\badaptation\b': ['adjusting', 'flexibility'],
+    r'\bemphasize(?:s|d)?\b': ['focus on', 'prioritize'],
+    r'\bdiscipline\b': ['field', 'craft'],
+    r'\btechnical\b': ['tech'],
+    r'\bcontinuous\b': ['regular', 'steady'],
+    r'\bautomated\b': ['auto'],
+    r'\bmaintainable\b': ['clean', 'easy-to-read'],
+    r'\bchallenges\b': ['problems', 'hurdles'],
 }
 
 
@@ -808,14 +945,9 @@ _TRAILING_FRAGMENTS = [
 
 # Clarifying clauses that can be appended mid-sentence style
 _CLARIFYING_APPENDS = [
-    ", and that's not a small thing",
-    ", which is more than most people realize",
-    ", at least in most cases",
-    ", whether people notice it or not",
-    ", for better or worse",
-    ", which is kind of the whole point",
-    ", and that changes how you approach it",
-    ", even if it doesn't feel that way",
+    ", which helps",
+    ", when needed",
+    ", in practice",
 ]
 
 # Pivots that can replace ". " between two short adjacent sentences

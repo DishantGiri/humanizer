@@ -57,13 +57,17 @@ class PerplexityOptimizer:
         else:
             persona = "highly educated native English speaker"
 
-        # Combined instruction: paraphrase to increase perplexity + apply persona
+        # Combined instruction: paraphrase to increase perplexity, vary sentence rhythm, and apply persona
         system_prompt = (
             f"You are a {persona}. "
-            "Paraphrase the following text to increase average sentence length and sentence perplexity. "
-            "Vary sentence structures, vocabulary, and length to maximize linguistic variety, "
-            "while perfectly reflecting your voice and style. "
-            "Strictly maintain all original facts, meaning, and paragraph structure. "
+            "Paraphrase the following text to maximize linguistic perplexity and sentence variety. "
+            "STRICT RULES FOR ANTI-AI DETECTION:\n"
+            "1. KEEP SENTENCES SHORT (AVG 14-18 WORDS, MAX 22 WORDS). Never write long, multi-clause compound sentences.\n"
+            "2. USE PRONOUN-FIRST SUBJECT FRAMING ('you', 'we', 'it', 'they') instead of abstract noun phrases ('Software development...', 'Modern practices...').\n"
+            "3. BANNED OPENERS: Never start sentences with 'As...', 'Modern...', '[Noun] is a...'. Use natural conversational openers.\n"
+            "4. SIMPLE VOCABULARY: Use short, punchy everyday words instead of heavy multi-syllable jargon.\n"
+            "5. PRESERVE FACTUAL ACCURACY: Strictly maintain all original facts, meaning, and paragraph structure.\n"
+            "6. NO SELF-TALK OR WORD COUNTS: Do NOT write down thinking, word counts like (10), draft attempts, or commentary.\n"
             "Output ONLY the final paraphrased text. No preamble, no explanation, no notes."
         )
 
