@@ -17,12 +17,12 @@ _BASE_SYSTEM = """You are an expert human editor and ghostwriter.
 Your task is to rewrite the user's text to read naturally like a human wrote it, strictly preserving all facts, dates, numbers, names, and original intent.
 
 # CRITICAL ANTI-AI DETECTION RULES:
-1. PRESERVE MEANING: Keep all facts, numbers, dates, and claims intact.
-2. SHORT SENTENCES (MAX 20 WORDS, AVG 14-18 WORDS): AI detectors flag long 25+ word sentences. Keep sentences short and punchy. Mix 4-8 word sentences with 14-18 word sentences. Never write long, multi-clause compound list sentences.
-3. PRONOUN SUBJECT FRAMING & HIGH FUNCTION WORD RATIO: Start sentences with pronouns ('we', 'you', 'it', 'they', 'this') instead of heavy abstract noun phrases (do NOT start with 'Software development is...', 'Modern practices emphasize...', 'As technology continues...'). Use natural connecting words (function words ~40%).
-4. BANNED TEXTBOOK OPENERS & PHRASES: Never use textbook openers like "As [noun]...", "Modern [noun]...", "[Noun] is a [adjective] discipline that...", "In today's world", "It is important to note", "plays a crucial role", "Furthermore", "Moreover", "Additionally", "Consequently", "In conclusion", "Overall", "delve into", "navigate", "landscape", "a wide range of", "leverage", "utilize", "facilitate", "optimize", "comprehensive", "robust", "cutting-edge".
-5. SIMPLE EVERYDAY VOCABULARY (UNDER 6 CHARS AVERAGE): Replace long multi-syllable jargon (e.g. replace 'methodologies', 'infrastructure', 'collaboration', 'incremental', 'optimizations' with everyday words like 'methods', 'cloud tools', 'teamwork', 'small steps', 'tweaks').
-6. PARAGRAPH BREATHING ROOM: Keep paragraphs short (1-3 sentences max). Avoid comma-dense, information-saturated lists.
+1. STRICT WORD COUNT & SENTENCE PARITY: Rewrite EVERY single sentence in the input text. Do NOT skip sentences. Do NOT summarize, cut out ideas, or merge multiple sentences into a short summary line. The output word count MUST match the input word count (within 90%-110%).
+2. PRESERVE ALL DETAILS: Maintain every detail, idea, number, and concept from the original text.
+3. SHORT SENTENCES (MAX 18 WORDS, AVG 12-15 WORDS): AI detectors flag long 25+ word sentences. Keep sentences short by splitting long thoughts into 2 separate complete sentences using periods (do NOT shorten by deleting words!).
+4. PRONOUN SUBJECT FRAMING & HIGH FUNCTION WORD RATIO: Start sentences with pronouns ('we', 'you', 'it', 'they', 'this') instead of heavy abstract noun phrases. Use natural connecting words (function words ~40%).
+5. BANNED TEXTBOOK OPENERS & PHRASES: Never use textbook openers like "As [noun]...", "Modern [noun]...", "[Noun] is a [adjective] discipline that...", "In today's world", "It is important to note", "plays a crucial role", "Furthermore", "Moreover", "Additionally", "Consequently", "In conclusion", "Overall", "delve into", "navigate", "landscape", "a wide range of", "leverage", "utilize", "facilitate", "optimize", "comprehensive", "robust", "cutting-edge".
+6. SIMPLE EVERYDAY VOCABULARY: Replace long multi-syllable jargon (e.g. replace 'methodologies', 'infrastructure', 'collaboration', 'incremental', 'optimizations' with everyday words like 'methods', 'cloud tools', 'teamwork', 'small steps', 'tweaks').
 
 # OUTPUT — CRITICAL RULES
 Return ONLY the final rewritten text. Do your thinking SILENTLY.
@@ -184,13 +184,23 @@ HOW MUCH TO CHANGE:
     # Retrieve and inject style reference example (Retrieval-Augmented Style)
     ref = _STYLE_REFERENCES.get(mode_val, _STYLE_REFERENCES["native"])
     
+    word_cnt = len(text.split())
+    min_cnt = max(5, int(word_cnt * 0.9))
+    max_cnt = int(word_cnt * 1.1)
+
     user_prompt = f"""STYLE REFERENCE EXAMPLE FOR '{mode_val.upper()}' STYLE:
 Input: "{ref['original']}"
 Rewritten (human style): "{ref['rewritten']}"
 
 ---
 
-Now rewrite this input text using the rules above:
+CRITICAL LENGTH REQUIREMENT:
+The input text has {word_cnt} words. Your rewritten output MUST have approximately {word_cnt} words (target range: {min_cnt} to {max_cnt} words).
+Do NOT summarize, shorten, or drop ideas. Do NOT pad with fluff. Match the word count length!
+
+---
+
+Now rewrite this input text using all rules:
 
 "{text}" """
 
