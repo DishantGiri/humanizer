@@ -19,16 +19,25 @@ def _get_spacy_nlp():
         import spacy
         try:
             _nlp_model = spacy.load("en_core_web_sm")
-        except OSError:
-            # Auto-download lightweight model if not yet downloaded
-            spacy.cli.download("en_core_web_sm")
-            _nlp_model = spacy.load("en_core_web_sm")
-        HAS_SPACY = True
-        return _nlp_model
+        except Exception:
+            try:
+                import subprocess
+                subprocess.run(
+                    ["python3", "-m", "spacy", "download", "en_core_web_sm", "--break-system-packages"],
+                    capture_output=True,
+                    timeout=30
+                )
+                _nlp_model = spacy.load("en_core_web_sm")
+            except Exception:
+                _nlp_model = None
+        if _nlp_model is not None:
+            HAS_SPACY = True
+            return _nlp_model
     except Exception as e:
         logger.info("spaCy NLP engine unavailable (%s). Using fallback parser.", e)
-        HAS_SPACY = False
-        return None
+
+    HAS_SPACY = False
+    return None
 
 
 def analyze_text_nlp(text: str) -> Dict[str, Any]:
