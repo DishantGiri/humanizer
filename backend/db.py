@@ -174,7 +174,7 @@ def init_db():
             except Exception:
                 pass
             try:
-                cursor.execute("ALTER TABLE users ADD COLUMN email_verified INT DEFAULT 0")
+                cursor.execute("ALTER TABLE users ADD COLUMN is_first_login INT DEFAULT 0")
             except Exception:
                 pass
             try:
@@ -203,6 +203,7 @@ def init_db():
                         plan TEXT DEFAULT 'free',
                         role TEXT DEFAULT 'user',
                         email_verified INTEGER DEFAULT 0,
+                        is_first_login INTEGER DEFAULT 0,
                         usage_count INTEGER DEFAULT 0,
                         avatar_url TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -263,6 +264,10 @@ def init_db():
                 except Exception:
                     pass
                 try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN is_first_login INTEGER DEFAULT 0")
+                except Exception:
+                    pass
+                try:
                     cursor.execute("ALTER TABLE coupons ADD COLUMN max_uses INTEGER DEFAULT 1")
                 except Exception:
                     pass
@@ -273,6 +278,50 @@ def init_db():
     finally:
         if engine == "sqlite":
             conn.close()
+
+    ensure_default_admin()
+
+
+def ensure_default_admin():
+    """
+    Ensures at least one admin account exists.
+    If zero admin users exist in the database (e.g. after deletion),
+    automatically regenerates the default admin account: admin@gmail.com / admin123.
+    """
+    try:
+        conn, engine = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            q = _prepare_query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'", engine)
+            cursor.execute(q)
+            row = cursor.fetchone()
+            count = 0
+            if row:
+                count = row["count"] if isinstance(row, dict) else row[0]
+            
+            if count == 0:
+                import uuid, hashlib
+                from datetime import datetime
+                admin_email = "admin@gmail.com"
+                salt = os.urandom(16).hex()
+                pwd_hash = hashlib.pbkdf2_hmac('sha256', b'admin123', salt.encode('utf-8'), 100000).hex()
+                u_id = str(uuid.uuid4())
+                created_at = datetime.utcnow().isoformat()
+
+                q_ins = """
+                    INSERT INTO users (id, name, email, password_hash, salt, plan, role, email_verified, is_first_login, usage_count, created_at)
+                    VALUES (?, 'System Admin', ?, ?, ?, 'pro', 'admin', 1, 1, 0, ?)
+                """
+                q_prep = _prepare_query(q_ins, engine)
+                cursor.execute(q_prep, (u_id, admin_email, pwd_hash, salt, created_at))
+                if hasattr(conn, 'commit'):
+                    conn.commit()
+                logger.info("Default admin user auto-regenerated: %s (password: admin123)", admin_email)
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.info("Admin auto-regeneration note: %s", e)
+
 
 # Initialize DB on module load
 init_db()

@@ -23,6 +23,11 @@ import {
   UserCheck,
   UserX,
   AlertTriangle,
+  KeyRound,
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   fetchAdminAnalytics,
@@ -32,6 +37,7 @@ import {
   fetchAdminCoupons,
   generateAdminCoupons,
   revokeAdminCoupon,
+  updateAdminCredentials,
   type AdminAnalyticsResponse,
   type AdminUser,
   type AdminCoupon,
@@ -72,6 +78,50 @@ export default function AdminView({ user, token }: AdminViewProps) {
   const [generatingCoupons, setGeneratingCoupons] = useState(false);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  // Credentials modal state
+  const [showCredModal, setShowCredModal] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState(user?.email || '');
+  const [newAdminName, setNewAdminName] = useState(user?.name || '');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [currAdminPassword, setCurrAdminPassword] = useState('');
+  const [showAdminPass, setShowAdminPass] = useState(false);
+  const [updatingCreds, setUpdatingCreds] = useState(false);
+
+  const handleSaveAdminCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!newAdminEmail.trim()) {
+      toast.danger('Please enter a valid admin email address.');
+      return;
+    }
+    if (!currAdminPassword.trim()) {
+      toast.danger('Please enter your current password to update credentials.');
+      return;
+    }
+
+    setUpdatingCreds(true);
+    try {
+      const res = await updateAdminCredentials(token, {
+        name: newAdminName.trim(),
+        email: newAdminEmail.trim(),
+        new_password: newAdminPassword.trim() || undefined,
+        current_password: currAdminPassword.trim(),
+      });
+
+      localStorage.setItem('humanizer_token', res.token);
+      localStorage.setItem('humanizer_user', JSON.stringify(res.user));
+      document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
+      
+      toast.success('Admin credentials updated successfully!');
+      setShowCredModal(false);
+      setNewAdminPassword('');
+      setCurrAdminPassword('');
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : 'Failed to update admin credentials.');
+    } finally {
+      setUpdatingCreds(false);
+    }
+  };
 
   // Load analytics
   const loadAnalyticsData = async () => {
@@ -257,6 +307,29 @@ export default function AdminView({ user, token }: AdminViewProps) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setNewAdminEmail(user?.email || '');
+              setNewAdminName(user?.name || '');
+              setShowCredModal(true);
+            }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              color: '#38bdf8',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <KeyRound size={14} /> Admin Security Settings
+          </button>
           <span style={{
             padding: '6px 14px',
             borderRadius: '20px',
@@ -1142,6 +1215,202 @@ export default function AdminView({ user, token }: AdminViewProps) {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Admin Credentials Reset Modal */}
+      {showCredModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '460px',
+            background: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '24px',
+            padding: '28px 24px',
+            color: '#f8fafc',
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <KeyRound size={22} color="#38bdf8" />
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>
+                  Admin Security Settings
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCredModal(false)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+              Update your administrative email address or password to secure your account.
+            </p>
+
+            <form onSubmit={handleSaveAdminCredentials} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Full Name</label>
+                <input
+                  type="text"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                    outline: 'none'
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Email Address</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
+                  <input
+                    type="email"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 36px',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem',
+                      outline: 'none'
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Current Password (Required)</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
+                  <input
+                    type={showAdminPass ? 'text' : 'password'}
+                    placeholder="Enter current password to authorize changes"
+                    value={currAdminPassword}
+                    onChange={(e) => setCurrAdminPassword(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 40px 10px 36px',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem',
+                      outline: 'none'
+                    }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPass(!showAdminPass)}
+                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                  >
+                    {showAdminPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Password (Optional)</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
+                  <input
+                    type={showAdminPass ? 'text' : 'password'}
+                    placeholder="Leave blank to keep current password"
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 40px 10px 36px',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPass(!showAdminPass)}
+                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                  >
+                    {showAdminPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCredModal(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#94a3b8',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingCreds}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {updatingCreds ? <Loader2 size={16} className="spinner-animate" /> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

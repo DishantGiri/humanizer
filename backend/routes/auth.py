@@ -55,6 +55,11 @@ def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
     hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000).hex()
     return hashed, salt
 
+
+def verify_password(password: str, stored_hash: str, salt: str) -> bool:
+    pwd_hash, _ = hash_password(password, salt)
+    return hmac.compare_digest(pwd_hash, stored_hash)
+
 # ── Models ──────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):

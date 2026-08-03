@@ -23,9 +23,9 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def require_admin_user(current_user: UserResponse = Depends(get_current_user_from_token)) -> UserResponse:
     """
     Guard function verifying user has admin privileges.
-    Allow if user.role == 'admin' OR user is the primary admin email.
+    Allow if user.role == 'admin' OR user is a primary admin email.
     """
-    if current_user.role == 'admin' or current_user.email.lower() == 'admin@cloakwriter.com':
+    if current_user.role == 'admin' or current_user.email.lower() in ('admin@gmail.com', 'admin@cloakwriter.com'):
         return current_user
     raise HTTPException(status_code=403, detail="Access denied. Admin privileges required.")
 
@@ -36,6 +36,12 @@ class UserUpdateRequest(BaseModel):
     plan: Optional[str] = None
     role: Optional[str] = None
     usage_count: Optional[int] = None
+
+class AdminUpdateCredentialsRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    new_password: Optional[str] = None
+    current_password: Optional[str] = None
 
 class GenerateCouponRequest(BaseModel):
     plan: str = Field(..., description="Target plan: starter, plus, or pro")
@@ -304,3 +310,72 @@ async def revoke_coupon(
     execute_query("DELETE FROM coupons WHERE code = ?", (code.strip(),))
     logger.info("Admin %s revoked coupon code %s", admin.email, code)
     return {"message": f"Coupon code {code} successfully revoked."}
+
+
+@router.post("/update-credentials")
+async def update_admin_credentials(
+    request: AdminUpdateCredentialsRequest,
+    admin: UserResponse = Depends(require_admin_user)
+):
+    """
+    Allows an admin to change their email, name, or password.
+    Requires current_password if is_first_login == 0.
+    Resets is_first_login to 0 and returns a fresh JWT token.
+    """
+    from routes.auth import hash_password, verify_password, create_jwt_token
+
+    admin_row = fetch_one("SELECT password_hash, salt, is_first_login FROM users WHERE id = ?", (admin.id,))
+    if not admin_row:
+        raise HTTPException(status_code=404, detail="Admin user record not found.")
+
+    is_first_login = admin_row.get("is_first_login", 0)
+
+    # Bypass current_password on first login setup (is_first_login == 1)
+    if is_first_login != 1:
+        if request.current_password and request.current_password.strip():
+            if not verify_password(request.current_password, admin_row["password_hash"], admin_row["salt"]):
+                raise HTTPException(status_code=400, detail="Incorrect current password.")
+        else:
+            raise HTTPException(status_code=400, detail="Current password is required to change credentials.")
+
+    updates = []
+    params = []
+
+    if request.name and request.name.strip():
+        updates.append("name = ?")
+        params.append(request.name.strip())
+
+    if request.email and request.email.strip():
+        new_email = request.email.strip().lower()
+        if new_email != admin.email.lower():
+            existing = fetch_one("SELECT id FROM users WHERE email = ? AND id != ?", (new_email, admin.id))
+            if existing:
+                raise HTTPException(status_code=400, detail="An account with this email address already exists.")
+            updates.append("email = ?")
+            params.append(new_email)
+
+    if request.new_password and request.new_password.strip():
+        pwd = request.new_password.strip()
+        if len(pwd) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+        new_hash, new_salt = hash_password(pwd)
+        updates.append("password_hash = ?")
+        params.append(new_hash)
+        updates.append("salt = ?")
+        params.append(new_salt)
+
+    updates.append("is_first_login = 0")
+
+    if updates:
+        sql = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+        params.append(admin.id)
+        execute_query(sql, tuple(params))
+
+    updated_user = fetch_one("SELECT id, name, email, plan, role, usage_count, is_first_login, avatar_url, created_at FROM users WHERE id = ?", (admin.id,))
+    new_token = create_jwt_token(updated_user["id"], updated_user["email"], updated_user["name"])
+
+    return {
+        "message": "Admin credentials successfully updated.",
+        "user": updated_user,
+        "token": new_token
+    }

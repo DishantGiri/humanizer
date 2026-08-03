@@ -98,6 +98,7 @@ export interface User {
   plan: 'free' | 'starter' | 'plus' | 'pro' | string;
   role?: 'user' | 'admin' | string;
   usage_count: number;
+  is_first_login?: number;
   created_at: string;
   avatar_url?: string;
 }
@@ -590,15 +591,41 @@ export async function generateAdminCoupons(
   return await response.json();
 }
 
-export async function revokeAdminCoupon(token: string, code: string): Promise<void> {
+export async function revokeAdminCoupon(token: string, code: string): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE}/api/admin/coupons/${code}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke coupon' }));
-    throw new Error(errorData.detail || 'Failed to revoke coupon');
+    const error: ApiError = await response.json();
+    throw new Error(error.detail || 'Failed to revoke coupon code.');
   }
+
+  return response.json();
+}
+
+export async function updateAdminCredentials(
+  token: string,
+  data: { name?: string; email?: string; new_password?: string; current_password?: string }
+): Promise<{ message: string; user: User; token: string }> {
+  const response = await fetch(`${API_BASE}/api/admin/update-credentials`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.detail || 'Failed to update admin credentials.');
+  }
+
+  return response.json();
 }
 
 // ── Mode metadata ──────────────────────────────────────────────────────────
