@@ -17,7 +17,12 @@ export default function Home() {
     const savedTheme = (localStorage.getItem('humyn_theme') as 'dark' | 'light') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
+
+    const token = localStorage.getItem('humanizer_token');
+    if (token) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
 
   const toggleTheme = (e?: React.MouseEvent<HTMLButtonElement>) => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';

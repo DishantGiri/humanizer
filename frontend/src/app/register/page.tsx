@@ -15,13 +15,17 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Sync active app/system theme on mount without toggle control
   useEffect(() => {
     const savedTheme =
       (localStorage.getItem('humyn_theme') as 'dark' | 'light') ||
       (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
+
+    const token = localStorage.getItem('humanizer_token');
+    if (token) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
 
   const handleGoogleSignIn = () => {
     const clientId = '365929988554-7v1geh55lljqdvcj5n71712f667ttems.apps.googleusercontent.com';

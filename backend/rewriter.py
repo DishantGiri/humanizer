@@ -34,12 +34,20 @@ class TextRewriter:
         Raises specific exceptions for different error types.
         """
         target_model = model or self.model
-        # Prepend /no_think for Qwen3 models to disable chain-of-thought thinking.
-        # Thinking mode adds 20-40s latency and was causing internal monologue to
-        # leak into the output. Our detailed prompt instructions make thinking unnecessary.
+        tm_lower = target_model.lower()
+
+        # Normalize model aliases
+        if 'qwen' in tm_lower:
+            target_model = 'qwen/qwen3.6-27b'
+        elif any(term in tm_lower for term in ['3.3', 'llama-3.3', 'llama 3.3']):
+            target_model = 'llama-3.3-70b-versatile'
+
         effective_system = system_prompt
+        extra_kwargs = {}
         if 'qwen' in target_model.lower():
             effective_system = '/no_think\n\n' + system_prompt
+            extra_kwargs['extra_body'] = {'reasoning_format': 'hidden'}
+
         try:
             response = self.client.chat.completions.create(
                 model=target_model,
@@ -53,6 +61,7 @@ class TextRewriter:
                 frequency_penalty=0.6,
                 presence_penalty=0.4,
                 timeout=API_TIMEOUT,
+                **extra_kwargs
             )
             content = response.choices[0].message.content
             if not content:

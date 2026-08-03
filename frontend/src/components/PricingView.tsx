@@ -25,7 +25,15 @@ export default function PricingView({
   const [couponError, setCouponError] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annually'>('monthly');
 
+  const PLAN_RANKS: Record<string, number> = {
+    free: 0,
+    starter: 1,
+    plus: 2,
+    pro: 3,
+  };
+
   const currentPlan = user?.plan || 'free';
+  const currentRank = PLAN_RANKS[currentPlan] ?? 0;
 
   const openPaymentModal = (planName: string) => {
     if (!user || !token) {
@@ -33,8 +41,13 @@ export default function PricingView({
       onRequireAuth();
       return;
     }
-    if (currentPlan === planName) {
+    const targetRank = PLAN_RANKS[planName] ?? 0;
+    if (targetRank === currentRank) {
       toast.info(`You are already on the ${planName.toUpperCase()} plan.`);
+      return;
+    }
+    if (targetRank < currentRank) {
+      toast.warning('Downgrading plans is not available. You can only upgrade to higher tier plans.');
       return;
     }
     setCouponCode('');
@@ -377,22 +390,18 @@ export default function PricingView({
               <span className="pricing-card-price-period">Per month</span>
             </div>
             <p className="pricing-card-description">
-              Paste Any Text Below To Instantly Check How Likely
+              Essential AI humanization for quick tests and casual writing.
             </p>
 
             <div style={{ marginBottom: '28px' }}>
-              {currentPlan === 'free' ? (
+              {currentRank === 0 ? (
                 <div className="pricing-btn-active">
                   ✓ Current Active Plan
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="pricing-btn-outlined"
-                  onClick={() => openPaymentModal('free')}
-                >
-                  Try It for Free
-                </button>
+                <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  Lower Tier Plan
+                </div>
               )}
             </div>
 
@@ -425,22 +434,26 @@ export default function PricingView({
               <span className="pricing-card-price-period">Per month</span>
             </div>
             <p className="pricing-card-description">
-              Paste Any Text Below To Instantly Check How Likely
+              Perfect for students & creators needing daily anti-AI humanization.
             </p>
 
             <div style={{ marginBottom: '28px' }}>
-              {currentPlan === 'starter' ? (
+              {currentRank === 1 ? (
                 <div className="pricing-btn-active">
                   ✓ Current Active Plan
                 </div>
-              ) : (
+              ) : currentRank < 1 ? (
                 <button
                   type="button"
                   className="pricing-btn-white"
                   onClick={() => openPaymentModal('starter')}
                 >
-                  Purchase Now
+                  Upgrade to Plus ($1/mo)
                 </button>
+              ) : (
+                <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  Lower Tier Plan
+                </div>
               )}
             </div>
 
@@ -472,22 +485,26 @@ export default function PricingView({
               <span className="pricing-card-price-period">Per month</span>
             </div>
             <p className="pricing-card-description">
-              Paste Any Text Below To Instantly Check How Likely
+              Advanced anti-AI bypass for professionals, essays & articles.
             </p>
 
             <div style={{ marginBottom: '28px' }}>
-              {currentPlan === 'plus' ? (
+              {currentRank === 2 ? (
                 <div className="pricing-btn-active">
                   ✓ Current Active Plan
                 </div>
-              ) : (
+              ) : currentRank < 2 ? (
                 <button
                   type="button"
                   className="pricing-btn-dark"
                   onClick={() => openPaymentModal('plus')}
                 >
-                  Purchase Now
+                  Upgrade to Pro ($2/mo)
                 </button>
+              ) : (
+                <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  Lower Tier Plan
+                </div>
               )}
             </div>
 
@@ -522,11 +539,11 @@ export default function PricingView({
               <span className="pricing-card-price-period">Per month</span>
             </div>
             <p className="pricing-card-description">
-              Paste Any Text Below To Instantly Check How Likely
+              Maximum word limits, priority AI engine, & full access.
             </p>
 
             <div style={{ marginBottom: '28px' }}>
-              {currentPlan === 'pro' ? (
+              {currentRank === 3 ? (
                 <div className="pricing-btn-active">
                   ✓ Current Active Plan
                 </div>
@@ -536,7 +553,7 @@ export default function PricingView({
                   className="pricing-btn-dark"
                   onClick={() => openPaymentModal('pro')}
                 >
-                  Purchase Now
+                  Upgrade to Enterprise ($5/mo)
                 </button>
               )}
             </div>

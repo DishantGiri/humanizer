@@ -116,7 +116,7 @@ def init_db():
                 """,
                 """
                 CREATE TABLE IF NOT EXISTS sessions (
-                    token VARCHAR(64) PRIMARY KEY,
+                    token VARCHAR(512) PRIMARY KEY,
                     user_id VARCHAR(64) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_session_user (user_id)
@@ -152,6 +152,10 @@ def init_db():
                     logger.info("MySQL table setup note: %s", ex)
             try:
                 cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE sessions MODIFY token VARCHAR(512)")
             except Exception:
                 pass
             conn.close()

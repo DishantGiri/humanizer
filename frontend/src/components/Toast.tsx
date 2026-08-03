@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { CheckCircle2, AlertCircle, X, Info, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, Info, AlertTriangle, ArrowRight } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -71,44 +71,45 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
   const configs = {
     success: {
-      bg: 'rgba(13, 17, 23, 0.92)',
-      border: 'rgba(52, 211, 153, 0.28)',
-      iconBg: 'rgba(52, 211, 153, 0.12)',
-      accent: '#34d399',
-      glow: 'rgba(52, 211, 153, 0.15)',
+      bg: 'rgba(15, 23, 42, 0.94)',
+      border: 'rgba(52, 211, 153, 0.35)',
+      iconBg: 'rgba(52, 211, 153, 0.14)',
+      accent: '#10b981',
+      glow: 'rgba(52, 211, 153, 0.2)',
       icon: <CheckCircle2 size={18} />,
       label: 'Success',
     },
     error: {
-      bg: 'rgba(18, 14, 18, 0.92)',
-      border: 'rgba(248, 113, 113, 0.28)',
-      iconBg: 'rgba(248, 113, 113, 0.12)',
-      accent: '#f87171',
-      glow: 'rgba(248, 113, 113, 0.15)',
+      bg: 'rgba(15, 23, 42, 0.95)',
+      border: 'rgba(244, 63, 94, 0.35)',
+      iconBg: 'rgba(244, 63, 94, 0.14)',
+      accent: '#f43f5e',
+      glow: 'rgba(244, 63, 94, 0.2)',
       icon: <AlertCircle size={18} />,
-      label: 'Error',
+      label: toast.message.toLowerCase().includes('word') || toast.message.toLowerCase().includes('plan') ? 'Plan Limit Reached' : 'Notice',
     },
     warning: {
-      bg: 'rgba(19, 16, 11, 0.92)',
-      border: 'rgba(251, 191, 36, 0.28)',
-      iconBg: 'rgba(251, 191, 36, 0.12)',
-      accent: '#fbbf24',
-      glow: 'rgba(251, 191, 36, 0.15)',
+      bg: 'rgba(15, 23, 42, 0.94)',
+      border: 'rgba(245, 158, 11, 0.35)',
+      iconBg: 'rgba(245, 158, 11, 0.14)',
+      accent: '#f59e0b',
+      glow: 'rgba(245, 158, 11, 0.2)',
       icon: <AlertTriangle size={18} />,
       label: 'Warning',
     },
     info: {
-      bg: 'rgba(11, 17, 24, 0.92)',
-      border: 'rgba(56, 189, 248, 0.28)',
-      iconBg: 'rgba(56, 189, 248, 0.12)',
+      bg: 'rgba(15, 23, 42, 0.94)',
+      border: 'rgba(56, 189, 248, 0.35)',
+      iconBg: 'rgba(56, 189, 248, 0.14)',
       accent: '#38bdf8',
-      glow: 'rgba(56, 189, 248, 0.15)',
+      glow: 'rgba(56, 189, 248, 0.2)',
       icon: <Info size={18} />,
-      label: 'Notice',
+      label: 'Notification',
     },
   };
 
   const c = configs[toast.type];
+  const isLimitMsg = toast.message.toLowerCase().includes('upgrade') || toast.message.toLowerCase().includes('word');
 
   return (
     <div
@@ -116,31 +117,43 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       style={{
         position: 'relative',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: '14px',
-        padding: '14px 18px',
+        padding: '16px 20px',
         background: c.bg,
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
         border: `1px solid ${c.border}`,
         borderRadius: '16px',
         color: '#f8fafc',
         fontSize: '0.88rem',
-        boxShadow: `0 16px 40px -10px rgba(0,0,0,0.65), 0 0 20px ${c.glow}`,
+        boxShadow: `0 20px 50px -12px rgba(0,0,0,0.75), 0 0 25px ${c.glow}`,
         pointerEvents: 'auto',
-        maxWidth: '440px',
+        maxWidth: '460px',
         width: '100%',
         overflow: 'hidden',
         fontFamily: 'var(--font-body, Inter, system-ui, sans-serif)',
         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
+      {/* Sleek top accent line */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '2px',
+          background: `linear-gradient(90deg, transparent, ${c.accent}, transparent)`,
+        }}
+      />
+
       {/* Status Icon Badge */}
       <div
         style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '10px',
+          width: '38px',
+          height: '38px',
+          borderRadius: '12px',
           background: c.iconBg,
           border: `1px solid ${c.border}`,
           display: 'flex',
@@ -148,19 +161,47 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
           justifyContent: 'center',
           color: c.accent,
           flexShrink: 0,
+          marginTop: '2px',
         }}
       >
         {c.icon}
       </div>
 
       {/* Toast Content */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: c.accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: c.accent, letterSpacing: '0.02em' }}>
           {toast.title || c.label}
         </div>
-        <div style={{ fontSize: '0.88rem', fontWeight: 500, color: '#f1f5f9', lineHeight: 1.4, wordBreak: 'break-word' }}>
+        <div style={{ fontSize: '0.88rem', fontWeight: 400, color: '#e2e8f0', lineHeight: 1.45, wordBreak: 'break-word' }}>
           {toast.message}
         </div>
+
+        {isLimitMsg && (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/dashboard?tab=plans';
+            }}
+            style={{
+              marginTop: '6px',
+              alignSelf: 'flex-start',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+              color: '#ffffff',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+            }}
+          >
+            Upgrade Plan <ArrowRight size={13} />
+          </button>
+        )}
       </div>
 
       {/* Dismiss button */}
@@ -171,11 +212,11 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
           setTimeout(() => onDismiss(toast.id), 300);
         }}
         style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(255, 255, 255, 0.06)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '8px',
-          width: '28px',
-          height: '28px',
+          width: '26px',
+          height: '26px',
           color: '#94a3b8',
           cursor: 'pointer',
           display: 'flex',
@@ -186,31 +227,16 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.color = '#ffffff';
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.color = '#94a3b8';
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
         }}
         aria-label="Dismiss notification"
       >
         <X size={14} />
       </button>
-
-      {/* Progress countdown bar */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          height: '3px',
-          background: c.accent,
-          width: '100%',
-          transformOrigin: 'left',
-          animation: `toast-progress ${dur}ms linear forwards`,
-          opacity: 0.8,
-        }}
-      />
     </div>
   );
 }

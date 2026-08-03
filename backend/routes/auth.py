@@ -8,7 +8,8 @@ import requests
 import hashlib
 import uuid
 import logging
-from datetime import datetime
+import jwt
+from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel, EmailStr, Field
@@ -17,6 +18,28 @@ from db import execute_query, fetch_one, fetch_all
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# ── JWT & Security Configuration ────────────────────────────────────────────
+
+JWT_SECRET = os.getenv("JWT_SECRET", "humyn_jwt_secret_key_2026_super_secure_auth_token")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_DAYS = 30
+
+
+def create_jwt_token(user_id: str, email: str, name: str) -> str:
+    """
+    Generate a signed JWT token containing user identity and expiration claims.
+    """
+    now = datetime.utcnow()
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "name": name,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(days=JWT_EXPIRATION_DAYS)).timestamp())
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 
 # ── Password Utilities ──────────────────────────────────────────────────────
 
@@ -71,16 +94,38 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
     
     token = authorization.split(" ")[1]
-    query = """
-        SELECT u.id, u.name, u.email, u.plan, u.usage_count, u.avatar_url, u.created_at
-        FROM sessions s
-        JOIN users u ON s.user_id = u.id
-        WHERE s.token = ?
-    """
-    user_row = fetch_one(query, (token,))
-    if not user_row:
+    user_id = None
+
+    # 1. Decode JWT Token
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+    except jwt.InvalidTokenError:
+        # 2. Legacy fallback for old session tokens stored in DB
+        query_legacy = """
+            SELECT u.id
+            FROM sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.token = ?
+        """
+        user_row_legacy = fetch_one(query_legacy, (token,))
+        if user_row_legacy:
+            user_id = user_row_legacy["id"]
+
+    if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired session token")
-    
+
+    query = """
+        SELECT id, name, email, plan, usage_count, avatar_url, created_at
+        FROM users
+        WHERE id = ?
+    """
+    user_row = fetch_one(query, (user_id,))
+    if not user_row:
+        raise HTTPException(status_code=401, detail="User account not found")
+
     return UserResponse(
         id=user_row["id"],
         name=user_row["name"],
@@ -123,8 +168,8 @@ async def register(request: RegisterRequest):
     """
     execute_query(q_ins_u, (user_id, name_clean, email_clean, pwd_hash, salt, created_at))
     
-    # Create session token
-    token = uuid.uuid4().hex
+    # Create JWT session token
+    token = create_jwt_token(user_id, email_clean, name_clean)
     q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
     execute_query(q_ins_s, (token, user_id))
     
@@ -159,8 +204,8 @@ async def login(request: LoginRequest):
     if expected_hash != user_row["password_hash"]:
         raise HTTPException(status_code=400, detail="Invalid email or password.")
     
-    # Create new session token
-    token = uuid.uuid4().hex
+    # Create JWT session token
+    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"])
     q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
     execute_query(q_ins_s, (token, user_row["id"]))
     
@@ -486,8 +531,8 @@ async def google_auth(request: GoogleAuthRequest):
         """
         execute_query(q_ins_u, (user_id, name_clean, email_clean, pwd_hash, salt, avatar_url, created_at))
 
-    # Issue session token
-    token = uuid.uuid4().hex
+    # Issue signed JWT session token
+    token = create_jwt_token(user_id, email_clean, name_clean)
     q_ins_s = "INSERT INTO sessions (token, user_id) VALUES (?, ?)"
     execute_query(q_ins_s, (token, user_id))
 

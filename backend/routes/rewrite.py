@@ -16,11 +16,14 @@ from rewriter import TextRewriter, RewriteError
 from verifier import MeaningVerifier
 from translator import TranslationBouncer
 from utils import count_changes, compute_reading_time, sanitize_input, compute_word_diff
-from humanizer import humanize
+from humanizer import humanize, strip_formatting_artifacts
 from perplexity import PerplexityOptimizer
 
 from db import execute_query, fetch_all, fetch_one
 from routes.auth import get_optional_user_from_token, get_current_user_from_token, UserResponse
+from cache_limiter import get_cached_rewrite, set_cached_rewrite, is_rate_limited
+from similarity import calculate_similarity_metrics
+from nlp_analyzer import analyze_text_nlp
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,9 @@ class RewriteResponse(BaseModel):
     reading_time: dict
     meaning_preserved: bool
     meaning_reason: str
+    meaning_preservation_score: float = 95.0
+    similarity_metrics: Optional[dict] = None
+    nlp_analysis: Optional[dict] = None
     word_diff: list[dict]
 
 
@@ -111,79 +117,151 @@ async def rewrite_text(
     Main rewrite endpoint. Enforces 10 free humanization usage limits for free tier accounts.
     """
     user = get_optional_user_from_token(authorization)
-    
-    # Check limit for free users
-    if user and user.plan == 'free' and user.usage_count >= 10:
+    user_id_str = user.id if user else "anonymous"
+
+    # Step A: Rate limiting check (Redis sliding window)
+    if is_rate_limited(user_id_str, limit=30, window_seconds=60):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please wait a minute before making more rewrite requests."
+        )
+
+    # Plan Limits Config
+    plan_limits = {
+        'free': {'max_words': 250, 'max_usage': 10},
+        'starter': {'max_words': 600, 'max_usage': 10},
+        'plus': {'max_words': 1200, 'max_usage': 30},
+        'pro': {'max_words': 2500, 'max_usage': 80},
+    }
+
+    user_plan = user.plan if (user and hasattr(user, 'plan') and user.plan) else 'free'
+    cfg = plan_limits.get(user_plan, plan_limits['free'])
+
+    # Enforce Usage Limits
+    if user and user.usage_count >= cfg['max_usage']:
         raise HTTPException(
             status_code=403,
-            detail="Free plan limit reached (10/10 humanizations used). Please upgrade to Pro for $1/month to continue."
+            detail=f"{user_plan.capitalize()} plan limit reached ({cfg['max_usage']} humanizations used). Please upgrade your plan to continue."
+        )
+
+    # Enforce Word Count Limits
+    input_word_count = len(request.text.strip().split())
+    if input_word_count > cfg['max_words']:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Your {user_plan.capitalize()} plan allows up to {cfg['max_words']} words per input. This text has {input_word_count} words. Please upgrade to a higher plan for larger word limits."
         )
 
     if len(request.text) > MAX_INPUT_LENGTH:
         raise HTTPException(
             status_code=400,
-            detail=f"Input text exceeds maximum length of {MAX_INPUT_LENGTH} characters."
+            detail=f"Input text exceeds maximum absolute length of {MAX_INPUT_LENGTH} characters."
         )
 
-    clean_text = sanitize_input(request.text)
+    # Step 0: Normalise formatting artifacts (§15–§19) before the LLM sees the text.
+    request_text_clean = strip_formatting_artifacts(request.text)
+    clean_text = sanitize_input(request_text_clean)
     if not clean_text:
         raise HTTPException(status_code=400, detail="Input text is empty after sanitization.")
 
-    try:
-        rewriter = get_rewriter()
-        verifier = get_verifier()
-        bouncer = get_bouncer()
+    # Step B: Check Redis cache
+    cached_output = get_cached_rewrite(clean_text, request.mode.value, request.level.value)
+    if cached_output:
+        logger.info("Serving rewrite from Redis cache.")
+        rewritten = cached_output
+    else:
+        try:
+            rewriter = get_rewriter()
+            intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
 
-        # Step 1: Analyze original text
-        original_stats = analyze(clean_text)
+            lines = [line for line in clean_text.split('\n')]
+            is_list = len(lines) > 2 and any(
+                line.strip().startswith(('-', '*', '•', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')) or
+                (':' in line and len(line.split(':')[0].split()) <= 4)
+                for line in lines if line.strip()
+            )
 
-        # Step 2: Primary LLM Rewrite Pass (Single fast call with embedded anti-AI rules)
-        rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+            if is_list:
+                rewritten_lines = []
+                for line in lines:
+                    stripped_line = line.strip()
+                    if not stripped_line:
+                        rewritten_lines.append("")
+                        continue
+                    prefix = ""
+                    core_text = stripped_line
+                    for marker in ('-', '*', '•', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.'):
+                        if stripped_line.startswith(marker):
+                            prefix = marker + " "
+                            core_text = stripped_line[len(marker):].strip()
+                            break
 
-        # Step 3: Fast Python Post-Processing & Anti-AI Humanization (< 5ms)
-        intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
-        rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
+                    if ":" in core_text and len(core_text.split(":")[0].split()) <= 4:
+                        parts = core_text.split(":", 1)
+                        key = parts[0].strip()
+                        val = parts[1].strip()
+                        val_rewritten = rewriter.rewrite(val, request.mode, request.level)
+                        val_humanized = humanize(val_rewritten, intensity=intensity, original_text=val)
+                        rewritten_lines.append(f"{prefix}{key}: {val_humanized}")
+                    else:
+                        line_rewritten = rewriter.rewrite(core_text, request.mode, request.level)
+                        line_humanized = humanize(line_rewritten, intensity=intensity, original_text=core_text)
+                        rewritten_lines.append(f"{prefix}{line_humanized}")
+                rewritten = "\n".join(rewritten_lines)
+            else:
+                rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+                rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
 
-        meaning_preserved = True
-        meaning_reason = "Factual accuracy preserved."
+            # Store in Redis cache
+            set_cached_rewrite(clean_text, request.mode.value, request.level.value, rewritten)
+        except RewriteError as e:
+            logger.error("Rewrite error: %s", e)
+            raise HTTPException(status_code=500, detail=str(e))
 
-        # Step 8: Analyze rewritten text
-        rewritten_stats = analyze(rewritten)
-        changes = count_changes(clean_text, rewritten)
-        reading_time = compute_reading_time(rewritten)
-        word_diff = compute_word_diff(clean_text, rewritten)
+    # Step C: RapidFuzz & SentenceTransformers Similarity Metrics
+    sim_metrics = calculate_similarity_metrics(clean_text, rewritten)
 
-        # Record usage count and history entry if user is logged in
-        if user:
-            q_inc = "UPDATE users SET usage_count = usage_count + 1 WHERE id = ?"
-            execute_query(q_inc, (user.id,))
-            
-            hist_id = str(uuid.uuid4())
-            word_cnt = rewritten_stats.word_count
-            created_at = datetime.utcnow().isoformat()
-            
-            q_hist = """
-                INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """
-            execute_query(q_hist, (hist_id, user.id, clean_text, rewritten, str(request.mode.value if hasattr(request.mode, 'value') else request.mode), int(request.level), word_cnt, created_at))
+    # Step D: spaCy NLP Analysis
+    nlp_data = analyze_text_nlp(rewritten)
 
-        return RewriteResponse(
-            rewritten=rewritten,
-            original_stats=original_stats.to_dict(),
-            rewritten_stats=rewritten_stats.to_dict(),
-            changes=changes,
-            reading_time=reading_time,
-            meaning_preserved=meaning_preserved,
-            meaning_reason=meaning_reason,
-            word_diff=word_diff,
-        )
+    meaning_preserved = True
+    meaning_reason = "Factual accuracy preserved."
 
-    except RewriteError as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    except Exception as e:
-        logger.exception("Unexpected error in rewrite pipeline")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    # Step E: Textstat & word diff stats
+    original_stats = analyze(clean_text)
+    rewritten_stats = analyze(rewritten)
+    changes = count_changes(clean_text, rewritten)
+    reading_time = compute_reading_time(rewritten)
+    word_diff = compute_word_diff(clean_text, rewritten)
+
+    # Record usage count and history entry if user is logged in
+    if user:
+        q_inc = "UPDATE users SET usage_count = usage_count + 1 WHERE id = ?"
+        execute_query(q_inc, (user.id,))
+        
+        hist_id = str(uuid.uuid4())
+        word_cnt = rewritten_stats.word_count
+        created_at = datetime.utcnow().isoformat()
+        
+        q_hist = """
+            INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        execute_query(q_hist, (hist_id, user.id, clean_text, rewritten, str(request.mode.value if hasattr(request.mode, 'value') else request.mode), int(request.level), word_cnt, created_at))
+
+    return RewriteResponse(
+        rewritten=rewritten,
+        original_stats=original_stats.to_dict(),
+        rewritten_stats=rewritten_stats.to_dict(),
+        changes=changes,
+        reading_time=reading_time,
+        meaning_preserved=meaning_preserved,
+        meaning_reason=meaning_reason,
+        meaning_preservation_score=sim_metrics.get("meaning_preservation_score", 95.0),
+        similarity_metrics=sim_metrics,
+        nlp_analysis=nlp_data,
+        word_diff=word_diff,
+    )
 
 
 @router.get("/user/history")

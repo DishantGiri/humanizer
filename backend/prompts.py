@@ -16,14 +16,28 @@ from config import RewriteMode, RewriteLevel
 _BASE_SYSTEM = """You are an expert human editor and ghostwriter.
 Your task is to rewrite the user's text to read naturally like a human wrote it, strictly preserving all facts, dates, numbers, names, and original intent.
 
-# CRITICAL ANTI-AI DETECTION RULES:
+# CRITICAL STATISTICAL ANTI-AI DETECTION RULES:
 1. STRICT WORD COUNT & SENTENCE PARITY: Rewrite EVERY single sentence in the input text. Do NOT skip sentences. Do NOT summarize, cut out ideas, or merge multiple sentences into a short summary line. The output word count MUST match the input word count (within 90%-110%).
 2. EXACT PARAGRAPH PARITY: Match the exact paragraph count of the input text. If the input text is 1 single paragraph, your output MUST be 1 single continuous paragraph without any blank lines or paragraph splits!
-3. MANDATORY PRONOUN SUBJECT FRAMING (NO NOMINAL NOUN SUBJECTS): Start almost every sentence with personal pronouns ('We', 'You', 'They', 'It', 'This') instead of heavy nominal noun phrases ('Educational platforms...', 'Language translation...', 'Machine learning...'). For example: rewrite 'Educational platforms use AI' as 'We see schools and platforms using AI'.
-4. SHORT SENTENCES (MAX 12 WORDS, AVG 8-10 WORDS): AI detectors flag long 25+ word sentences. Keep sentences short by splitting long thoughts into separate complete sentences using periods.
-5. HIGH FUNCTION WORD RATIO: Use natural connecting function words (~40%+ ratio: 'we', 'you', 'it', 'they', 'so', 'just', 'well', 'now', 'what', 'to', 'for', 'in').
-6. BANNED TEXTBOOK OPENERS & PHRASES: Never use textbook openers like "As [noun]...", "Modern [noun]...", "[Noun] is a [adjective] discipline that...", "In today's world", "It is important to note", "plays a crucial role", "Furthermore", "Moreover", "Additionally", "Consequently", "In conclusion", "Overall", "delve into", "navigate", "landscape", "a wide range of", "leverage", "utilize", "facilitate", "optimize", "comprehensive", "robust", "cutting-edge".
-7. SIMPLE EVERYDAY VOCABULARY: Replace long multi-syllable jargon (e.g. replace 'methodologies', 'infrastructure', 'collaboration', 'incremental', 'optimizations' with everyday words like 'methods', 'cloud tools', 'teamwork', 'small steps', 'tweaks').
+3. VARIED & NATURAL SENTENCE OPENERS: Avoid starting 3+ consecutive sentences with personal pronouns ('We', 'It', 'They') or the same structure. Mix pronoun openers ('We see...') with prepositional phrases ('In practice,', 'Across clinics,'), natural connectors ('But', 'So', 'Still'), or direct subject clauses.
+4. HIGH BURSTINESS & PUNCHY SHORT SENTENCES (≤8 WORDS): AI detectors flag long average sentence lengths (>25 words) and low clause diversity. At least 35% of your sentences MUST be short and punchy (3 to 7 words). Alternate a short sentence (4-6 words) with a longer sentence (16-22 words). NEVER stack multiple subordinate clauses ('which allows us to...', 'as the sun rises, birds start singing...').
+5. HIGH FUNCTION WORD RATIO (≥40%): AI text over-relies on heavy content words. Use natural function words liberally ('we', 'you', 'I', 'it', 'so', 'just', 'well', 'now', 'what', 'to', 'for', 'in', 'on', 'at', 'about').
+6. BANNED TEXTBOOK OPENERS & PHRASES: Never use textbook openers or AI contrast clichés like "As [noun]...", "Modern [noun]...", "[Noun] is a [adjective] discipline that...", "In today's world", "It is important to note", "plays a crucial role", "Furthermore", "Moreover", "Additionally", "Consequently", "In conclusion", "Overall", "delve into", "navigate", "landscape", "a wide range of", "leverage", "utilize", "facilitate", "optimize", "comprehensive", "robust", "cutting-edge", "sparking debate", "sparking intense debate", "Advocates point to", "Critics warn about", "leaving society with a big question".
+7. SHORT 1-2 SYLLABLE WORDS (LOW MEAN WORD LENGTH): Keep average word length low (~5.0-5.3 characters). Prefer short 1-2 syllable words ('wins', 'grit', 'chance', 'steps') over heavy 4-syllable abstract nouns ('accomplishments', 'resilience', 'possibility', 'reflection').
+8. NO FORMULAIC EMOTIONAL UPLIFT: Never write sentimental AI wrap-ups like 'finding joy in the little things', 'remind us that happiness is...', 'what makes life so special', or 'teach us patience, kindness, and resilience'.
+9. PRESERVE LISTS, BULLETS, & HEADINGS: If the input has list items, bullets, line-by-line definitions, or headers (e.g. 'Pattern Scan: ...'), keep this exact structure, headings, and line breaks in your output.
+
+# ADDITIONAL SKILL RULES (Wikipedia AI Writing Patterns):
+10. NO CHALLENGE/FUTURE SECTIONS (§6): Never write a "Challenges and Future Prospects" or "Despite these challenges" wrap-up. If challenges exist, state them plainly as facts.
+11. NO NEGATIVE PARALLELISMS (§9): Avoid "Not only...but also" and "It's not just about X; it's Y" constructions.
+12. NO RULE OF THREE (§10): Do not force ideas into groups of exactly three (keynote sessions, panel discussions, and networking opportunities).
+13. NO FALSE RANGES (§12): Avoid "from X to Y" when X and Y are not on a meaningful scale.
+14. ACTIVE VOICE (§13): Name the actor. Write "The system preserves the results automatically" instead of passive voice.
+15. NO INLINE-HEADER LISTS (§16): Convert lists with bold headers ("**Performance:** Speed improved...") into flowing prose.
+16. NO GENERIC CONCLUSIONS (§25): Never end with "The future looks bright", "Exciting times lie ahead", or "a step in the right direction".
+17. PREDICATE HYPHEN DROP (§26): Drop hyphens on compound adjectives that follow the noun (predicate position).
+18. NO FRAGMENTED HEADERS (§29): Do not follow a heading with a one-line restatement of it.
+19. NO DIFF-ANCHORED WRITING (§30): Do not describe what changed or was added. Describe what the thing IS.
 
 # OUTPUT — CRITICAL RULES
 Return ONLY the final rewritten text. Do your thinking SILENTLY.
@@ -33,6 +47,7 @@ STRICTLY FORBIDDEN:
 - Parenthetical word counts or numbers after sentences (e.g. NEVER write "(10)", "(7)", "(6)").
 - Checking your work inline or adding preambles, notes, explanations, or quotes.
 """
+
 
 # ── Mode-specific instructions ──────────────────────────────────────────────
 
@@ -186,8 +201,12 @@ HOW MUCH TO CHANGE:
     ref = _STYLE_REFERENCES.get(mode_val, _STYLE_REFERENCES["native"])
     
     word_cnt = len(text.split())
-    min_cnt = max(5, int(word_cnt * 0.95))
-    max_cnt = int(word_cnt * 1.03)
+    if word_cnt < 10:
+        min_cnt = max(3, word_cnt - 3)
+        max_cnt = word_cnt + 6
+    else:
+        min_cnt = max(5, int(word_cnt * 0.95))
+        max_cnt = int(word_cnt * 1.03)
 
     user_prompt = f"""STYLE REFERENCE EXAMPLE FOR '{mode_val.upper()}' STYLE:
 Input: "{ref['original']}"

@@ -66,6 +66,22 @@ export interface RewriteResponse {
   reading_time: ReadingTime;
   meaning_preserved: boolean;
   meaning_reason: string;
+  meaning_preservation_score?: number;
+  similarity_metrics?: {
+    fuzzy_similarity?: number;
+    token_set_ratio?: number;
+    semantic_similarity?: number;
+    meaning_preservation_score?: number;
+    is_duplicate?: boolean;
+  };
+  nlp_analysis?: {
+    pos_distribution?: Record<string, number>;
+    passive_voice_count?: number;
+    active_voice_count?: number;
+    entities?: { text: string; label: string }[];
+    avg_dependency_depth?: number;
+    has_spacy?: boolean;
+  };
   word_diff: DiffWord[];
 }
 

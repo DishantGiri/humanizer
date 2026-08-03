@@ -771,7 +771,7 @@ export default function LandingHero({
                   <span className="pricing-card-price-period">Per month</span>
                 </div>
                 <p className="pricing-card-description">
-                  Paste Any Text Below To Instantly Check How Likely
+                  Essential AI humanization for quick tests and casual writing.
                 </p>
 
                 <div style={{ marginBottom: '28px' }}>
@@ -809,7 +809,7 @@ export default function LandingHero({
                   <span className="pricing-card-price-period">Per month</span>
                 </div>
                 <p className="pricing-card-description">
-                  Paste Any Text Below To Instantly Check How Likely
+                  Perfect for students & creators needing daily anti-AI humanization.
                 </p>
 
                 <div style={{ marginBottom: '28px' }}>
@@ -846,7 +846,7 @@ export default function LandingHero({
                   <span className="pricing-card-price-period">Per month</span>
                 </div>
                 <p className="pricing-card-description">
-                  Paste Any Text Below To Instantly Check How Likely
+                  Advanced anti-AI bypass for professionals, essays & articles.
                 </p>
 
                 <div style={{ marginBottom: '28px' }}>
@@ -886,7 +886,7 @@ export default function LandingHero({
                   <span className="pricing-card-price-period">Per month</span>
                 </div>
                 <p className="pricing-card-description">
-                  Paste Any Text Below To Instantly Check How Likely
+                  Maximum word limits, priority AI engine, & full access.
                 </p>
 
                 <div style={{ marginBottom: '28px' }}>
