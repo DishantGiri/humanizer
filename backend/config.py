@@ -15,6 +15,20 @@ GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instant")
 
+# ── Gemini API & Key Pool Configuration ─────────────────────────────────────
+
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+GEMINI_API_KEYS: list[str] = [
+    k.strip() for k in [
+        os.getenv("GEMINI_API_KEY"),
+        os.getenv("GEMINI_API_KEY2"),
+        os.getenv("GEMINI_API_KEY3"),
+        os.getenv("GEMINI_API_KEY4"),
+        os.getenv("GEMINI_API_KEY5"),
+    ] if k and k.strip()
+]
+
 # ── Limits ──────────────────────────────────────────────────────────────────
 
 MAX_INPUT_LENGTH: int = 10_000  # characters
