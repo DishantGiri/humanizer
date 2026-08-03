@@ -69,6 +69,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     };
   }, [toast, onDismiss, dur]);
 
+  const lowerMsg = toast.message.toLowerCase();
+  const isPlanLimit = /\b(upgrade|plan limit|words per input|word limit|humanizations used)\b/i.test(lowerMsg);
+
   const configs = {
     success: {
       bg: 'rgba(15, 23, 42, 0.94)',
@@ -86,7 +89,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       accent: '#f43f5e',
       glow: 'rgba(244, 63, 94, 0.2)',
       icon: <AlertCircle size={18} />,
-      label: toast.message.toLowerCase().includes('word') || toast.message.toLowerCase().includes('plan') ? 'Plan Limit Reached' : 'Notice',
+      label: isPlanLimit ? 'Plan Limit Reached' : 'Authentication Error',
     },
     warning: {
       bg: 'rgba(15, 23, 42, 0.94)',
@@ -109,7 +112,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   };
 
   const c = configs[toast.type];
-  const isLimitMsg = toast.message.toLowerCase().includes('upgrade') || toast.message.toLowerCase().includes('word');
+  const isLimitMsg = isPlanLimit;
 
   return (
     <div
