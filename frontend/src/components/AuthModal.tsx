@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { loginUser, registerUser, googleAuthUser, type User } from '@/lib/api';
+import { loginUser, registerUser, verifyEmail, googleAuthUser, type User } from '@/lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -35,17 +35,38 @@ export default function AuthModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
-      setError('Please fill in all required fields.');
+    if (isVerifying) {
+      if (!verificationCode.trim()) {
+        setError('Please enter the 6-digit verification code sent to your email.');
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await verifyEmail(email, verificationCode);
+        onSuccess(res.user, res.token);
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Verification failed.');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
     if (mode === 'register' && !name.trim()) {
-      setError('Please enter your name.');
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in all fields.');
       return;
     }
 
@@ -59,12 +80,17 @@ export default function AuthModal({
     try {
       if (mode === 'register') {
         const res = await registerUser(name, email, password);
-        onSuccess(res.user, res.token);
+        if (res.require_verification) {
+          setIsVerifying(true);
+        } else if (res.user && res.token) {
+          onSuccess(res.user, res.token);
+          onClose();
+        }
       } else {
         const res = await loginUser(email, password);
         onSuccess(res.user, res.token);
+        onClose();
       }
-      onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Authentication failed.';
       setError(msg);
@@ -155,86 +181,111 @@ export default function AuthModal({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          {mode === 'register' && (
+        <form onSubmit={handleFormSubmit} className="auth-form">
+          {isVerifying ? (
             <div className="auth-input-group">
-              <label className="auth-label" htmlFor="auth-name">
-                Full Name
+              <label className="auth-label" htmlFor="auth-verification-code">
+                6-Digit Verification Code Sent to Email
               </label>
               <div className="auth-input-wrapper">
-                <UserIcon size={16} className="auth-input-icon" />
+                <Mail size={16} className="auth-input-icon" />
                 <input
-                  id="auth-name"
+                  id="auth-verification-code"
                   type="text"
+                  maxLength={6}
                   className="auth-input"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="123456"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  style={{ letterSpacing: '4px', fontSize: '1.1rem', fontWeight: 800, textAlign: 'center' }}
                   disabled={loading}
                   required
                 />
               </div>
             </div>
+          ) : (
+            <>
+              {mode === 'register' && (
+                <div className="auth-input-group">
+                  <label className="auth-label" htmlFor="auth-name">
+                    Full Name
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <UserIcon size={16} className="auth-input-icon" />
+                    <input
+                      id="auth-name"
+                      type="text"
+                      className="auth-input"
+                      placeholder="John Doe"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="auth-input-group">
+                <label className="auth-label" htmlFor="auth-email">
+                  Email Address
+                </label>
+                <div className="auth-input-wrapper">
+                  <Mail size={16} className="auth-input-icon" />
+                  <input
+                    id="auth-email"
+                    type="email"
+                    className="auth-input"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="auth-input-group">
+                <label className="auth-label" htmlFor="auth-password">
+                  Password
+                </label>
+                <div className="auth-input-wrapper" style={{ position: 'relative' }}>
+                  <Lock size={16} className="auth-input-icon" />
+                  <input
+                    id="auth-password"
+                    type={showPassword ? 'text' : 'password'}
+                    className="auth-input"
+                    style={{ paddingRight: '40px' }}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted, #94a3b8)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
-
-          <div className="auth-input-group">
-            <label className="auth-label" htmlFor="auth-email">
-              Email Address
-            </label>
-            <div className="auth-input-wrapper">
-              <Mail size={16} className="auth-input-icon" />
-              <input
-                id="auth-email"
-                type="email"
-                className="auth-input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="auth-input-group">
-            <label className="auth-label" htmlFor="auth-password">
-              Password
-            </label>
-            <div className="auth-input-wrapper" style={{ position: 'relative' }}>
-              <Lock size={16} className="auth-input-icon" />
-              <input
-                id="auth-password"
-                type={showPassword ? 'text' : 'password'}
-                className="auth-input"
-                style={{ paddingRight: '40px' }}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted, #94a3b8)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '4px',
-                }}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
 
           <button
             type="submit"

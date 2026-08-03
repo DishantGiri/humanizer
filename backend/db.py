@@ -109,9 +109,22 @@ def init_db():
                     password_hash VARCHAR(255) NOT NULL,
                     salt VARCHAR(255) NOT NULL,
                     plan VARCHAR(32) DEFAULT 'free',
+                    role VARCHAR(32) DEFAULT 'user',
+                    email_verified INT DEFAULT 0,
                     usage_count INT DEFAULT 0,
                     avatar_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS reset_codes (
+                    id VARCHAR(64) PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL,
+                    code VARCHAR(16) NOT NULL,
+                    purpose VARCHAR(32) NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_reset_email (email)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """,
                 """
@@ -126,6 +139,8 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS coupons (
                     code VARCHAR(48) PRIMARY KEY,
                     plan VARCHAR(32) NOT NULL,
+                    max_uses INT DEFAULT 1,
+                    used_count INT DEFAULT 0,
                     redeemed_by VARCHAR(64) DEFAULT NULL,
                     redeemed_at DATETIME DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -155,6 +170,22 @@ def init_db():
             except Exception:
                 pass
             try:
+                cursor.execute("ALTER TABLE users ADD COLUMN role VARCHAR(32) DEFAULT 'user'")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN email_verified INT DEFAULT 0")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE coupons ADD COLUMN max_uses INT DEFAULT 1")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE coupons ADD COLUMN used_count INT DEFAULT 0")
+            except Exception:
+                pass
+            try:
                 cursor.execute("ALTER TABLE sessions MODIFY token VARCHAR(512)")
             except Exception:
                 pass
@@ -170,8 +201,20 @@ def init_db():
                         password_hash TEXT NOT NULL,
                         salt TEXT NOT NULL,
                         plan TEXT DEFAULT 'free',
+                        role TEXT DEFAULT 'user',
+                        email_verified INTEGER DEFAULT 0,
                         usage_count INTEGER DEFAULT 0,
                         avatar_url TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS reset_codes (
+                        id TEXT PRIMARY KEY,
+                        email TEXT NOT NULL,
+                        code TEXT NOT NULL,
+                        purpose TEXT NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -187,6 +230,8 @@ def init_db():
                     CREATE TABLE IF NOT EXISTS coupons (
                         code TEXT PRIMARY KEY,
                         plan TEXT NOT NULL,
+                        max_uses INTEGER DEFAULT 1,
+                        used_count INTEGER DEFAULT 0,
                         redeemed_by TEXT DEFAULT NULL,
                         redeemed_at TIMESTAMP DEFAULT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -207,6 +252,22 @@ def init_db():
                 """)
                 try:
                     cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0")
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("ALTER TABLE coupons ADD COLUMN max_uses INTEGER DEFAULT 1")
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("ALTER TABLE coupons ADD COLUMN used_count INTEGER DEFAULT 0")
                 except Exception:
                     pass
     finally:

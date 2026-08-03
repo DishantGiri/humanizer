@@ -7,6 +7,7 @@ import hmac
 import requests
 import hashlib
 import uuid
+import secrets
 import logging
 import jwt
 from datetime import datetime, timedelta
@@ -14,6 +15,11 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel, EmailStr, Field
 from db import execute_query, fetch_one, fetch_all
+from mailer import (
+    send_verification_email,
+    send_forgot_password_email,
+    send_password_changed_notice,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +62,32 @@ class RegisterRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., min_length=6, description="User password (min 6 chars)")
 
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
 class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, description="Current password")
+    new_password: str = Field(..., min_length=6, description="New password (min 6 chars)")
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str = Field(..., min_length=6, description="New password (min 6 chars)")
 
 class UserResponse(BaseModel):
     id: str
     name: str
     email: str
     plan: str = "free"
+    role: str = "user"
     usage_count: int = 0
     avatar_url: Optional[str] = None
     created_at: str
@@ -118,7 +141,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         raise HTTPException(status_code=401, detail="Invalid or expired session token")
 
     query = """
-        SELECT id, name, email, plan, usage_count, avatar_url, created_at
+        SELECT id, name, email, plan, role, usage_count, avatar_url, created_at
         FROM users
         WHERE id = ?
     """
@@ -131,10 +154,187 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         name=user_row["name"],
         email=user_row["email"],
         plan=user_row.get("plan", "free"),
+        role=user_row.get("role", "user"),
         usage_count=user_row.get("usage_count", 0),
         avatar_url=user_row.get("avatar_url"),
         created_at=str(user_row["created_at"])
     )
+
+def get_optional_user_from_token(authorization: Optional[str] = Header(None)) -> Optional[UserResponse]:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return get_current_user_from_token(authorization)
+    except HTTPException:
+        return None
+
+# ── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.post("/register")
+async def register(request: RegisterRequest):
+    """
+    Register a new user account and send an SMTP verification code.
+    """
+    email_clean = request.email.lower().strip()
+    name_clean = request.name.strip()
+    
+    q_check = "SELECT id FROM users WHERE email = ?"
+    if fetch_one(q_check, (email_clean,)):
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    
+    user_id = str(uuid.uuid4())
+    pwd_hash, salt = hash_password(request.password)
+    created_at = datetime.utcnow().isoformat()
+    
+    q_ins_u = """
+        INSERT INTO users (id, name, email, password_hash, salt, plan, role, email_verified, usage_count, created_at)
+        VALUES (?, ?, ?, ?, ?, 'free', 'user', 0, 0, ?)
+    """
+    execute_query(q_ins_u, (user_id, name_clean, email_clean, pwd_hash, salt, created_at))
+
+    # Generate 6-digit verification code
+    code = str(secrets.randbelow(900000) + 100000)
+    expires_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+    code_id = str(uuid.uuid4())
+
+    execute_query("DELETE FROM reset_codes WHERE email = ? AND purpose = 'verify_registration'", (email_clean,))
+    execute_query(
+        "INSERT INTO reset_codes (id, email, code, purpose, expires_at) VALUES (?, ?, ?, 'verify_registration', ?)",
+        (code_id, email_clean, code, expires_at)
+    )
+
+    # Send verification email via SMTP
+    sent = send_verification_email(email_clean, name_clean, code)
+
+    return {
+        "message": "Registration successful. Please check your email for the 6-digit verification code.",
+        "email": email_clean,
+        "require_verification": True,
+        "email_sent": sent
+    }
+
+
+@router.post("/verify-email", response_model=AuthResponse)
+async def verify_email(request: VerifyEmailRequest):
+    """
+    Verify 6-digit registration code sent via SMTP and activate account.
+    """
+    email_clean = request.email.lower().strip()
+    code_clean = request.code.strip()
+
+    row = fetch_one(
+        "SELECT id, expires_at FROM reset_codes WHERE email = ? AND code = ? AND purpose = 'verify_registration'",
+        (email_clean, code_clean)
+    )
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid verification code. Please check and try again.")
+
+    # Mark user email as verified
+    execute_query("UPDATE users SET email_verified = 1 WHERE email = ?", (email_clean,))
+    execute_query("DELETE FROM reset_codes WHERE id = ?", (row["id"],))
+
+    user_row = fetch_one("SELECT id, name, email, plan, role, usage_count, avatar_url, created_at FROM users WHERE email = ?", (email_clean,))
+    if not user_row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"])
+    execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_row["id"]))
+
+    user_resp = UserResponse(
+        id=user_row["id"],
+        name=user_row["name"],
+        email=user_row["email"],
+        plan=user_row.get("plan", "free"),
+        role=user_row.get("role", "user"),
+        usage_count=user_row.get("usage_count", 0),
+        avatar_url=user_row.get("avatar_url"),
+        created_at=str(user_row["created_at"])
+    )
+    return AuthResponse(
+        user=user_resp,
+        token=token,
+        message="Email verified successfully! Welcome to CloakWriter."
+    )
+
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: UserResponse = Depends(get_current_user_from_token)
+):
+    """
+    Allows user or admin to change password by validating current password first.
+    """
+    user_row = fetch_one("SELECT password_hash, salt, name, email FROM users WHERE id = ?", (current_user.id,))
+    if not user_row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    expected_hash, _ = hash_password(request.current_password, user_row["salt"])
+    if expected_hash != user_row["password_hash"]:
+        raise HTTPException(status_code=400, detail="Current password is incorrect. Please try again.")
+
+    new_hash, new_salt = hash_password(request.new_password)
+    execute_query("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", (new_hash, new_salt, current_user.id))
+
+    # Send security notification email
+    send_password_changed_notice(user_row["email"], user_row["name"])
+
+    return {"message": "Password changed successfully."}
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """
+    Generate and email a 6-digit password reset code via SMTP.
+    """
+    email_clean = request.email.lower().strip()
+    user_row = fetch_one("SELECT id, name, email FROM users WHERE email = ?", (email_clean,))
+
+    if not user_row:
+        # Don't leak registered email status
+        return {"message": "If an account exists for this email, a reset code has been sent."}
+
+    code = str(secrets.randbelow(900000) + 100000)
+    expires_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+    code_id = str(uuid.uuid4())
+
+    execute_query("DELETE FROM reset_codes WHERE email = ? AND purpose = 'forgot_password'", (email_clean,))
+    execute_query(
+        "INSERT INTO reset_codes (id, email, code, purpose, expires_at) VALUES (?, ?, ?, 'forgot_password', ?)",
+        (code_id, email_clean, code, expires_at)
+    )
+
+    send_forgot_password_email(email_clean, user_row["name"], code)
+
+    return {"message": "If an account exists for this email, a reset code has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """
+    Reset password using 6-digit SMTP reset code.
+    """
+    email_clean = request.email.lower().strip()
+    code_clean = request.code.strip()
+
+    row = fetch_one(
+        "SELECT id FROM reset_codes WHERE email = ? AND code = ? AND purpose = 'forgot_password'",
+        (email_clean, code_clean)
+    )
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code. Please try again.")
+
+    user_row = fetch_one("SELECT id, name, email FROM users WHERE email = ?", (email_clean,))
+    if not user_row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    new_hash, new_salt = hash_password(request.new_password)
+    execute_query("UPDATE users SET password_hash = ?, salt = ? WHERE email = ?", (new_hash, new_salt, email_clean))
+    execute_query("DELETE FROM reset_codes WHERE id = ?", (row["id"],))
+
+    send_password_changed_notice(email_clean, user_row["name"])
+
+    return {"message": "Password reset successfully. You may now log in with your new password."}
 
 def get_optional_user_from_token(authorization: Optional[str] = Header(None)) -> Optional[UserResponse]:
     if not authorization or not authorization.startswith("Bearer "):

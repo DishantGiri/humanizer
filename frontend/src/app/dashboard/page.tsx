@@ -25,6 +25,7 @@ import {
   ArrowRight,
   MoreVertical,
   Type,
+  ShieldAlert,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -35,6 +36,7 @@ import AuthModal from '@/components/AuthModal';
 import DashboardView from '@/components/DashboardView';
 import PricingView from '@/components/PricingView';
 import AccountView from '@/components/AccountView';
+import AdminView from '@/components/AdminView';
 import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
@@ -387,6 +389,18 @@ export default function DashboardPage() {
             <CreditCard size={18} />
             <span className="sidebar__menu-text">Plans & Pricing</span>
           </button>
+
+          {(user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@gmail.com' || user?.email?.toLowerCase() === 'admin@cloakwriter.com') && (
+            <button
+              type="button"
+              className="sidebar__menu-item"
+              onClick={() => router.push('/admin/dashboard')}
+              style={{ color: '#38bdf8' }}
+            >
+              <ShieldAlert size={18} />
+              <span className="sidebar__menu-text">Admin Portal</span>
+            </button>
+          )}
         </nav>
 
         <div className="sidebar__footer">
@@ -545,6 +559,8 @@ export default function DashboardPage() {
               onNavigateToPlans={() => setActiveMenu('plans')}
               onLogout={handleLogout}
             />
+          ) : activeMenu === 'admin' ? (
+            <AdminView user={user} token={token} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               <div className="content-header">

@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff } from 'lucide-react';
-import { registerUser, googleAuthUser } from '@/lib/api';
+import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, MailCheck } from 'lucide-react';
+import { registerUser, verifyEmail, googleAuthUser } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
 export default function RegisterPage() {
@@ -15,6 +15,8 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [step, setStep] = useState<'register' | 'verify'>('register');
+  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -59,12 +61,33 @@ export default function RegisterPage() {
 
     try {
       const res = await registerUser(name, email, password);
+      toast.success(res.message || 'Verification code sent to your email!');
+      setStep('verify');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Registration failed.';
+      toast.danger(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode.trim()) {
+      toast.danger('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await verifyEmail(email, verificationCode);
       localStorage.setItem('humanizer_token', res.token);
       localStorage.setItem('humanizer_user', JSON.stringify(res.user));
       document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
+      toast.success('Email verified successfully!');
       router.push('/dashboard');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Registration failed.';
+      const msg = err instanceof Error ? err.message : 'Verification failed.';
       toast.danger(msg);
     } finally {
       setLoading(false);
@@ -85,12 +108,83 @@ export default function RegisterPage() {
         <div className="auth-split-card">
           {/* Left Column: Form */}
           <div className="auth-left-col">
-            <h1 className="auth-split-title">Create an account</h1>
-            <p className="auth-split-subtitle">
-              Enter your details below to create your account
-            </p>
+            {step === 'verify' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '16px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <MailCheck size={28} color="#10b981" />
+                </div>
+                <h1 className="auth-split-title">Verify your email</h1>
+                <p className="auth-split-subtitle">
+                  We sent a 6-digit verification code to <strong style={{ color: '#f8fafc' }}>{email}</strong>.
+                </p>
 
-            <form onSubmit={handleSubmit} className="auth-split-form">
+                <form onSubmit={handleVerifyCode} className="auth-split-form">
+                  <div className="auth-split-field">
+                    <label className="auth-split-label" htmlFor="verification-code">
+                      6-Digit Verification Code
+                    </label>
+                    <input
+                      id="verification-code"
+                      type="text"
+                      maxLength={6}
+                      className="auth-split-input"
+                      placeholder="123456"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                      style={{ letterSpacing: '4px', fontSize: '1.2rem', textAlign: 'center', fontWeight: 800 }}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="auth-split-submit-btn"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={16} className="spinner-animate" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <span>Verify & Activate Account</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStep('register')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      marginTop: '8px'
+                    }}
+                  >
+                    ← Back to Registration
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <>
+                <h1 className="auth-split-title">Create an account</h1>
+                <p className="auth-split-subtitle">
+                  Enter your details below to create your account
+                </p>
+
+                <form onSubmit={handleSubmit} className="auth-split-form">
               {/* Name */}
               <div className="auth-split-field">
                 <label className="auth-split-label" htmlFor="name">
@@ -246,6 +340,8 @@ export default function RegisterPage() {
                 Sign in
               </Link>
             </div>
+              </>
+            )}
           </div>
 
           {/* Right Column: Live AI Humanizer Showcase */}

@@ -96,6 +96,7 @@ export interface User {
   name: string;
   email: string;
   plan: 'free' | 'starter' | 'plus' | 'pro' | string;
+  role?: 'user' | 'admin' | string;
   usage_count: number;
   created_at: string;
   avatar_url?: string;
@@ -176,7 +177,14 @@ export async function analyzeText(text: string): Promise<TextStats> {
 
 // ── Auth & Plan API Functions ──────────────────────────────────────────────
 
-export async function registerUser(name: string, email: string, password: string): Promise<AuthResponse> {
+export async function registerUser(name: string, email: string, password: string): Promise<{
+  message: string;
+  email: string;
+  user?: User;
+  token?: string;
+  require_verification?: boolean;
+  email_sent?: boolean;
+}> {
   const response = await fetch(`${API_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -186,6 +194,57 @@ export async function registerUser(name: string, email: string, password: string
   if (!response.ok) {
     const error: ApiError = await response.json().catch(() => ({
       detail: `Registration failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Email verification failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Forgot password request failed (${response.status})`,
+    }));
+    throw new Error(error.detail);
+  }
+
+  return await response.json();
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, new_password: newPassword }),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      detail: `Password reset failed (${response.status})`,
     }));
     throw new Error(error.detail);
   }
@@ -392,6 +451,154 @@ export async function logoutUser(token?: string): Promise<void> {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   }).catch(() => {});
+}
+
+// ── Admin API Functions ────────────────────────────────────────────────────
+
+export interface AdminStats {
+  total_users: number;
+  total_rewrites: number;
+  total_words: number;
+  active_subscribers: number;
+  total_coupons: number;
+}
+
+export interface AdminActivityItem {
+  id: string;
+  user_name: string;
+  user_email: string;
+  original_snippet: string;
+  rewritten_snippet: string;
+  word_count: number;
+  mode: string;
+  created_at: string;
+}
+
+export interface AdminAnalyticsResponse {
+  stats: AdminStats;
+  plan_breakdown: Record<string, number>;
+  recent_activity: AdminActivityItem[];
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  plan: string;
+  role: string;
+  usage_count: number;
+  avatar_url?: string;
+  created_at: string;
+}
+
+export interface AdminCoupon {
+  code: string;
+  plan: string;
+  max_uses: number;
+  used_count: number;
+  is_redeemed: boolean;
+  redeemed_by?: string;
+  redeemed_at?: string;
+  created_at: string;
+}
+
+export async function fetchAdminAnalytics(token: string): Promise<AdminAnalyticsResponse> {
+  const response = await fetch(`${API_BASE}/api/admin/analytics`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch admin analytics' }));
+    throw new Error(errorData.detail || 'Failed to fetch admin analytics');
+  }
+  return await response.json();
+}
+
+export async function fetchAdminUsers(token: string, search?: string, planFilter?: string): Promise<{ total: number; users: AdminUser[] }> {
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (planFilter) params.set('plan_filter', planFilter);
+
+  const response = await fetch(`${API_BASE}/api/admin/users?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch users list' }));
+    throw new Error(errorData.detail || 'Failed to fetch users list');
+  }
+  return await response.json();
+}
+
+export async function updateAdminUser(
+  token: string,
+  userId: string,
+  data: { plan?: string; role?: string; usage_count?: number }
+): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to update user' }));
+    throw new Error(errorData.detail || 'Failed to update user');
+  }
+  const result = await response.json();
+  return result.user;
+}
+
+export async function deleteAdminUser(token: string, userId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to delete user' }));
+    throw new Error(errorData.detail || 'Failed to delete user');
+  }
+}
+
+export async function fetchAdminCoupons(token: string): Promise<{ total: number; coupons: AdminCoupon[] }> {
+  const response = await fetch(`${API_BASE}/api/admin/coupons`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch coupons list' }));
+    throw new Error(errorData.detail || 'Failed to fetch coupons list');
+  }
+  return await response.json();
+}
+
+export async function generateAdminCoupons(
+  token: string,
+  data: { plan: string; prefix?: string; quantity?: number; max_uses?: number }
+): Promise<{ message: string; codes: string[]; plan: string }> {
+  const response = await fetch(`${API_BASE}/api/admin/coupons/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate coupons' }));
+    throw new Error(errorData.detail || 'Failed to generate coupons');
+  }
+  return await response.json();
+}
+
+export async function revokeAdminCoupon(token: string, code: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/admin/coupons/${code}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke coupon' }));
+    throw new Error(errorData.detail || 'Failed to revoke coupon');
+  }
 }
 
 // ── Mode metadata ──────────────────────────────────────────────────────────

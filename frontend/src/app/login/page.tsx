@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff } from 'lucide-react';
-import { loginUser, googleAuthUser } from '@/lib/api';
+import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, KeyRound, X, MailCheck } from 'lucide-react';
+import { loginUser, googleAuthUser, forgotPassword, resetPassword } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
 export default function LoginPage() {
@@ -13,6 +13,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Forgot password modal state
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'request' | 'reset'>('request');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   useEffect(() => {
     const savedTheme =
@@ -93,6 +102,49 @@ export default function LoginPage() {
     }
   };
 
+  const handleRequestResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      toast.danger('Please enter your email address.');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await forgotPassword(forgotEmail);
+      toast.success(res.message || '6-digit reset code sent to your email!');
+      setForgotStep('reset');
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : 'Request failed.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetCode.trim() || !newPassword.trim()) {
+      toast.danger('Please enter the 6-digit code and your new password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.danger('New password must be at least 6 characters long.');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await resetPassword(forgotEmail, resetCode, newPassword);
+      toast.success(res.message || 'Password reset successfully!');
+      setForgotModalOpen(false);
+      setForgotStep('request');
+      setPassword(newPassword);
+      setEmail(forgotEmail);
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : 'Reset failed.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="auth-split-wrapper">
       {/* ── Main Container ────────────────────────────────────────── */}
@@ -140,7 +192,8 @@ export default function LoginPage() {
                     href="#forgot"
                     onClick={(e) => {
                       e.preventDefault();
-                      toast.info('Password reset link sent to your email address.');
+                      setForgotEmail(email);
+                      setForgotModalOpen(true);
                     }}
                     className="auth-split-forgot"
                   >
@@ -278,6 +331,178 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal Overlay */}
+      {forgotModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(12px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '20px',
+            padding: '28px',
+            maxWidth: '420px',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <KeyRound size={22} color="#38bdf8" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Reset Password
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setForgotModalOpen(false); setForgotStep('request'); }}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {forgotStep === 'request' ? (
+              <form onSubmit={handleRequestResetCode} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
+                  Enter your account email address. We will send you a 6-digit password reset code via SMTP.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="m@example.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#f8fafc',
+                      fontSize: '0.88rem'
+                    }}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {forgotLoading ? <Loader2 size={16} className="spinner-animate" /> : 'Send Reset Code'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
+                  A 6-digit code was sent to <strong style={{ color: '#f8fafc' }}>{forgotEmail}</strong>. Enter it below along with your new password:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>6-Digit Reset Code</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#f8fafc',
+                      fontSize: '1.1rem',
+                      letterSpacing: '4px',
+                      textAlign: 'center',
+                      fontWeight: 800
+                    }}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Password</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 40px 10px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#f8fafc',
+                        fontSize: '0.88rem'
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      tabIndex={-1}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {forgotLoading ? <Loader2 size={16} className="spinner-animate" /> : 'Reset Password & Sign In'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
