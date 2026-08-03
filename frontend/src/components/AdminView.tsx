@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Loader2,
+  ChevronLeft,
   ChevronRight,
   TrendingUp,
   UserCheck,
@@ -78,6 +79,12 @@ export default function AdminView({ user, token }: AdminViewProps) {
   const [generatingCoupons, setGeneratingCoupons] = useState(false);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  // Pagination states (No infinite scrolling)
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
+  const [couponPage, setCouponPage] = useState(1);
+  const [couponPageSize, setCouponPageSize] = useState(10);
+
   // Credentials modal state
   const [showCredModal, setShowCredModal] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState(user?.email || '');
@@ -122,6 +129,15 @@ export default function AdminView({ user, token }: AdminViewProps) {
       setUpdatingCreds(false);
     }
   };
+
+  // Pagination slicing (No infinite scrolling)
+  const userStartIndex = (userPage - 1) * userPageSize;
+  const paginatedUsers = users.slice(userStartIndex, userStartIndex + userPageSize);
+  const totalUserPages = Math.ceil(users.length / userPageSize) || 1;
+
+  const couponStartIndex = (couponPage - 1) * couponPageSize;
+  const paginatedCoupons = coupons.slice(couponStartIndex, couponStartIndex + couponPageSize);
+  const totalCouponPages = Math.ceil(coupons.length / couponPageSize) || 1;
 
   // Load analytics
   const loadAnalyticsData = async () => {
@@ -696,7 +712,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                         </td>
                       </tr>
                     ) : (
-                      users.map((u) => (
+                      paginatedUsers.map((u) => (
                         <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontWeight: 700, color: '#f8fafc' }}>{u.name}</div>
@@ -780,6 +796,65 @@ export default function AdminView({ user, token }: AdminViewProps) {
                     )}
                   </tbody>
                 </table>
+
+                {/* User Table Pagination Footer */}
+                {users.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '16px 20px',
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(15, 23, 42, 0.4)',
+                    fontSize: '0.82rem',
+                    color: '#94a3b8'
+                  }}>
+                    <div>
+                      Showing {userStartIndex + 1}–{Math.min(userStartIndex + userPageSize, users.length)} of {users.length} users
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        type="button"
+                        disabled={userPage === 1}
+                        onClick={() => setUserPage((prev) => Math.max(prev - 1, 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: userPage === 1 ? '#475569' : '#e2e8f0',
+                          cursor: userPage === 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <ChevronLeft size={14} /> Previous
+                      </button>
+                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                        Page {userPage} of {totalUserPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={userPage >= totalUserPages}
+                        onClick={() => setUserPage((prev) => Math.min(prev + 1, totalUserPages))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: userPage >= totalUserPages ? '#475569' : '#e2e8f0',
+                          cursor: userPage >= totalUserPages ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        Next <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1131,7 +1206,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                         </td>
                       </tr>
                     ) : (
-                      coupons.map((c) => (
+                      paginatedCoupons.map((c) => (
                         <tr key={c.code} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                           <td style={{ padding: '12px 16px' }}>
                             <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#38bdf8', fontSize: '0.92rem' }}>
@@ -1213,6 +1288,65 @@ export default function AdminView({ user, token }: AdminViewProps) {
                     )}
                   </tbody>
                 </table>
+
+                {/* Coupon Table Pagination Footer */}
+                {coupons.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '16px 20px',
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(15, 23, 42, 0.4)',
+                    fontSize: '0.82rem',
+                    color: '#94a3b8'
+                  }}>
+                    <div>
+                      Showing {couponStartIndex + 1}–{Math.min(couponStartIndex + couponPageSize, coupons.length)} of {coupons.length} coupons
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        type="button"
+                        disabled={couponPage === 1}
+                        onClick={() => setCouponPage((prev) => Math.max(prev - 1, 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: couponPage === 1 ? '#475569' : '#e2e8f0',
+                          cursor: couponPage === 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <ChevronLeft size={14} /> Previous
+                      </button>
+                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                        Page {couponPage} of {totalCouponPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={couponPage >= totalCouponPages}
+                        onClick={() => setCouponPage((prev) => Math.min(prev + 1, totalCouponPages))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: couponPage >= totalCouponPages ? '#475569' : '#e2e8f0',
+                          cursor: couponPage >= totalCouponPages ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        Next <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
