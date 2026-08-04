@@ -1029,19 +1029,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              </div>ze: '0.95rem', fontWeight: 700, color: '#10b981' }}>
-                        High (Varied)
-                      </div>
-                    </div>
-
-                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Fuzzy Transformation</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {result ? `${result.similarity_metrics?.fuzzy_similarity ?? 42.5}%` : '66.91%'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
