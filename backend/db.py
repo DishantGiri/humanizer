@@ -174,6 +174,10 @@ def init_db():
             except Exception:
                 pass
             try:
+                cursor.execute("ALTER TABLE users ADD COLUMN email_verified INT DEFAULT 0")
+            except Exception:
+                pass
+            try:
                 cursor.execute("ALTER TABLE users ADD COLUMN is_first_login INT DEFAULT 0")
             except Exception:
                 pass
