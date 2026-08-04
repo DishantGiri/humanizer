@@ -29,13 +29,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
-cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
-cors_origins = [o.strip() for o in cors_origins if o.strip()]
+default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://cloakwriter.app",
+    "https://www.cloakwriter.app",
+    "https://cloakwriter.com",
+    "https://www.cloakwriter.com",
+]
+
+env_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+cors_origins = list(set(default_origins + env_origins))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins if cors_origins else ["*"],
-    allow_origin_regex=r"https?://.*",
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

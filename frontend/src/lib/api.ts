@@ -270,6 +270,14 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   return await response.json();
 }
 
+export async function fetchGoogleOauthConfig(): Promise<{ client_id: string }> {
+  const response = await fetch(`${API_BASE}/api/auth/google/config`);
+  if (!response.ok) {
+    return { client_id: '' };
+  }
+  return await response.json();
+}
+
 export async function googleAuthUser(params: { credential?: string; code?: string; redirect_uri?: string }): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/api/auth/google`, {
     method: 'POST',

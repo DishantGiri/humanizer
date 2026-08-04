@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { loginUser, registerUser, verifyEmail, googleAuthUser, type User } from '@/lib/api';
+import { loginUser, registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig, type User } from '@/lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,12 +25,21 @@ export default function AuthModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = () => {
-    const clientId = '365929988554-7v1geh55lljqdvcj5n71712f667ttems.apps.googleusercontent.com';
-    const redirectUri = window.location.origin + '/api/auth/callback/google';
-    const scope = 'openid email profile';
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&prompt=select_account`;
-    window.location.href = googleAuthUrl;
+  const handleGoogleSignIn = async () => {
+    try {
+      const config = await fetchGoogleOauthConfig();
+      const clientId = config.client_id;
+      if (!clientId) {
+        toast.danger('Google Client ID is not configured on backend.');
+        return;
+      }
+      const redirectUri = window.location.origin + '/api/auth/callback/google';
+      const scope = 'openid email profile';
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&prompt=select_account`;
+      window.location.href = googleAuthUrl;
+    } catch {
+      toast.danger('Failed to load Google OAuth configuration.');
+    }
   };
 
   if (!isOpen) return null;

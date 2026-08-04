@@ -63,6 +63,7 @@ export default function AdminDashboardPage() {
       .catch(() => {
         localStorage.removeItem('humanizer_token');
         localStorage.removeItem('humanizer_user');
+        document.cookie = 'humanizer_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
         setToken(null);
         setUser(null);
       })
@@ -136,9 +137,10 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
     localStorage.removeItem('humanizer_token');
     localStorage.removeItem('humanizer_user');
+    document.cookie = 'humanizer_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
     setToken(null);
     setUser(null);
     toast.info('Logged out of Admin Portal.');
