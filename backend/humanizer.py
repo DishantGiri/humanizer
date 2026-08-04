@@ -1465,31 +1465,6 @@ def _apply_random_syntax_transforms(paragraph: str, intensity: float) -> str:
             i += 2
             applied = True
 
-        # Transform 2: Append a trailing fragment after a long sentence for punch
-        if (
-            not applied
-            and word_count >= 16
-            and random.random() < 0.08 * intensity
-            and i == len(sentences) - 1  # only last sentence of paragraph
-        ):
-            fragment = random.choice(_TRAILING_FRAGMENTS)
-            result.append(sent)
-            result.append(fragment)
-            i += 1
-            applied = True
-
-        # Transform 3: Append a clarifying clause to a medium sentence
-        if (
-            not applied
-            and 8 <= word_count <= 20
-            and sent.endswith('.')
-            and random.random() < 0.10 * intensity
-        ):
-            clause = random.choice(_CLARIFYING_APPENDS)
-            result.append(sent.rstrip('.') + clause + '.')
-            i += 1
-            applied = True
-
         # Transform 4: Convert a declarative into a rhetorical question (sparingly)
         if (
             not applied
