@@ -873,121 +873,163 @@ export default function DashboardPage() {
                         </button>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setError(null)}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '8px',
-                        width: '26px',
-                        height: '26px',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
                   </div>
                 )}
               </div>
 
               {/* Right Column: Quality Analysis Sidebar */}
               <div className="content-column-right">
-                <div className="card analysis-sidebar-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
-                    <h3 className="analysis-sidebar-card__title" style={{ margin: 0, padding: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Sparkles size={16} color="#10b981" /> Quality Analysis
-                    </h3>
-                    <span style={{
-                      padding: '3px 10px',
-                      borderRadius: '20px',
-                      background: '#10b981',
-                      color: '#000',
-                      fontWeight: 800,
-                      fontSize: '0.72rem',
-                      letterSpacing: '0.5px'
+                <div className="card analysis-sidebar-card" style={{
+                  background: 'rgba(15, 20, 32, 0.85)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '24px'
+                }}>
+                  {/* Card Header */}
+                  <div style={{
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    paddingBottom: '16px'
+                  }}>
+                    <h3 style={{
+                      margin: 0,
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: '#f8fafc',
+                      fontFamily: 'var(--font-heading)'
                     }}>
-                      {humanScore}% HUMAN ({aiRisk}% AI)
-                    </span>
+                      Quality Analysis
+                    </h3>
                   </div>
 
-                  {/* Circular Chart */}
-                  <div className="analysis-gauge-container">
-                    <div className="gauge-outer-circle">
-                      <svg className="gauge-svg" viewBox="0 0 100 100">
+                  {/* Center Circular Chart */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '18px',
+                    padding: '8px 0'
+                  }}>
+                    <div style={{
+                      position: 'relative',
+                      width: '148px',
+                      height: '148px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
                         <circle
-                          className="gauge-track"
                           cx="50"
                           cy="50"
-                          r="42"
-                          strokeWidth="8"
+                          r="40"
+                          strokeWidth="7"
+                          stroke="rgba(255, 255, 255, 0.08)"
                           fill="transparent"
                         />
                         <circle
-                          className="gauge-fill"
                           cx="50"
                           cy="50"
-                          r="42"
-                          strokeWidth="8"
+                          r="40"
+                          strokeWidth="7"
+                          stroke={result ? "#10b981" : "rgba(255, 255, 255, 0.15)"}
                           fill="transparent"
-                          strokeDasharray={263.8}
-                          strokeDashoffset={263.8 - (263.8 * humanScore) / 100}
+                          strokeDasharray={251.2}
+                          strokeDashoffset={251.2 - (251.2 * (result ? humanScore : 0)) / 100}
+                          strokeLinecap="round"
+                          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
                         />
                       </svg>
-                      <div className="gauge-center-text">
-                        <span className="gauge-percentage">{humanScore}%</span>
-                        <span className="gauge-label">human</span>
+                      <div style={{
+                        position: 'absolute',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <span style={{ fontSize: '2.1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
+                          {result ? `${humanScore}%` : '0%'}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '1px', marginTop: '4px' }}>
+                          HUMAN
+                        </span>
                       </div>
                     </div>
-                    <div className="gauge-subtitle">HUMANIZED</div>
-                  </div>
 
-                  {/* Linguistic Progress Metrics */}
-                  <div className="metrics-progress-section">
-                    <div className="progress-metric-item">
-                      <div className="progress-metric-item__header">
-                        <span className="progress-metric-item__name">AI Risk</span>
-                        <span className="progress-metric-item__val text-amber">{aiRisk}%</span>
-                      </div>
-                      <div className="progress-metric-item__track">
-                        <div
-                          className="progress-metric-item__bar bg-amber"
-                          style={{ width: `${aiRisk}%` }}
-                        />
-                      </div>
+                    {/* Pill Badge */}
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '20px',
+                      padding: '6px 20px',
+                      color: result ? '#10b981' : '#94a3b8',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {result ? 'HUMANIZED' : 'READY TO ANALYZE'}
                     </div>
                   </div>
 
-                  {/* Anti-AI & Quality Breakdown Metrics Grid */}
+                  {/* Metrics List with Dividers */}
                   <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                    gap: '10px',
-                    marginTop: '8px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                    paddingTop: '14px'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginTop: '4px'
                   }}>
-                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Meaning Preserved</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {result ? `${result.meaning_preservation_score ?? 96.5}%` : '84.8%'}
-                      </div>
+                    {/* Row 1: AI Risk */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 0',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                        AI Risk
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#f87171' : '#f8fafc' }}>
+                        {result ? `${aiRisk}%` : '0%'}
+                      </span>
                     </div>
 
-                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Function Word Ratio</div>
-                      <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        43.2% <span style={{ fontSize: '0.68rem', color: '#10b981', display: 'block' }}>(Human &gt;40%)</span>
-                      </div>
+                    {/* Row 2: Readability */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 0',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                        Readability
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
+                        {result ? `${Math.round(result.rewritten_stats.readability_score)}%` : '0%'}
+                      </span>
                     </div>
 
-                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '4px' }}>Burstiness Score</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#10b981' }}>
+                    {/* Row 3: Grammar */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 0',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                        Grammar
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#10b981' : '#f8fafc' }}>
+                        {result ? '100%' : '0%'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>ze: '0.95rem', fontWeight: 700, color: '#10b981' }}>
                         High (Varied)
                       </div>
                     </div>
