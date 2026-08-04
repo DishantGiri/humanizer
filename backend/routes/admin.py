@@ -25,7 +25,7 @@ def require_admin_user(current_user: UserResponse = Depends(get_current_user_fro
     Guard function verifying user has admin privileges.
     Allow if user.role == 'admin' OR user is a primary admin email.
     """
-    if current_user.role == 'admin' or current_user.email.lower() in ('admin@gmail.com', 'admin@cloakwriter.com'):
+    if current_user.role == 'admin' or current_user.email.lower() in ('admin@gmail.com', 'admin@cloakwriter.com', 'rahul@fishtailinfosolutions.com'):
         return current_user
     raise HTTPException(status_code=403, detail="Access denied. Admin privileges required.")
 

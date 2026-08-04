@@ -2088,6 +2088,9 @@ body::before {
 .content-column-right {
   width: 320px;
   flex-shrink: 0;
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
 }
 
 .content-header {

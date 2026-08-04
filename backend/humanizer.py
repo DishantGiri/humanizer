@@ -1071,8 +1071,8 @@ def clean_parenthetical_word_counts(text: str) -> str:
     # Strip quoted example sentences used for word-count illustration:
     # '"They want us to trust the new tools." -> adds 8.'
     # '"We just need to see what happens next." -> adds 9.'
-    # Pattern: any line that is a quoted string (optionally followed by -> annotation)
-    text = re.sub(r'^"[^"\n]+".*$', '', text, flags=re.MULTILINE)
+    # Pattern: any line that is a quoted string followed by -> annotation
+    text = re.sub(r'^"[^"\n]+"\s*->.*$', '', text, flags=re.MULTILINE)
     # Strip orphaned bare-quote lines (a lone " left after the above)
     text = re.sub(r'^\s*"\s*$', '', text, flags=re.MULTILINE)
     # Strip sentence markers: "S1: ", "S2: ", "S3: ", "S4: "
@@ -1194,7 +1194,8 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
     text = re.sub(r'\b(and|but|so)\s+(and|but|so)\b', r'\1', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(and|but|so|still)\s+([A-Z][a-z]+)\b', lambda m: m.group(1) + ' ' + m.group(2).lower(), text, flags=re.IGNORECASE)
 
-    return text.strip()
+    final_text = text.strip()
+    return final_text if final_text else (original_text or text)
 
 
 def inject_opinion_markers(text: str, rate: float = 0.08) -> str:

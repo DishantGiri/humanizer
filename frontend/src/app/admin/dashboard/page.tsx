@@ -225,12 +225,13 @@ export default function AdminDashboardPage() {
             alignItems: 'center',
             justifyContent: 'space-between'
           }}>
-            <div>
-              Default Admin: <strong style={{ color: '#f8fafc' }}>admin@gmail.com</strong>
-            </div>
+            <p className="admin-login-hint">
+              Default Admin: <strong style={{ color: '#f8fafc' }}>rahul@fishtailinfosolutions.com</strong>
+            </p>
             <button
               type="button"
-              onClick={() => { setEmail('admin@gmail.com'); setPassword('admin123'); }}
+              className="admin-login-autofill-btn"
+              onClick={() => { setEmail('rahul@fishtailinfosolutions.com'); setPassword('9D:;n]06{^9i'); }}
               style={{
                 background: 'rgba(56, 189, 248, 0.2)',
                 border: 'none',
