@@ -1006,6 +1006,127 @@ export default function DashboardPage() {
         )}
       </div>
     </main>
+
+    {/* ── Daily Plan Limit Reached Modal Popup ──────────────────────── */}
+    {isLimitError && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(10px)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'rgba(18, 24, 38, 0.95)',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(239, 68, 68, 0.2)',
+          borderRadius: '20px',
+          padding: '28px',
+          maxWidth: '460px',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
+          textAlign: 'center',
+          position: 'relative'
+        }}>
+          <button
+            type="button"
+            onClick={() => { setIsLimitError(false); setError(null); }}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '32px',
+              height: '32px',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={16} />
+          </button>
+
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto',
+            color: '#f87171'
+          }}>
+            <AlertTriangle size={28} />
+          </div>
+
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f87171', margin: 0 }}>
+            Daily Plan Limit Reached
+          </h3>
+
+          <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.5, margin: 0 }}>
+            {error || 'Pro plan limit reached (80 humanizations per day used). Please upgrade your plan to continue or try again tomorrow.'}
+          </p>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+            <button
+              type="button"
+              onClick={() => { setIsLimitError(false); setError(null); }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                color: '#e2e8f0',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: 'pointer'
+              }}
+            >
+              Dismiss
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setIsLimitError(false); setError(null); setActiveMenu('plans'); }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)'
+              }}
+            >
+              Upgrade Plan <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
 }

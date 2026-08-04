@@ -126,7 +126,7 @@ async def rewrite_text(
             detail="Rate limit exceeded. Please wait a minute before making more rewrite requests."
         )
 
-    # Plan Limits Config
+    # Plan Limits Config (Humanizations per day)
     plan_limits = {
         'free': {'max_words': 250, 'max_usage': 10},
         'starter': {'max_words': 600, 'max_usage': 10},
@@ -137,11 +137,20 @@ async def rewrite_text(
     user_plan = user.plan if (user and hasattr(user, 'plan') and user.plan) else 'free'
     cfg = plan_limits.get(user_plan, plan_limits['free'])
 
-    # Enforce Usage Limits
-    if user and user.usage_count >= cfg['max_usage']:
+    # Enforce Daily Usage Limits (reset every 24h)
+    daily_usage_count = 0
+    if user:
+        today_start = datetime.utcnow().strftime('%Y-%m-%d 00:00:00')
+        daily_usage_row = fetch_one(
+            "SELECT COUNT(*) as cnt FROM history WHERE user_id = ? AND created_at >= ?",
+            (user.id, today_start)
+        )
+        daily_usage_count = daily_usage_row["cnt"] if (daily_usage_row and "cnt" in daily_usage_row) else user.usage_count
+
+    if user and daily_usage_count >= cfg['max_usage']:
         raise HTTPException(
             status_code=403,
-            detail=f"{user_plan.capitalize()} plan limit reached ({cfg['max_usage']} humanizations used). Please upgrade your plan to continue."
+            detail=f"{user_plan.capitalize()} plan limit reached ({cfg['max_usage']} humanizations per day used). Please upgrade your plan to continue or try again tomorrow."
         )
 
     # Enforce Word Count Limits

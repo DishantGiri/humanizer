@@ -965,10 +965,10 @@ def vary_sentence_openers(text: str, intensity: float = 0.5) -> str:
     return _process_per_paragraph(text, _vary_paragraph)
 
 
-def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 12) -> str:
+def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 16) -> str:
     """
-    Mandatory sentence length cap: recursively splits any sentence over max_words (12 words)
-    at logical boundaries to defeat the ~29-word average AI detection pattern.
+    Sentence length cap: splits sentences over 16 words at natural clause boundaries (commas, semicolons, major conjunctions)
+    to maintain human-like sentence length (12-16 words) without creating broken fragments.
     """
     sentences = _split_sentences(paragraph)
     result = []
@@ -981,31 +981,26 @@ def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 12) -> s
 
         mid = len(words) // 2
         split_index = -1
-        for i in range(min(mid + 3, len(words) - 2), max(mid - 3, 2), -1):
-            w = words[i].lower().rstrip(',;')
-            if w in ('and', 'but', 'while', 'because', 'which', 'that', 'where', 'as', 'to', 'for', 'when', 'so', 'with', 'or', 'in'):
-                split_index = i
-                break
-            if words[i].endswith(','):
+
+        # Look for comma or semicolon boundary first
+        for i in range(min(mid + 4, len(words) - 3), max(mid - 4, 3), -1):
+            if words[i].endswith(',') or words[i].endswith(';'):
                 split_index = i + 1
                 break
 
-        if split_index == -1 and len(words) > max_words:
-            split_index = mid
+        # Fallback to major subordinating conjunctions if no comma
+        if split_index == -1:
+            for i in range(min(mid + 3, len(words) - 3), max(mid - 3, 3), -1):
+                w = words[i].lower().rstrip(',;')
+                if w in ('while', 'because', 'although', 'whereas', 'since', 'so that'):
+                    split_index = i
+                    break
 
-        if split_index > 1 and split_index < len(words) - 1:
+        if split_index > 2 and split_index < len(words) - 2:
             part1 = " ".join(words[:split_index]).rstrip(',;') + "."
             remainder_words = list(words[split_index:])
-            first_rem = remainder_words[0].lower().rstrip(',;')
-
-            if first_rem in ('and', 'but', 'or', 'so', 'while', 'because', 'which', 'that'):
-                remainder_words = remainder_words[1:]
-
             if remainder_words:
-                if remainder_words[0].lower() in ('can', 'will', 'is', 'are', 'does', 'helps', 'makes', 'unwind', 'use', 'simplifies', 'improve', 'speed', 'make', 'spot', 'simplify'):
-                    remainder_words.insert(0, "it")
                 remainder_words[0] = remainder_words[0].capitalize()
-
             part2 = " ".join(remainder_words)
             _split_one(part1)
             _split_one(part2)
@@ -1018,7 +1013,7 @@ def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 12) -> s
     return _join_sentences(result)
 
 
-def enforce_short_sentences(text: str, max_words: int = 18) -> str:
+def enforce_short_sentences(text: str, max_words: int = 16) -> str:
     """Apply strict sentence length capping across paragraphs."""
     return _process_per_paragraph(text, lambda p: _enforce_short_sentences_paragraph(p, max_words))
 
@@ -1180,8 +1175,8 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
     text = text.replace(" - ", ", ")
     text = text.replace(" -- ", ", ")
 
-    # Step 8: Cap long sentences over 22 words to maintain high burstiness without creating robotic uniform short sentences
-    text = enforce_short_sentences(text, max_words=22)
+    # Step 8: Cap long sentences over 12 words to maintain high burstiness and low avg sentence length (10-14 words)
+    text = enforce_short_sentences(text, max_words=12)
 
     # Step 9: Enforce exact paragraph structure matching original input
     if original_text:
@@ -1190,7 +1185,9 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
             clean_single = re.sub(r'\s*\n+\s*', ' ', text.strip())
             text = re.sub(r'  +', ' ', clean_single)
 
-    # Final cleanup: fix double conjunctions and title-case after starters
+    # Final cleanup: fix double conjunctions, strip robotic "So," openers, and title-case after starters
+    text = re.sub(r'^(?:So,?\s+|So\s+this\s+way,?\s+)', '', text, flags=re.IGNORECASE | re.MULTILINE)
+    text = re.sub(r'([.!?]\s+)(?:So,?\s+|So\s+this\s+way,?\s+)', r'\1', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(and|but|so)\s+(and|but|so)\b', r'\1', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(and|but|so|still)\s+([A-Z][a-z]+)\b', lambda m: m.group(1) + ' ' + m.group(2).lower(), text, flags=re.IGNORECASE)
 
