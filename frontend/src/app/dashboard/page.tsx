@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import {
   MoreVertical,
   Type,
   ShieldAlert,
+  Menu,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -81,15 +82,34 @@ export default function DashboardPage() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Mobile sidebar state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileSidebarRef = useRef<HTMLDivElement>(null);
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (mobileSidebarRef.current && !mobileSidebarRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
 
 
 
@@ -340,6 +360,11 @@ export default function DashboardPage() {
     return null;
   }
 
+  const handleMobileNavClick = (menu: string) => {
+    setActiveMenu(menu);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div suppressHydrationWarning className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
       {/* ── Auth Modal ───────────────────────────────────────────────────── */}
@@ -349,6 +374,58 @@ export default function DashboardPage() {
         onClose={() => setAuthModalOpen(false)}
         onSuccess={handleAuthSuccess}
       />
+
+      {/* ── Mobile Overlay ────────────────────────────────────────────────── */}
+      {mobileMenuOpen && (
+        <div className="mobile-sidebar-overlay" onClick={closeMobileMenu} />
+      )}
+
+      {/* ── Mobile Sidebar ────────────────────────────────────────────────── */}
+      <div ref={mobileSidebarRef} className={`mobile-sidebar ${mobileMenuOpen ? 'mobile-sidebar--open' : ''}`}>
+        <div className="mobile-sidebar__header">
+          <div onClick={() => { setActiveMenu('humanizer'); closeMobileMenu(); }} style={{ cursor: 'pointer' }}>
+            <Logo variant="full" size="md" theme={theme} />
+          </div>
+          <button type="button" className="mobile-sidebar__close" onClick={closeMobileMenu}>
+            <X size={20} />
+          </button>
+        </div>
+        <nav className="sidebar__menu">
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'dashboard' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('dashboard')}>
+            <LayoutDashboard size={18} /><span className="sidebar__menu-text">Dashboard</span>
+          </button>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'humanizer' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('humanizer')}>
+            <Wand2 size={18} /><span className="sidebar__menu-text">Humanizer</span>
+          </button>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'account' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('account')}>
+            <User size={18} /><span className="sidebar__menu-text">Account</span>
+          </button>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'plans' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('plans')}>
+            <CreditCard size={18} /><span className="sidebar__menu-text">Plans &amp; Pricing</span>
+          </button>
+          {(user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@gmail.com' || user?.email?.toLowerCase() === 'admin@cloakwriter.com') && (
+            <button type="button" className="sidebar__menu-item" onClick={() => { router.push('/admin/dashboard'); closeMobileMenu(); }} style={{ color: '#38bdf8' }}>
+              <ShieldAlert size={18} /><span className="sidebar__menu-text">Admin Portal</span>
+            </button>
+          )}
+        </nav>
+        <div className="sidebar__footer">
+          <button type="button" className="sidebar__menu-item" onClick={handleLogout}>
+            <LogOut size={18} /><span className="sidebar__menu-text">Log Out</span>
+          </button>
+          {user && (
+            <div className="mobile-sidebar__user">
+              <div className="sidebar__user-avatar" style={{ width: 32, height: 32, fontSize: '0.9rem' }}>
+                {user.avatar_url ? <img src={user.avatar_url} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : user.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{user.plan === 'pro' ? 'PRO PLAN' : user.plan === 'starter' ? 'STARTER' : 'FREE TIER'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside className="sidebar">
@@ -522,6 +599,18 @@ export default function DashboardPage() {
 
       {/* ── Main Panel ──────────────────────────────────────────────────── */}
       <main className="main-panel">
+        {/* Mobile top bar */}
+        <div className="mobile-topbar">
+          <button type="button" className="mobile-topbar__hamburger" onClick={() => setMobileMenuOpen(true)} aria-label="Open menu">
+            <Menu size={22} />
+          </button>
+          <div onClick={() => setActiveMenu('humanizer')} style={{ cursor: 'pointer' }}>
+            <Logo variant="full" size="sm" theme={theme} />
+          </div>
+          <button type="button" className="mobile-topbar__theme" onClick={toggleTheme} aria-label="Toggle theme" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
+            <Sparkles size={18} />
+          </button>
+        </div>
         <Navbar
           activeMenu={activeMenu}
           theme={theme}

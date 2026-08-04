@@ -271,11 +271,14 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
 }
 
 export async function fetchGoogleOauthConfig(): Promise<{ client_id: string }> {
-  const response = await fetch(`${API_BASE}/api/auth/google/config`);
-  if (!response.ok) {
+  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    return { client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID };
+  }
+  const response = await fetch(`${API_BASE}/api/auth/google/config`).catch(() => null);
+  if (!response || !response.ok) {
     return { client_id: '' };
   }
-  return await response.json();
+  return await response.json().catch(() => ({ client_id: '' }));
 }
 
 export async function googleAuthUser(params: { credential?: string; code?: string; redirect_uri?: string }): Promise<AuthResponse> {

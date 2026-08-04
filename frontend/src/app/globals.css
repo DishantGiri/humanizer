@@ -2693,7 +2693,99 @@ body::before {
   color: var(--accent-blue);
 }
 
-/* Responsive Dashboard Adjustments */
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile Topbar (hamburger bar — only shown on mobile)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.mobile-topbar {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile Sidebar (slide-in drawer — always in DOM, off-screen by default)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  background: #090a0f;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+}
+
+.mobile-sidebar--open {
+  transform: translateX(0);
+}
+
+.mobile-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.mobile-sidebar__close {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.mobile-sidebar__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.mobile-sidebar__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile Overlay
+   ───────────────────────────────────────────────────────────────────────── */
+
+.mobile-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  animation: fadeInOverlay 200ms ease forwards;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive Dashboard Adjustments
+   ───────────────────────────────────────────────────────────────────────── */
+
 @media (max-width: 1024px) {
   .content-grid {
     flex-direction: column;
@@ -2705,13 +2797,161 @@ body::before {
   }
 
   .sidebar {
-    display: none; /* Hide sidebar on smaller tablets */
+    display: none;
   }
 
   .dashboard-layout {
     grid-template-columns: 1fr;
   }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 56px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-shrink: 0;
+  }
+
+  .mobile-topbar__hamburger {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+  }
+
+  .mobile-topbar__hamburger:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+  }
+
+  /* Hide the desktop Navbar on mobile since we have the mobile topbar */
+  .global-navbar {
+    display: none !important;
+  }
+
+  .main-panel {
+    min-height: 100vh;
+  }
+
+  .content-container {
+    padding: 12px 12px 24px;
+  }
 }
+
+@media (max-width: 640px) {
+  .content-container {
+    padding: 8px 8px 24px;
+  }
+
+  /* ── Humanizer content header ── */
+  .content-header {
+    padding: 0 4px;
+  }
+
+  .content-title {
+    font-size: 1.25rem;
+  }
+
+  .content-subtitle {
+    display: none; /* hide on very small screens to save space */
+  }
+
+  /* ── Controls bar: stack mode + level vertically ── */
+  .controls-bar-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* ── Mode tabs: scroll horizontally so all 5 fit ── */
+  .mode-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    border-radius: 10px;
+    height: 40px;
+  }
+
+  .mode-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mode-tab-btn {
+    padding: 0 12px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    height: 100%;
+  }
+
+  /* ── Level selector full width ── */
+  .level-select-container {
+    width: 100%;
+  }
+
+  .level-select-trigger {
+    width: 100%;
+    justify-content: space-between;
+    border-radius: 10px;
+    height: 40px;
+  }
+
+  /* ── Textarea: shorter on mobile ── */
+  .text-panel__textarea {
+    height: 200px;
+    min-height: 200px;
+    max-height: 200px;
+    font-size: 0.9rem;
+  }
+
+  /* ── Card footer: wrap into two rows ── */
+  .card-footer-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .counter-chips {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── Humanize button: full width on mobile ── */
+  .action-btn-solid {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 20px;
+  }
+
+  .action-buttons-group {
+    width: 100%;
+  }
+
+  /* ── Error/limit banner ── */
+  .limit-error-banner {
+    font-size: 0.82rem;
+  }
+
+  /* ── Pipeline result card ── */
+  .pipeline-loader {
+    padding: 16px;
+  }
+}
+
+
 
 /* ── Auth Modal ───────────────────────────────────────────────────────────── */
 .auth-modal-overlay {
@@ -4199,8 +4439,8 @@ body::before {
   .landing-hero__title {
     font-size: 2.8rem;
   }
-  .landing-nav {
-    padding: 20px 24px;
+  .landing-nav__container {
+    padding: 12px 20px; /* slimmer nav on tablets */
   }
   .landing-nav__menu {
     display: none;
@@ -4209,6 +4449,143 @@ body::before {
     padding: 40px 24px 80px;
   }
 }
+
+/* ── Mobile Landing Page (≤ 640px) ──────────────────────────────────────── */
+
+@media (max-width: 640px) {
+
+  /* ── Navbar ── */
+  .landing-nav__container {
+    padding: 10px 16px; /* slim navbar height */
+  }
+
+  .landing-nav__brand {
+    flex-shrink: 0;
+  }
+
+  .landing-nav__menu {
+    display: none;
+  }
+
+  /* Hide "Try for free" pill on small screens */
+  .landing-nav__cta-pill {
+    display: none;
+  }
+
+  /* Login button: plain inline text, no border box, no wrap */
+  .landing-nav__login-btn {
+    padding: 4px 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    white-space: nowrap;
+    letter-spacing: 0;
+  }
+
+  /* ── Hero ── */
+  .landing-hero {
+    padding: 24px 20px 56px;
+    padding-top: 90px; /* account for fixed nav */
+  }
+
+  .landing-hero__badge {
+    font-size: 0.75rem;
+    padding: 5px 12px;
+  }
+
+  .landing-hero__title {
+    font-size: 2.1rem;
+    line-height: 1.18;
+    letter-spacing: -0.03em;
+    margin-top: 14px;
+  }
+
+  .landing-hero__subtitle {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin-top: 14px;
+  }
+
+  .landing-hero__actions {
+    margin-top: 20px;
+  }
+
+  .landing-hero__btn-primary {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 24px;
+    font-size: 0.95rem;
+  }
+
+  /* ── Proof Badges — 2 per row ── */
+  .landing-hero__proof {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 20px;
+  }
+
+  .landing-hero__proof-badge {
+    font-size: 0.7rem;
+    padding: 6px 8px;
+    justify-content: flex-start;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .landing-hero__proof-badge span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .landing-hero__proof-logo {
+    flex-shrink: 0;
+  }
+
+  /* ── Preview Card — hide on mobile to reduce scroll ── */
+  .landing-hero__preview {
+    display: none;
+  }
+
+  /* ── Hero screen padding ── */
+  .landing-hero-screen {
+    padding-top: 0;
+  }
+
+  /* ── Demo Card Mobile Footer & Button ── */
+  .demo-card__footer {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .demo-card__stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .demo-card__actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .demo-btn-solid,
+  .demo-btn-outline {
+    flex: 1;
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+}
+
 
 /* ── AI Detector Demo Section ─────────────────────────────────────────── */
 
@@ -4362,15 +4739,17 @@ body::before {
 .demo-btn-outline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 8px 16px;
+  padding: 9px 18px;
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all var(--transition-fast);
 }
 
@@ -4387,15 +4766,17 @@ body::before {
 .demo-btn-solid {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   background: #ffffff;
   color: #000000;
   font-size: 0.85rem;
   font-weight: 700;
-  padding: 8px 18px;
+  padding: 9px 20px;
   border-radius: 9999px;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
   transition: all var(--transition-fast);
 }
 
