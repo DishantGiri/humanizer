@@ -1155,7 +1155,7 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
     text = vary_punctuation(text, rate=0.04 * intensity)
 
     # Step 6b: Introduce vocabulary diversity (synonym swapping) to break generic language
-    text = introduce_vocabulary_diversity(text, rate=0.10 * intensity)
+    text = introduce_vocabulary_diversity(text, rate=0.35 * intensity)
 
     # Step 6c: Inject subtle opinion/stance markers to break neutral tone (minimal to preserve word count)
     if intensity > 0.6:
@@ -1312,6 +1312,18 @@ SYNONYM_MAP = {
     r'\borganized\b': ['set', 'ready'],
     r'\bredefining\b': ['changing', 'shaping'],
     r'\bsociety\b': ['us', 'people', 'everyone'],
+    # Environmental & Formal term simplification
+    r'\bbiodiversity\b': ['nature', 'wildlife'],
+    r'\bpreservation\b': ['saving', 'protecting'],
+    r'\bpreserving\b': ['saving', 'keeping'],
+    r'\binitiatives?\b': ['plans', 'steps'],
+    r'\bimplementation\b': ['work', 'action'],
+    r'\bsustainability\b': ['green habits', 'clean living'],
+    r'\benvironmental\b': ['eco'],
+    r'\borganizations?\b': ['groups', 'teams'],
+    r'\bpromotes?\b': ['push for', 'back'],
+    r'\bpromoted\b': ['pushed for', 'backed'],
+    r'\bcollective\b': ['team', 'shared'],
 }
 
 
