@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { loginUser, registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig, type User } from '@/lib/api';
+import { toast } from '@/components/Toast';
 
 interface AuthModalProps {
   isOpen: boolean;
