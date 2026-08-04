@@ -273,7 +273,7 @@ async def generate_coupons(
 
     generated_codes = []
     prefix = request.prefix.upper().strip() or "CLOAK"
-    created_at = datetime.utcnow().isoformat()
+    created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
     for _ in range(request.quantity):
         code_rand = secrets.token_hex(3).upper()

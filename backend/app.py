@@ -3,10 +3,13 @@ FastAPI application entry point.
 """
 
 import os
+import re
 import logging
-from fastapi import FastAPI, Request    
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import HTTPException, RequestValidationError
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from routes.rewrite import router as rewrite_router
 from routes.auth import router as auth_router
@@ -24,9 +27,15 @@ logger = logging.getLogger(__name__)
 # ── App ─────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Humyn API",
-    description="Rewrite text to sound more natural using Groq-hosted LLMs.",
+    title="CloakWriter API",
+    description="AI-powered text humanizer API.",
     version="1.0.0",
+)
+
+# ── Allowed Origins ──────────────────────────────────────────────────────────
+
+ALLOWED_ORIGIN_PATTERN = re.compile(
+    r"^https?://(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|(.*\.)?cloakwriter\.(app|com))$"
 )
 
 default_origins = [
@@ -41,29 +50,110 @@ default_origins = [
 env_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 cors_origins = list(set(default_origins + env_origins))
 
+
+def get_cors_origin(origin: str) -> str:
+    """Return the origin if allowed, else the first default origin."""
+    if origin and ALLOWED_ORIGIN_PATTERN.match(origin):
+        return origin
+    if origin and origin in cors_origins:
+        return origin
+    return ""
+
+
+# ── Custom CORS Middleware ───────────────────────────────────────────────────
+# FastAPI's built-in CORSMiddleware does NOT inject headers into responses
+# produced by exception handlers (HTTPException, 400, 401, 500). We add a
+# custom raw middleware that ensures every response — including error responses
+# — carries the correct Access-Control headers.
+
+class CORSFixMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        allowed_origin = get_cors_origin(origin)
+
+        # Handle preflight OPTIONS
+        if request.method == "OPTIONS":
+            response = JSONResponse(content={}, status_code=200)
+            if allowed_origin:
+                response.headers["Access-Control-Allow-Origin"] = allowed_origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin"
+                response.headers["Access-Control-Max-Age"] = "600"
+            return response
+
+        response = await call_next(request)
+
+        if allowed_origin:
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin"
+
+        return response
+
+
+# Register the raw middleware first (outermost layer)
+app.add_middleware(CORSFixMiddleware)
+
+# Also keep the standard CORSMiddleware as a fallback
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*cloakwriter\.(app|com)).*",
+    allow_origin_regex=r"https?://(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|(.*\.)?cloakwriter\.(app|com))",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# ── Exception Handlers ───────────────────────────────────────────────────────
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    origin = request.headers.get("origin", "")
+    allowed_origin = get_cors_origin(origin)
+    headers = {}
+    if allowed_origin:
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    origin = request.headers.get("origin", "")
+    allowed_origin = get_cors_origin(origin)
+    headers = {}
+    if allowed_origin:
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+        headers=headers,
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled server error: %s", exc, exc_info=True)
-    origin = request.headers.get("origin", "*")
+    origin = request.headers.get("origin", "")
+    allowed_origin = get_cors_origin(origin)
+    headers = {}
+    if allowed_origin:
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal Server Error: {str(exc)}"},
-        headers={
-            "Access-Control-Allow-Origin": origin if origin else "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
+        headers=headers,
     )
+
 
 # ── Routes ──────────────────────────────────────────────────────────────────
 
@@ -75,15 +165,4 @@ app.include_router(admin_router)
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "AI Humanizer API"}
-
-
-# ── Global Exception Handler ───────────────────────────────────────────────
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled exception: %s", exc)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "An unexpected error occurred. Please try again."},
-    )
+    return {"status": "healthy", "service": "CloakWriter API"}

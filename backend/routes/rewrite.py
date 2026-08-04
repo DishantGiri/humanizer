@@ -241,7 +241,7 @@ async def rewrite_text(
         
         hist_id = str(uuid.uuid4())
         word_cnt = rewritten_stats.word_count
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         
         q_hist = """
             INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)

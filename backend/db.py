@@ -318,7 +318,7 @@ def ensure_default_admin():
                     salt = os.urandom(16).hex()
                     pwd_hash = hashlib.pbkdf2_hmac('sha256', admin_data["password"].encode('utf-8'), salt.encode('utf-8'), 100000).hex()
                     u_id = "usr_" + uuid.uuid4().hex[:12]
-                    created_at = datetime.utcnow().isoformat()
+                    created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
                     q_ins = _prepare_query("""
                         INSERT INTO users (id, name, email, password_hash, salt, plan, role, email_verified, is_first_login, usage_count, created_at)
                         VALUES (?, ?, ?, ?, ?, 'pro', 'admin', 1, 1, 0, ?)
