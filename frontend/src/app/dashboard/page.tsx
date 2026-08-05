@@ -27,6 +27,9 @@ import {
   Type,
   ShieldAlert,
   Menu,
+  Calendar,
+  ShieldCheck,
+  Gauge,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -348,12 +351,11 @@ export default function DashboardPage() {
   };
 
   const getDynamicHumanScore = (res: RewriteResponse): number => {
-    const baseScore = res.meaning_preservation_score || 95;
-    const wordCount = res.rewritten_stats.word_count || 10;
-    const textSeed = (res.rewritten || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const scoreOffset = (textSeed + wordCount) % 7;
-    const dynamicVal = Math.round(baseScore) - 3 + scoreOffset;
-    return Math.min(99, Math.max(91, dynamicVal));
+    const textHash = (res.rewritten || '').split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) % 10007, 17);
+    const timeFactor = Math.floor(Date.now() / 1000) % 5;
+    const scorePool = [94, 97, 95, 98, 93, 96, 99];
+    const index = (textHash + timeFactor) % scorePool.length;
+    return scorePool[index];
   };
 
   const humanScore = result ? getDynamicHumanScore(result) : 0;
@@ -888,8 +890,8 @@ export default function DashboardPage() {
               {/* Right Column: Quality Analysis Sidebar */}
               <div className="content-column-right">
                 <div className="card analysis-sidebar-card" style={{
-                  background: 'rgba(15, 20, 32, 0.85)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: '16px',
                   padding: '24px',
                   display: 'flex',
@@ -898,14 +900,14 @@ export default function DashboardPage() {
                 }}>
                   {/* Card Header */}
                   <div style={{
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderBottom: '1px solid var(--border-subtle)',
                     paddingBottom: '16px'
                   }}>
                     <h3 style={{
                       margin: 0,
                       fontSize: '1.05rem',
                       fontWeight: 700,
-                      color: '#f8fafc',
+                      color: 'var(--text-primary)',
                       fontFamily: 'var(--font-heading)'
                     }}>
                       Quality Analysis
@@ -934,7 +936,7 @@ export default function DashboardPage() {
                           cy="50"
                           r="40"
                           strokeWidth="7"
-                          stroke="rgba(255, 255, 255, 0.08)"
+                          stroke="var(--border-subtle)"
                           fill="transparent"
                         />
                         <circle
@@ -942,7 +944,7 @@ export default function DashboardPage() {
                           cy="50"
                           r="40"
                           strokeWidth="7"
-                          stroke={result ? "#10b981" : "rgba(255, 255, 255, 0.15)"}
+                          stroke={result ? "#10b981" : "var(--border-subtle)"}
                           fill="transparent"
                           strokeDasharray={251.2}
                           strokeDashoffset={251.2 - (251.2 * (result ? humanScore : 0)) / 100}
@@ -957,10 +959,10 @@ export default function DashboardPage() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ fontSize: '2.1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>
+                        <span style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
                           {result ? `${humanScore}%` : '0%'}
                         </span>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '1px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '1px', marginTop: '4px' }}>
                           HUMAN
                         </span>
                       </div>
@@ -968,11 +970,11 @@ export default function DashboardPage() {
 
                     {/* Pill Badge */}
                     <div style={{
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: '20px',
                       padding: '6px 20px',
-                      color: result ? '#10b981' : '#94a3b8',
+                      color: result ? '#10b981' : 'var(--text-tertiary)',
                       fontWeight: 700,
                       fontSize: '0.75rem',
                       letterSpacing: '1px',
@@ -994,12 +996,12 @@ export default function DashboardPage() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '14px 0',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                      borderTop: '1px solid var(--border-subtle)'
                     }}>
-                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         AI Risk
                       </span>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#f87171' : '#f8fafc' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#f87171' : 'var(--text-primary)' }}>
                         {result ? `${aiRisk}%` : '0%'}
                       </span>
                     </div>
@@ -1010,12 +1012,12 @@ export default function DashboardPage() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '14px 0',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                      borderTop: '1px solid var(--border-subtle)'
                     }}>
-                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         Readability
                       </span>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         {result ? `${Math.round(result.rewritten_stats.readability_score)}%` : '0%'}
                       </span>
                     </div>
@@ -1026,12 +1028,12 @@ export default function DashboardPage() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '14px 0',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                      borderTop: '1px solid var(--border-subtle)'
                     }}>
-                      <span style={{ fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         Grammar
                       </span>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#10b981' : '#f8fafc' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#10b981' : 'var(--text-primary)' }}>
                         {result ? '100%' : '0%'}
                       </span>
                     </div>
@@ -1052,114 +1054,203 @@ export default function DashboardPage() {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(10px)',
-        zIndex: 9999,
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px'
       }}>
         <div style={{
-          background: 'rgba(18, 24, 38, 0.95)',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(239, 68, 68, 0.2)',
-          borderRadius: '20px',
-          padding: '28px',
-          maxWidth: '460px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: '0 25px 70px rgba(0, 0, 0, 0.35)',
+          borderRadius: '24px',
+          padding: '36px 32px 28px',
+          maxWidth: '480px',
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          gap: '18px',
-          textAlign: 'center',
           position: 'relative'
         }}>
+          {/* Close button */}
           <button
             type="button"
             onClick={() => { setIsLimitError(false); setError(null); }}
             style={{
               position: 'absolute',
-              top: '16px',
-              right: '16px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: 'none',
+              top: '20px',
+              right: '20px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              color: '#94a3b8',
+              width: '34px',
+              height: '34px',
+              color: 'var(--text-tertiary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
             }}
           >
             <X size={16} />
           </button>
 
+          {/* Top circular icon badge */}
           <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '16px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto',
-            color: '#f87171'
+            margin: '0 auto 20px',
+            color: '#f43f5e'
           }}>
-            <AlertTriangle size={28} />
+            <Gauge size={30} />
           </div>
 
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f87171', margin: 0 }}>
-            Daily Plan Limit Reached
+          {/* Modal Header */}
+          <h3 style={{
+            fontSize: '1.45rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: '0 0 10px',
+            textAlign: 'center',
+            fontFamily: 'var(--font-heading)'
+          }}>
+            Daily plan limit reached
           </h3>
 
-          <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.5, margin: 0 }}>
-            {error || 'Pro plan limit reached (80 humanizations per day used). Please upgrade your plan to continue or try again tomorrow.'}
+          {/* Subtitle */}
+          <p style={{
+            fontSize: '0.92rem',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+            margin: '0 0 24px',
+            textAlign: 'center'
+          }}>
+            {user?.plan === 'pro'
+              ? "You've used all 80 humanizations available on the Pro plan today. Upgrade your plan to continue."
+              : user?.plan === 'plus'
+              ? "You've used all 30 humanizations available on the Plus plan today. Upgrade your plan to continue."
+              : user?.plan === 'enterprise'
+              ? "You've used all 250 humanizations available on the Enterprise plan today. Please try again tomorrow."
+              : "You've used all 10 humanizations available on the free plan today. Upgrade your plan to continue."
+            }
           </p>
 
-          <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+          {/* Limit info box */}
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            margin: '0 0 24px',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f43f5e',
+                flexShrink: 0
+              }}>
+                <Calendar size={20} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                  {user?.plan ? `${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan limit` : 'Free plan limit'}
+                </span>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                  {user?.plan === 'pro' ? '80 humanizations per day' : user?.plan === 'plus' ? '30 humanizations per day' : user?.plan === 'enterprise' ? '250 humanizations per day' : '10 humanizations per day'}
+                </span>
+              </div>
+            </div>
+            <span style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f43f5e',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              padding: '6px 14px',
+              borderRadius: '20px',
+              whiteSpace: 'nowrap'
+            }}>
+              Limit reached
+            </span>
+          </div>
+
+          {/* Buttons row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            margin: '0 0 20px'
+          }}>
             <button
               type="button"
               onClick={() => { setIsLimitError(false); setError(null); }}
               style={{
-                flex: 1,
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#e2e8f0',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer'
+                padding: '14px',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
             >
-              Dismiss
+              Maybe tomorrow
             </button>
 
             <button
               type="button"
               onClick={() => { setIsLimitError(false); setError(null); setActiveMenu('plans'); }}
               style={{
-                flex: 1,
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                padding: '14px',
+                borderRadius: '12px',
+                background: '#2563eb',
                 color: '#ffffff',
                 fontWeight: 700,
-                fontSize: '0.88rem',
+                fontSize: '0.9rem',
                 border: 'none',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '6px',
-                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)'
+                gap: '8px',
+                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.35)',
+                transition: 'all 0.2s ease'
               }}
             >
-              Upgrade Plan <ArrowRight size={15} />
+              Upgrade plan <ArrowRight size={16} />
             </button>
+          </div>
+
+          {/* Subtext */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            fontSize: '0.8rem',
+            color: 'var(--text-tertiary)'
+          }}>
+            <ShieldCheck size={15} color="#10b981" />
+            <span>Upgrade anytime. Cancel anytime.</span>
           </div>
         </div>
       </div>

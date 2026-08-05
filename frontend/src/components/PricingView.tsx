@@ -27,9 +27,10 @@ export default function PricingView({
 
   const PLAN_RANKS: Record<string, number> = {
     free: 0,
+    plus: 1,
     starter: 1,
-    plus: 2,
-    pro: 3,
+    pro: 2,
+    enterprise: 3,
   };
 
   const currentPlan = user?.plan || 'free';
@@ -407,10 +408,10 @@ export default function PricingView({
 
             <ul className="pricing-features-list">
               <li className="pricing-feature-item">
-                <Check size={16} /> 2 humanizations / day
+                <Check size={16} /> 10 humanizations / day
               </li>
               <li className="pricing-feature-item">
-                <Check size={16} /> 250 words per input
+                <Check size={16} /> 400 words per input
               </li>
               <li className="pricing-feature-item">
                 <Check size={16} /> Standard Bypass Pipeline
@@ -446,9 +447,9 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-white"
-                  onClick={() => openPaymentModal('starter')}
+                  onClick={() => openPaymentModal('plus')}
                 >
-                  Upgrade to Plus ($1/mo)
+                  Upgrade to Plus
                 </button>
               ) : (
                 <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -459,10 +460,10 @@ export default function PricingView({
 
             <ul className="pricing-features-list">
               <li className="pricing-feature-item">
-                <Check size={16} /> 10 humanizations / day
+                <Check size={16} /> 30 humanizations / day
               </li>
               <li className="pricing-feature-item">
-                <Check size={16} /> 600 words per input
+                <Check size={16} /> 1,000 words per input
               </li>
               <li className="pricing-feature-item">
                 <Check size={16} /> Enhanced Paraphrase Quality
@@ -497,9 +498,9 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-dark"
-                  onClick={() => openPaymentModal('plus')}
+                  onClick={() => openPaymentModal('pro')}
                 >
-                  Upgrade to Pro ($2/mo)
+                  Upgrade to Pro
                 </button>
               ) : (
                 <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -510,10 +511,10 @@ export default function PricingView({
 
             <ul className="pricing-features-list">
               <li className="pricing-feature-item">
-                <Check size={16} /> 30 humanization / day
+                <Check size={16} /> 80 humanizations / day
               </li>
               <li className="pricing-feature-item">
-                <Check size={16} /> 1,200 words per input
+                <Check size={16} /> 2,500 words per input
               </li>
               <li className="pricing-feature-item">
                 <Check size={16} /> Advanced Humanization Engine
@@ -551,19 +552,19 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-dark"
-                  onClick={() => openPaymentModal('pro')}
+                  onClick={() => openPaymentModal('enterprise')}
                 >
-                  Upgrade to Enterprise ($5/mo)
+                  Upgrade to Enterprise
                 </button>
               )}
             </div>
 
             <ul className="pricing-features-list">
               <li className="pricing-feature-item">
-                <Check size={16} /> 80 Humanizations / day
+                <Check size={16} /> 250 Humanizations / day
               </li>
               <li className="pricing-feature-item">
-                <Check size={16} /> 2,500 words per input
+                <Check size={16} /> 5,000 words per input
               </li>
               <li className="pricing-feature-item">
                 <Check size={16} /> Maximum Detection Bypass

@@ -74,7 +74,7 @@ async def get_analytics_overview(admin: UserResponse = Depends(require_admin_use
 
     # Plan distribution
     plans_raw = fetch_all("SELECT plan, COUNT(*) as count FROM users GROUP BY plan")
-    plan_counts = {"free": 0, "starter": 0, "plus": 0, "pro": 0}
+    plan_counts = {"free": 0, "plus": 0, "pro": 0, "enterprise": 0, "starter": 0}
     for item in plans_raw:
         p_name = item.get("plan", "free")
         if p_name in plan_counts:

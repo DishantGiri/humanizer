@@ -138,9 +138,10 @@ class GoogleAuthRequest(BaseModel):
 # ── Plan Pricing ─────────────────────────────────────────────────────────────
 
 PLAN_PRICES_INR_PAISA = {
-    "starter": 8800,   # ~$1 (₹88)
-    "plus": 17500,     # ~$2 (₹175)
-    "pro": 43000,      # ~$5 (₹430)
+    "plus": 8800,        # ~$1 (₹88) - Plus Plan
+    "pro": 17500,        # ~$2 (₹175) - Pro Plan
+    "enterprise": 43000, # ~$5 (₹430) - Enterprise Plan
+    "starter": 8800,     # legacy alias
 }
 
 # ── Auth Helpers ─────────────────────────────────────────────────────────────

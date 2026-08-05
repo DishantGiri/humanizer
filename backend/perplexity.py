@@ -68,15 +68,14 @@ class PerplexityOptimizer:
         # Combined instruction: paraphrase to increase perplexity, vary sentence rhythm, and apply persona
         system_prompt = (
             f"You are a {persona}. "
-            "Paraphrase the following text to maximize linguistic perplexity and sentence variety. "
-            "STRICT RULES FOR ANTI-AI DETECTION:\n"
-            "1. KEEP SENTENCES SHORT (AVG 14-18 WORDS, MAX 22 WORDS). Never write long, multi-clause compound sentences.\n"
-            "2. USE PRONOUN-FIRST SUBJECT FRAMING ('you', 'we', 'it', 'they') instead of abstract noun phrases ('Software development...', 'Modern practices...').\n"
-            "3. BANNED OPENERS: Never start sentences with 'As...', 'Modern...', '[Noun] is a...'. Use natural conversational openers.\n"
-            "4. SIMPLE VOCABULARY: Use short, punchy everyday words instead of heavy multi-syllable jargon.\n"
-            "5. PRESERVE FACTUAL ACCURACY: Strictly maintain all original facts, meaning, and paragraph structure.\n"
-            "6. NO SELF-TALK OR WORD COUNTS: Do NOT write down thinking, word counts like (10), draft attempts, or commentary.\n"
-            "Output ONLY the final paraphrased text. No preamble, no explanation, no notes."
+            "Paraphrase the following text so it reads naturally, preserves core meaning, intent, and emphasis, and sounds like it was written by a skilled human author.\n"
+            "CORE PRINCIPLES:\n"
+            "1. NATURAL SENTENCE VARIATION: Mix short, punchy lines with medium and occasional longer sentences naturally. Avoid repetitive rhythm.\n"
+            "2. STRUCTURAL PARAPHRASING: Rephrase sentence structure and wording naturally where possible. Preserve any phrases that must remain unchanged (names, quotes, technical terms, code).\n"
+            "3. PRONOUN-FIRST FRAMING: Prefer starting sentences with pronouns ('we', 'you', 'it', 'they', 'I') over heavy abstract noun phrases.\n"
+            "4. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
+            "5. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure.\n"
+            "6. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
         )
 
         logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)

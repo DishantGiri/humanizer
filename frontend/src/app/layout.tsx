@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
+import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "CloakWriter - Rewrite Text Naturally",
@@ -39,6 +40,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
+        <Toaster />
       </body>
     </html>
   );

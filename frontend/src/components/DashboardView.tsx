@@ -50,16 +50,29 @@ export default function DashboardView({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const usageCount = user ? user.usage_count : 0;
   const plan = user ? user.plan : 'free';
-  const isPro = plan === 'pro';
-  const limit = 10;
-  const remaining = isPro ? 'Unlimited' : Math.max(0, limit - usageCount);
-  const usagePercentage = isPro ? 100 : Math.min(100, Math.round((usageCount / limit) * 100));
+  const PLAN_DAILY_LIMITS: Record<string, number> = {
+    free: 10,
+    starter: 30,
+    plus: 30,
+    pro: 80,
+    enterprise: 250,
+  };
+  const limit = PLAN_DAILY_LIMITS[plan] || 10;
+
+  // Calculate actual rewrites performed today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayCount = history.filter((item) => {
+    if (!item.created_at) return false;
+    return item.created_at.startsWith(todayStr);
+  }).length;
+
+  const displayUsage = Math.min(limit, todayCount);
+  const remaining = Math.max(0, limit - displayUsage);
+  const usagePercentage = Math.min(100, Math.round((displayUsage / limit) * 100));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Welcome Banner */}
       {/* Welcome Banner */}
       <div
         className="card"
@@ -102,7 +115,7 @@ export default function DashboardView({
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Current Plan
             </span>
-            {isPro ? (
+            {plan !== 'free' ? (
               <Crown size={20} color="var(--text-primary)" />
             ) : (
               <Sparkles size={20} color="var(--text-primary)" />
@@ -110,13 +123,13 @@ export default function DashboardView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span style={{ fontSize: '1.6rem', fontWeight: 800, textTransform: 'capitalize' }}>
-              {isPro ? 'Pro Member' : 'Free Tier'}
+              {plan === 'enterprise' ? 'Enterprise' : plan === 'pro' ? 'Pro Member' : plan === 'plus' ? 'Plus Member' : 'Free Tier'}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-              {isPro ? '$1/month' : '$0/month'}
+              {plan === 'enterprise' ? '$5/month' : plan === 'pro' ? '$2/month' : plan === 'plus' ? '$1/month' : '$0/month'}
             </span>
           </div>
-          {!isPro && (
+          {plan === 'free' && (
             <button
               type="button"
               onClick={onNavigateToPricing}
@@ -134,7 +147,7 @@ export default function DashboardView({
                 padding: 0,
               }}
             >
-              Upgrade to Pro ($1/mo) <ArrowRight size={14} />
+              Upgrade Plan <ArrowRight size={14} />
             </button>
           )}
         </div>
@@ -143,16 +156,16 @@ export default function DashboardView({
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Humanizations Used
+              Humanizations Used Today
             </span>
-            <Zap size={20} color={usageCount >= limit && !isPro ? '#f87171' : 'var(--text-primary)'} />
+            <Zap size={20} color={displayUsage >= limit ? '#f87171' : 'var(--text-primary)'} />
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{ fontSize: '1.6rem', fontWeight: 800 }}>
-              {usageCount}
+              {displayUsage}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-              {isPro ? '/ Unlimited' : `/ ${limit} limit`}
+              {`/ ${limit} daily limit`}
             </span>
           </div>
 
@@ -162,7 +175,7 @@ export default function DashboardView({
               style={{
                 height: '100%',
                 width: `${usagePercentage}%`,
-                background: usageCount >= limit && !isPro ? '#f87171' : 'var(--text-primary)',
+                background: displayUsage >= limit ? '#f87171' : 'var(--text-primary)',
                 borderRadius: '999px',
                 transition: 'width 0.3s ease',
               }}
@@ -174,7 +187,7 @@ export default function DashboardView({
         <div className="card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Remaining Quota
+              Remaining Daily Quota
             </span>
             <CheckCircle2 size={20} color="var(--text-primary)" />
           </div>
@@ -182,13 +195,13 @@ export default function DashboardView({
             {remaining}
           </div>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '8px', display: 'block' }}>
-            {isPro ? 'Unlimited rewrites active' : `${remaining} free uses left`}
+            {`${remaining} daily uses left`}
           </span>
         </div>
       </div>
 
       {/* Upgrade Banner for Free Users */}
-      {!isPro && user && usageCount >= 8 && (
+      {plan === 'free' && user && displayUsage >= 8 && (
         <div
           style={{
             background: 'rgba(239, 68, 68, 0.12)',
@@ -206,10 +219,10 @@ export default function DashboardView({
             <AlertTriangle color="#f87171" size={22} />
             <div>
               <h4 style={{ color: '#f87171', fontWeight: 600, fontSize: '0.95rem' }}>
-                {usageCount >= 10 ? 'Free Limit Reached (10/10)' : 'Running Low on Free Humanizations'}
+                {displayUsage >= 10 ? 'Free Daily Limit Reached (10/10)' : 'Running Low on Free Daily Humanizations'}
               </h4>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                Upgrade to Pro for only $1/month to unlock unlimited humanizations.
+                Upgrade your plan for up to 250 daily humanizations and 5,000 max words per input.
               </p>
             </div>
           </div>
@@ -218,7 +231,7 @@ export default function DashboardView({
             className="action-btn-solid"
             onClick={onNavigateToPricing}
           >
-            Upgrade for $1/mo
+            Upgrade Plan
           </button>
         </div>
       )}

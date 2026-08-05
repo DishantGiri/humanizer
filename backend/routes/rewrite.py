@@ -129,10 +129,11 @@ async def rewrite_text(
 
     # Plan Limits Config (Humanizations per day)
     plan_limits = {
-        'free': {'max_words': 250, 'max_usage': 10},
-        'starter': {'max_words': 600, 'max_usage': 10},
-        'plus': {'max_words': 1200, 'max_usage': 30},
+        'free': {'max_words': 400, 'max_usage': 10},
+        'starter': {'max_words': 1000, 'max_usage': 30},
+        'plus': {'max_words': 1000, 'max_usage': 30},
         'pro': {'max_words': 2500, 'max_usage': 80},
+        'enterprise': {'max_words': 5000, 'max_usage': 250},
     }
 
     user_plan = user.plan if (user and hasattr(user, 'plan') and user.plan) else 'free'
@@ -219,21 +220,35 @@ async def rewrite_text(
                         rewritten_lines.append(f"{prefix}{line_humanized}")
                 rewritten = "\n".join(rewritten_lines)
             else:
-                rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
-                # Step 2.5: Perplexity & Persona Optimization Pass
-                try:
-                    optimizer = get_perplexity_optimizer()
-                    rewritten = optimizer.optimize(rewritten, request.mode)
-                except Exception as opt_err:
-                    logger.warning("Perplexity optimization pass skipped: %s", opt_err)
+                orig_paras = [p.strip() for p in clean_text.split('\n\n') if p.strip()]
+                if len(orig_paras) > 1:
+                    rewritten_paras = []
+                    for p_idx, para in enumerate(orig_paras):
+                        p_rewritten = rewriter.rewrite(para, request.mode, request.level)
+                        try:
+                            optimizer = get_perplexity_optimizer()
+                            p_rewritten = optimizer.optimize(p_rewritten, request.mode)
+                        except Exception as opt_err:
+                            logger.warning("Perplexity optimization pass skipped for para %d: %s", p_idx, opt_err)
+                        p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para)
+                        rewritten_paras.append(p_humanized)
+                    rewritten = "\n\n".join(rewritten_paras)
+                else:
+                    rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+                    # Step 2.5: Perplexity & Persona Optimization Pass
+                    try:
+                        optimizer = get_perplexity_optimizer()
+                        rewritten = optimizer.optimize(rewritten, request.mode)
+                    except Exception as opt_err:
+                        logger.warning("Perplexity optimization pass skipped: %s", opt_err)
 
-                rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
+                    rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
 
             # Step 2.6: Post-Hoc Statistical Validation Check
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
             if not is_valid:
                 logger.info("Statistical validation notice: %s. Applying statistical refinement pass.", val_reason)
-                rewritten = enforce_short_sentences(rewritten, max_words=11)
+                rewritten = enforce_short_sentences(rewritten, max_words=16)
                 rewritten = add_burstiness(rewritten)
 
             # Store in Redis cache
