@@ -11,3 +11,4 @@ cmds = ["pnpm run build"]
 
 [start]
 cmd = "node .next/standalone/server.js"
+	
