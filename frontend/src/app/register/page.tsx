@@ -220,7 +220,7 @@ export default function RegisterPage() {
                   id="email"
                   type="email"
                   className="auth-split-input"
-                  placeholder="m@example.com"
+                  placeholder="name@fishtailinfosolutions.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}

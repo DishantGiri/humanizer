@@ -182,11 +182,20 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
     if not user_row:
         raise HTTPException(status_code=401, detail="User account not found")
 
+    email_clean = user_row["email"].lower().strip()
+    user_plan = user_row.get("plan", "free")
+
+    # If fishtailinfosolutions domain, auto-grant pro plan
+    if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]:
+        user_plan = "pro"
+        if user_row.get("plan") != "pro":
+            execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_row["id"],))
+
     return UserResponse(
         id=user_row["id"],
         name=user_row["name"],
         email=user_row["email"],
-        plan=user_row.get("plan", "free"),
+        plan=user_plan,
         role=user_row.get("role", "user"),
         usage_count=user_row.get("usage_count", 0),
         avatar_url=user_row.get("avatar_url"),
@@ -203,6 +212,30 @@ def get_optional_user_from_token(authorization: Optional[str] = Header(None)) ->
         return None
 
 
+PRO_PERK_DOMAIN_KEYWORD = "fishtailinfosolutions"
+
+
+def check_and_apply_pro_perk(email: str, user_id: Optional[str] = None) -> bool:
+    """
+    Checks if an email belongs to the fishtailinfosolutions domain.
+    If so, automatically upgrades the account to the 'pro' plan.
+    Returns True if Pro perk was applied, False otherwise.
+    """
+    email_clean = email.lower().strip()
+    if "@" not in email_clean:
+        return False
+
+    domain = email_clean.split("@")[-1]
+    if PRO_PERK_DOMAIN_KEYWORD in domain:
+        if user_id:
+            execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
+        else:
+            execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
+        return True
+
+    return False
+
+
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.post("/register")
@@ -216,14 +249,15 @@ async def register(request: RegisterRequest):
     if fetch_one("SELECT id FROM users WHERE email = ?", (email_clean,)):
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
 
+    initial_plan = "pro" if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1] else "free"
     user_id = str(uuid.uuid4())
     pwd_hash, salt = hash_password(request.password)
     created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
     execute_query(
         """INSERT INTO users (id, name, email, password_hash, salt, plan, role, email_verified, usage_count, created_at)
-           VALUES (?, ?, ?, ?, ?, 'free', 'user', 0, 0, ?)""",
-        (user_id, name_clean, email_clean, pwd_hash, salt, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'user', 0, 0, ?)""",
+        (user_id, name_clean, email_clean, pwd_hash, salt, initial_plan, created_at)
     )
 
     # Generate 6-digit verification code
@@ -262,6 +296,7 @@ async def verify_email(request: VerifyEmailRequest):
     if not row:
         raise HTTPException(status_code=400, detail="Invalid verification code. Please check and try again.")
 
+    check_and_apply_pro_perk(email_clean)
     execute_query("UPDATE users SET email_verified = 1 WHERE email = ?", (email_clean,))
     execute_query("DELETE FROM reset_codes WHERE id = ?", (row["id"],))
 
@@ -310,6 +345,11 @@ async def login(request: LoginRequest):
     if expected_hash != user_row["password_hash"]:
         raise HTTPException(status_code=400, detail="Invalid email or password.")
 
+    user_plan = user_row.get("plan", "free")
+    if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]:
+        execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
+        user_plan = "pro"
+
     token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"])
     execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_row["id"]))
 
@@ -318,7 +358,7 @@ async def login(request: LoginRequest):
             id=user_row["id"],
             name=user_row["name"],
             email=user_row["email"],
-            plan=user_row.get("plan", "free"),
+            plan=user_plan,
             role=user_row.get("role", "user"),
             usage_count=user_row.get("usage_count", 0),
             avatar_url=user_row.get("avatar_url"),
@@ -551,6 +591,8 @@ async def google_auth(request: GoogleAuthRequest):
         raise HTTPException(status_code=400, detail="Google authentication failed. No verified email returned.")
 
     email_clean = user_info["email"].lower().strip()
+    validate_and_upgrade_domain_user(email_clean)
+
     name_clean = user_info["name"].strip()
     avatar_url = user_info.get("picture")
 
@@ -561,9 +603,10 @@ async def google_auth(request: GoogleAuthRequest):
 
     if user_row:
         user_id = user_row["id"]
+        execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
         if avatar_url and not user_row.get("avatar_url"):
             execute_query("UPDATE users SET avatar_url = ? WHERE id = ?", (avatar_url, user_id))
-        plan = user_row.get("plan", "free")
+        plan = "pro"
         role = user_row.get("role", "user")
         usage_count = user_row.get("usage_count", 0)
         created_at = str(user_row["created_at"])
@@ -571,13 +614,13 @@ async def google_auth(request: GoogleAuthRequest):
         user_id = str(uuid.uuid4())
         pwd_hash, salt = hash_password(uuid.uuid4().hex)
         created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        plan = "free"
+        plan = "pro"
         role = "user"
         usage_count = 0
 
         execute_query(
             """INSERT INTO users (id, name, email, password_hash, salt, plan, usage_count, avatar_url, created_at)
-               VALUES (?, ?, ?, ?, ?, 'free', 0, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, 'pro', 0, ?, ?)""",
             (user_id, name_clean, email_clean, pwd_hash, salt, avatar_url, created_at)
         )
 
