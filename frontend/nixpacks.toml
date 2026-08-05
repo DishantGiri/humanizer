@@ -1,7 +1,7 @@
 providers = ["node"]
 
 [variables]
-PORT = "3000"
+PORT = "3023"
 HOSTNAME = "0.0.0.0"
 NODE_ENV = "production"
 
