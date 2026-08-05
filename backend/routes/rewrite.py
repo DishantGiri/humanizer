@@ -16,8 +16,9 @@ from rewriter import TextRewriter, RewriteError
 from verifier import MeaningVerifier
 from translator import TranslationBouncer
 from utils import count_changes, compute_reading_time, sanitize_input, compute_word_diff
-from humanizer import humanize, strip_formatting_artifacts
+from humanizer import humanize, strip_formatting_artifacts, enforce_short_sentences, add_burstiness
 from perplexity import PerplexityOptimizer
+from validators import validate_human_statistics
 
 from db import execute_query, fetch_all, fetch_one
 from routes.auth import get_optional_user_from_token, get_current_user_from_token, UserResponse
@@ -219,13 +220,30 @@ async def rewrite_text(
                 rewritten = "\n".join(rewritten_lines)
             else:
                 rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+                # Step 2.5: Perplexity & Persona Optimization Pass
+                try:
+                    optimizer = get_perplexity_optimizer()
+                    rewritten = optimizer.optimize(rewritten, request.mode)
+                except Exception as opt_err:
+                    logger.warning("Perplexity optimization pass skipped: %s", opt_err)
+
                 rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
+
+            # Step 2.6: Post-Hoc Statistical Validation Check
+            is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
+            if not is_valid:
+                logger.info("Statistical validation notice: %s. Applying statistical refinement pass.", val_reason)
+                rewritten = enforce_short_sentences(rewritten, max_words=11)
+                rewritten = add_burstiness(rewritten)
 
             # Store in Redis cache
             set_cached_rewrite(clean_text, request.mode.value, request.level.value, rewritten)
         except RewriteError as e:
             logger.error("Rewrite error: %s", e)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(
+                status_code=500,
+                detail="Text humanization service is temporarily busy. Please try again in a few seconds."
+            )
 
     # Step C: RapidFuzz & SentenceTransformers Similarity Metrics
     sim_metrics = calculate_similarity_metrics(clean_text, rewritten)

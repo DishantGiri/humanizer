@@ -664,6 +664,15 @@ def remove_ai_cliches(text: str) -> str:
         (r'\breminds?\s+us\s+that\s+happiness\s+is\s+often\s+found\b', 'shows that happiness comes'),
         (r'\bpatience,\s*kindness,\s*and\s*resilience\b', 'patience and grit'),
         (r'\borderly\s+things,\s*not\s+just\s+big\s+achievements\b', 'small moments'),
+
+        # ── Atmospheric AI Cadence Purges ─────────────────────────────────────
+        (r'\ba\s+sense\s+of\s+purpose\b', 'a real reason'),
+        (r'\ba\s+legacy\s+that\s+keeps\s+going\b', 'something that lasts'),
+        (r'\bamong\s+the\s+stillness\b', 'in the quiet'),
+        (r'\bas\s+([a-zA-Z0-9]+(?:\s+o\'?clock)?)\s+hits,?\s*', r'when \1 comes, '),
+        (r'\bgentle\s+glow\b', 'soft light'),
+        (r'\bseals?\s+the\s+room,?\s+and\s+quiet\s+takes\s+over\b', 'closes the room'),
+        (r'\ba\s+quiet\s+space\s+where\b', 'a quiet spot where'),
     ]
 
 
@@ -988,11 +997,19 @@ def _enforce_short_sentences_paragraph(paragraph: str, max_words: int = 16) -> s
                 split_index = i + 1
                 break
 
-        # Fallback to major subordinating conjunctions if no comma
+        # Fallback 1 to major subordinating conjunctions if no comma
         if split_index == -1:
-            for i in range(min(mid + 3, len(words) - 3), max(mid - 3, 3), -1):
+            for i in range(min(mid + 4, len(words) - 3), max(mid - 4, 3), -1):
                 w = words[i].lower().rstrip(',;')
-                if w in ('while', 'because', 'although', 'whereas', 'since', 'so that'):
+                if w in ('while', 'because', 'although', 'whereas', 'since', 'so', 'that', 'which', 'and', 'but'):
+                    split_index = i
+                    break
+
+        # Fallback 2 to prepositions if still no boundary found
+        if split_index == -1:
+            for i in range(min(mid + 4, len(words) - 3), max(mid - 4, 3), -1):
+                w = words[i].lower().rstrip(',;')
+                if w in ('within', 'for', 'to', 'in', 'of', 'at', 'with', 'on', 'about', 'by', 'through', 'prior', 'before', 'after'):
                     split_index = i
                     break
 
@@ -1155,19 +1172,27 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
     text = vary_punctuation(text, rate=0.04 * intensity)
 
     # Step 6b: Introduce vocabulary diversity (synonym swapping) to break generic language
-    text = introduce_vocabulary_diversity(text, rate=0.35 * intensity)
+    text = introduce_vocabulary_diversity(text, rate=0.55 * intensity)
 
-    # Step 6c: Inject subtle opinion/stance markers to break neutral tone (minimal to preserve word count)
-    if intensity > 0.6:
-        text = inject_opinion_markers(text, rate=0.02 * intensity)
+    # Step 6c: Inject subtle stance/opinion markers to break neutral tone
+    if intensity > 0.2:
+        text = inject_opinion_markers(text, rate=0.09 * intensity)
 
-    # Step 6d: Randomize sentence syntax patterns (inversions, pivots, fragments, questions)
-    if intensity > 0.6:
-        text = randomize_syntax_patterns(text, intensity=0.15)
+    # Step 6d: Randomize sentence syntax patterns (pivots, fragments, questions) to break overly polished writing
+    if intensity > 0.3:
+        text = randomize_syntax_patterns(text, intensity=0.30)
+
+    # Step 6d2: Inject human rhetorical questions to break AI-skewed 100% expository cadence
+    text = inject_rhetorical_questions(text, rate=0.35 * intensity)
 
     # Step 6e: §31 Remove manufactured staccato drama
     if intensity > 0.3:
         text = remove_staccato_drama(text)
+
+    # Step 6f: Smart Word-Level Entropy Injection & Number Formatting Variance
+    if intensity > 0.4:
+        text = inject_entropy_words(text, intensity=intensity)
+        text = vary_number_formatting(text, rate=0.25 * intensity)
 
     # Step 7: Absolute check: eliminate all em-dashes, en-dashes, and spaced hyphens/dashes
     text = text.replace("\u2014", ", ")
@@ -1186,6 +1211,7 @@ def humanize(text: str, intensity: float = 0.5, original_text: str = "") -> str:
             text = re.sub(r'  +', ' ', clean_single)
 
     # Final cleanup: fix double conjunctions, strip robotic "So," openers, and title-case after starters
+    text = re.sub(r'\.{2,}', '.', text)
     text = re.sub(r'^(?:So,?\s+|So\s+this\s+way,?\s+)', '', text, flags=re.IGNORECASE | re.MULTILINE)
     text = re.sub(r'([.!?]\s+)(?:So,?\s+|So\s+this\s+way,?\s+)', r'\1', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(and|but|so)\s+(and|but|so)\b', r'\1', text, flags=re.IGNORECASE)
@@ -1200,7 +1226,7 @@ def inject_opinion_markers(text: str, rate: float = 0.08) -> str:
     Inject subtle stance/opinion markers ('actually', 'really', 'honestly', 'pretty')
     into sentences to break the neutral, flat tone characteristic of AI detectors.
     """
-    opinion_words = ['actually', 'really', 'honestly', 'pretty much', 'definitely']
+    opinion_words = ['actually', 'really', 'honestly', 'pretty much', 'definitely', 'personally', 'turns out', 'frankly']
     
     # Process per paragraph to maintain paragraph integrity
     def _inject(paragraph: str) -> str:
@@ -1324,7 +1350,45 @@ SYNONYM_MAP = {
     r'\bpromotes?\b': ['push for', 'back'],
     r'\bpromoted\b': ['pushed for', 'backed'],
     r'\bcollective\b': ['team', 'shared'],
+    # Detector feedback 1-syllable purges
+    r'\bpeaceful\b': ['calm', 'quiet'],
+    r'\bconnection\b': ['link', 'bond'],
+    r'\bdistance\b': ['back', 'far end'],
+    r'\bmachinery\b': ['gears', 'tools'],
+    r'\btreasures\b': ['gems', 'finds'],
+    r'\badjust\b': ['fix', 'tune'],
+    r'\bstillness\b': ['quiet', 'calm'],
+    r'\bnotice\b': ['see', 'spot'],
+    r'\btweezers\b': ['tools', 'clips'],
 }
+
+
+_HUMAN_QUESTIONS = [
+    "Makes sense, right?",
+    "Why does that matter?",
+    "Ever notice that?",
+    "Sound familiar?",
+    "Hard to argue with that, isn't it?",
+]
+
+
+def inject_rhetorical_questions(text: str, rate: float = 0.35) -> str:
+    """
+    AI detectors flag text with 0 question marks as AI-skewed expository prose.
+    Injects occasional human question marks (e.g. 'Makes sense, right?') to break the 100% declarative cadence.
+    """
+    if '?' in text or len(text.split()) < 25:
+        return text
+
+    if random.random() < rate:
+        sentences = _split_sentences(text)
+        if len(sentences) >= 2:
+            idx = random.randint(1, len(sentences) - 1)
+            q = random.choice(_HUMAN_QUESTIONS)
+            sentences.insert(idx, q)
+            return _join_sentences(sentences)
+
+    return text
 
 
 def remove_rule_of_three(text: str) -> str:
@@ -1531,3 +1595,45 @@ def randomize_syntax_patterns(text: str, intensity: float = 0.5) -> str:
         text,
         lambda p: _apply_random_syntax_transforms(p, intensity)
     )
+
+
+_NUMBER_WORDS = {
+    '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
+    '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine', '10': 'ten'
+}
+
+
+def vary_number_formatting(text: str, rate: float = 0.3) -> str:
+    """
+    Randomly convert small digits to word format (e.g., 5 -> five) or 'X%' -> 'X percent'
+    to introduce stylistic variance in numerical representation.
+    """
+    if random.random() < rate:
+        text = re.sub(r'(\d+)\s*%', r'\1 percent', text, count=1)
+
+    for num_str, word_str in _NUMBER_WORDS.items():
+        if random.random() < (rate * 0.5):
+            text = re.sub(r'\b' + num_str + r'\b', word_str, text, count=1)
+
+    return text
+
+
+def inject_entropy_words(text: str, intensity: float = 0.5) -> str:
+    """
+    Inject subtle, human discourse markers ('well', 'honestly', 'in fact', 'I mean')
+    at clause boundaries to break uniform LLM entropy profiles.
+    """
+    markers = ["Well, ", "Honestly, ", "In fact, ", "I mean, ", "Look, "]
+    def _inject_para(paragraph: str) -> str:
+        sentences = _split_sentences(paragraph)
+        if len(sentences) < 3:
+            return paragraph
+        for i in range(1, len(sentences) - 1):
+            if random.random() < (0.05 * intensity):
+                s = sentences[i]
+                if not any(s.startswith(m) for m in markers) and len(s.split()) >= 6:
+                    chosen = random.choice(markers)
+                    sentences[i] = chosen + s[0].lower() + s[1:]
+        return _join_sentences(sentences)
+
+    return _process_per_paragraph(text, _inject_para)

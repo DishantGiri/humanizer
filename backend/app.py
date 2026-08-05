@@ -150,9 +150,20 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"},
+        content={"detail": "An internal server error occurred. Please try again later."},
         headers=headers,
     )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Pre-warm NLP models and sentence embeddings on server startup."""
+    try:
+        from similarity import _load_sentence_transformers
+        _load_sentence_transformers()
+        logger.info("SentenceTransformers pre-warmed successfully.")
+    except Exception as err:
+        logger.info("SentenceTransformers pre-warm skipped: %s", err)
 
 
 # ── Routes ──────────────────────────────────────────────────────────────────

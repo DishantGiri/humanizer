@@ -26,7 +26,10 @@ def _load_sentence_transformers():
         return _st_model
     try:
         from sentence_transformers import SentenceTransformer
-        _st_model = SentenceTransformer("all-MiniLM-L6-v2")
+        try:
+            _st_model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+        except Exception:
+            _st_model = SentenceTransformer("all-MiniLM-L6-v2")
         HAS_SENTENCE_TRANSFORMERS = True
         return _st_model
     except Exception as e:

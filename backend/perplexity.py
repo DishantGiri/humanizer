@@ -7,7 +7,8 @@ Implements Step 2.5 of the pipeline:
 
 import logging
 from groq import Groq
-from config import GROQ_API_KEY, GROQ_MODEL, GROQ_FALLBACK_MODEL, RewriteMode
+from config import GROQ_API_KEY, GROQ_API_KEYS, GROQ_MODEL, GROQ_FALLBACK_MODEL, RewriteMode
+from rewriter import get_next_groq_key
 
 logger = logging.getLogger(__name__)
 
@@ -16,29 +17,36 @@ class PerplexityOptimizer:
     """Maximizes linguistic variety and applies target personas to bypass AI detectors."""
 
     def __init__(self):
-        if not GROQ_API_KEY:
-            raise ValueError("GROQ_API_KEY is not set. Check your .env file.")
-        self.client = Groq(api_key=GROQ_API_KEY)
         self.model = GROQ_MODEL
         self.fallback_model = GROQ_FALLBACK_MODEL
 
-    def _call_groq(self, system_prompt: str, user_prompt: str, temp: float = 1.3) -> str:
-        """Call Groq using the fast fallback model to prevent primary model rate limit exhaustion."""
-        target_model = self.fallback_model
+    def _call_groq(self, system_prompt: str, user_prompt: str, temp: float = 1.2) -> str:
+        """Call Groq using key rotation and fast model for maximum response speed."""
+        target_model = "llama-3.1-8b-instant" if self.fallback_model != "llama-3.1-8b-instant" else self.fallback_model
+        
+        if GROQ_API_KEYS:
+            key_num, api_key = get_next_groq_key()
+            client = Groq(api_key=api_key, max_retries=0)
+        elif GROQ_API_KEY:
+            client = Groq(api_key=GROQ_API_KEY, max_retries=0)
+        else:
+            return user_prompt
+
         try:
-            response = self.client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=target_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=temp,
-                max_tokens=4096,
-                top_p=0.95,
+                max_tokens=2048,
+                top_p=0.92,
             )
-            return response.choices[0].message.content or ""
+            content = response.choices[0].message.content
+            return content.strip() if content else user_prompt
         except Exception as e:
-            logger.error("Groq call failed in PerplexityOptimizer with model %s: %s", target_model, e)
+            logger.warning("Groq call in PerplexityOptimizer with model %s failed: %s", target_model, e)
             return user_prompt
 
 

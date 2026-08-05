@@ -13,7 +13,18 @@ load_dotenv()
 
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "llama-3.1-8b-instant")
+GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "qwen/qwen3.6-27b")
+
+GROQ_API_KEYS: list[str] = [
+    k.strip() for k in [
+        os.getenv("GROQ_API_KEY"),
+        os.getenv("GROQ_API_KEY2"),
+        os.getenv("GROQ_API_KEY3"),
+        os.getenv("GROQ_API_KEY4"),
+        os.getenv("GROQ_API_KEY5"),
+        os.getenv("GROQ_API_KEY6"),
+    ] if k and k.strip()
+]
 
 # ── Gemini API & Key Pool Configuration ─────────────────────────────────────
 
