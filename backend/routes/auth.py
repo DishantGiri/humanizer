@@ -591,10 +591,9 @@ async def google_auth(request: GoogleAuthRequest):
         raise HTTPException(status_code=400, detail="Google authentication failed. No verified email returned.")
 
     email_clean = user_info["email"].lower().strip()
-    validate_and_upgrade_domain_user(email_clean)
-
     name_clean = user_info["name"].strip()
     avatar_url = user_info.get("picture")
+    is_pro_domain = PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]
 
     user_row = fetch_one(
         "SELECT id, name, email, plan, role, usage_count, avatar_url, created_at FROM users WHERE email = ?",
@@ -603,10 +602,13 @@ async def google_auth(request: GoogleAuthRequest):
 
     if user_row:
         user_id = user_row["id"]
-        execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
+        if is_pro_domain:
+            execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
+            plan = "pro"
+        else:
+            plan = user_row.get("plan", "free")
         if avatar_url and not user_row.get("avatar_url"):
             execute_query("UPDATE users SET avatar_url = ? WHERE id = ?", (avatar_url, user_id))
-        plan = "pro"
         role = user_row.get("role", "user")
         usage_count = user_row.get("usage_count", 0)
         created_at = str(user_row["created_at"])
@@ -614,14 +616,14 @@ async def google_auth(request: GoogleAuthRequest):
         user_id = str(uuid.uuid4())
         pwd_hash, salt = hash_password(uuid.uuid4().hex)
         created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        plan = "pro"
+        plan = "pro" if is_pro_domain else "free"
         role = "user"
         usage_count = 0
 
         execute_query(
             """INSERT INTO users (id, name, email, password_hash, salt, plan, usage_count, avatar_url, created_at)
-               VALUES (?, ?, ?, ?, ?, 'pro', 0, ?, ?)""",
-            (user_id, name_clean, email_clean, pwd_hash, salt, avatar_url, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+            (user_id, name_clean, email_clean, pwd_hash, salt, plan, avatar_url, created_at)
         )
 
     token = create_jwt_token(user_id, email_clean, name_clean)
