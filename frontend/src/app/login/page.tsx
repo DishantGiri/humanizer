@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, KeyRound, X, MailCheck } from 'lucide-react';
@@ -20,8 +20,46 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  const otpBox0 = useRef<HTMLInputElement>(null);
+  const otpBox1 = useRef<HTMLInputElement>(null);
+  const otpBox2 = useRef<HTMLInputElement>(null);
+  const otpBox3 = useRef<HTMLInputElement>(null);
+  const otpBox4 = useRef<HTMLInputElement>(null);
+  const otpBox5 = useRef<HTMLInputElement>(null);
+  const otpRefs = [otpBox0, otpBox1, otpBox2, otpBox3, otpBox4, otpBox5];
+
+  const handleOtpChange = (index: number, val: string) => {
+    const digit = val.replace(/\D/g, '').slice(-1);
+    const chars = resetCode.padEnd(6, ' ').split('');
+    chars[index] = digit || ' ';
+    const newCode = chars.join('').trimEnd();
+    setResetCode(newCode.replace(/\s+/g, ''));
+
+    if (digit && index < 5) {
+      otpRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !resetCode[index] && index > 0) {
+      otpRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted) {
+      setResetCode(pasted);
+      const focusIndex = Math.min(pasted.length, 5);
+      otpRefs[focusIndex].current?.focus();
+    }
+  };
 
   useEffect(() => {
     const savedTheme =
@@ -129,16 +167,38 @@ export default function LoginPage() {
     }
   };
 
+  const handleResendCode = async () => {
+    if (!forgotEmail || forgotLoading) return;
+    setForgotLoading(true);
+    try {
+      await forgotPassword(forgotEmail);
+      toast.success('A new reset code has been sent to your email.');
+    } catch (err) {
+      toast.danger(err instanceof Error ? err.message : 'Failed to resend code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetCode.trim() || !newPassword.trim()) {
       toast.danger('Please enter the 6-digit code and your new password.');
       return;
     }
+    if (resetCode.length < 6) {
+      toast.danger('Please enter all 6 digits of the verification code.');
+      return;
+    }
     if (newPassword.length < 6) {
       toast.danger('New password must be at least 6 characters long.');
       return;
     }
+    if (confirmPassword && newPassword !== confirmPassword) {
+      toast.danger('Passwords do not match.');
+      return;
+    }
+
     setForgotLoading(true);
     try {
       const res = await resetPassword(forgotEmail, resetCode, newPassword);
@@ -341,119 +401,199 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Forgot Password Modal Overlay */}
+      {/* Forgot Password Modal */}
       {forgotModalOpen && (
         <div style={{
           position: 'fixed',
           inset: 0,
           zIndex: 9999,
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(12px)',
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '16px'
+          padding: '16px',
         }}>
           <div style={{
-            background: '#0f172a',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '20px',
-            padding: '28px',
+            background: '#18181b',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            padding: '36px 32px',
             maxWidth: '420px',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
-            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)'
+            gap: '24px',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8)',
+            position: 'relative',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <KeyRound size={22} color="#38bdf8" />
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
-                  Reset Password
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setForgotModalOpen(false); setForgotStep('request'); }}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
+            {/* Close button X */}
+            <button
+              type="button"
+              onClick={() => { setForgotModalOpen(false); setForgotStep('request'); }}
+              aria-label="Close modal"
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
 
             {forgotStep === 'request' ? (
-              <form onSubmit={handleRequestResetCode} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
-                  Enter your account email address. We will send you a 6-digit password reset code via SMTP.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Email Address</label>
+              <form onSubmit={handleRequestResetCode} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Header Title & Subtitle */}
+                <div style={{ textAlign: 'center' }}>
+                  <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
+                    Forgot your password?
+                  </h2>
+                  <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
+                    Enter your email and we'll send you a code to reset your password
+                  </p>
+                </div>
+
+                {/* Email Field */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>Email</label>
                   <input
                     type="email"
                     placeholder="m@example.com"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     style={{
-                      padding: '10px 12px',
+                      padding: '12px 14px',
                       borderRadius: '8px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#f8fafc',
-                      fontSize: '0.88rem'
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#ffffff',
+                      fontSize: '0.92rem',
+                      width: '100%',
+                      outline: 'none',
+                      boxSizing: 'border-box',
                     }}
                     required
                   />
                 </div>
+
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={forgotLoading}
                   style={{
-                    padding: '10px',
+                    padding: '12px',
                     borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                    background: '#ffffff',
                     border: 'none',
-                    color: '#ffffff',
+                    color: '#090a0f',
                     fontWeight: 700,
+                    fontSize: '0.95rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    marginTop: '4px',
+                    transition: 'all 0.2s ease',
                   }}
                 >
-                  {forgotLoading ? <Loader2 size={16} className="spinner-animate" /> : 'Send Reset Code'}
+                  {forgotLoading ? <Loader2 size={18} className="spinner-animate" color="#090a0f" /> : 'Send Reset Code'}
                 </button>
+
+                {/* Footer Sign in Link */}
+                <div style={{ textAlign: 'center', fontSize: '0.88rem', color: '#94a3b8', marginTop: '4px' }}>
+                  Remember your password?{' '}
+                  <span
+                    onClick={() => { setForgotModalOpen(false); setForgotStep('request'); }}
+                    style={{ color: '#ffffff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Sign in
+                  </span>
+                </div>
               </form>
             ) : (
-              <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
-                  A 6-digit code was sent to <strong style={{ color: '#f8fafc' }}>{forgotEmail}</strong>. Enter it below along with your new password:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>6-Digit Reset Code</label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={resetCode}
-                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#f8fafc',
-                      fontSize: '1.1rem',
-                      letterSpacing: '4px',
-                      textAlign: 'center',
-                      fontWeight: 800
-                    }}
-                    required
-                  />
+              <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Header Title & Subtitle */}
+                <div style={{ textAlign: 'center' }}>
+                  <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
+                    Reset your password
+                  </h2>
+                  <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                    Enter the code sent to <strong style={{ color: '#ffffff' }}>{forgotEmail}</strong><br />
+                    and your new password
+                  </p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Password</label>
+
+                {/* 6-Digit OTP Verification Code Boxes */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>Verification Code</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    {[0, 1, 2].map((idx) => (
+                      <input
+                        key={idx}
+                        ref={otpRefs[idx]}
+                        type="text"
+                        maxLength={1}
+                        value={resetCode[idx] || ''}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        style={{
+                          width: '42px',
+                          height: '46px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontSize: '1.2rem',
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    ))}
+                    <span style={{ color: '#94a3b8', fontWeight: 700, padding: '0 2px' }}>-</span>
+                    {[3, 4, 5].map((idx) => (
+                      <input
+                        key={idx}
+                        ref={otpRefs[idx]}
+                        type="text"
+                        maxLength={1}
+                        value={resetCode[idx] || ''}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        style={{
+                          width: '42px',
+                          height: '46px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          fontSize: '1.2rem',
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>New Password</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <input
                       type={showNewPassword ? 'text' : 'password'}
@@ -462,12 +602,14 @@ export default function LoginPage() {
                       onChange={(e) => setNewPassword(e.target.value)}
                       style={{
                         width: '100%',
-                        padding: '10px 40px 10px 12px',
+                        padding: '12px 44px 12px 16px',
                         borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: '#f8fafc',
-                        fontSize: '0.88rem'
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        fontSize: '0.92rem',
+                        outline: 'none',
+                        boxSizing: 'border-box',
                       }}
                       required
                     />
@@ -475,38 +617,115 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       tabIndex={-1}
+                      title={showNewPassword ? 'Hide password' : 'Show password'}
                       style={{
                         position: 'absolute',
                         right: '12px',
                         background: 'none',
                         border: 'none',
                         color: '#94a3b8',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
                       }}
                     >
-                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
+
+                {/* Confirm Password */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>Confirm Password</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 44px 12px 16px',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        fontSize: '0.92rem',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                      }}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={forgotLoading}
                   style={{
-                    padding: '10px',
+                    padding: '12px',
                     borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: '#ffffff',
                     border: 'none',
-                    color: '#ffffff',
+                    color: '#090a0f',
                     fontWeight: 700,
+                    fontSize: '0.95rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    marginTop: '4px',
+                    transition: 'all 0.2s ease',
                   }}
                 >
-                  {forgotLoading ? <Loader2 size={16} className="spinner-animate" /> : 'Reset Password & Sign In'}
+                  {forgotLoading ? <Loader2 size={18} className="spinner-animate" color="#090a0f" /> : 'Reset Password'}
                 </button>
+
+                {/* Footer Links */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>
+                  <div>
+                    Didn't get the code?{' '}
+                    <span
+                      onClick={handleResendCode}
+                      style={{ color: '#ffffff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Resend code
+                    </span>
+                  </div>
+                  <div>
+                    Back to{' '}
+                    <span
+                      onClick={() => { setForgotModalOpen(false); setForgotStep('request'); }}
+                      style={{ color: '#ffffff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Sign in
+                    </span>
+                  </div>
+                </div>
               </form>
             )}
           </div>
