@@ -230,7 +230,16 @@ async def rewrite_text(
                             p_rewritten = optimizer.optimize(p_rewritten, request.mode)
                         except Exception as opt_err:
                             logger.warning("Perplexity optimization pass skipped for para %d: %s", p_idx, opt_err)
-                        p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para)
+
+                        # Step 2.5b: Multi-Language Translation Bounce Pass (HEAVY mode only)
+                        if int(request.level) >= 3:
+                            try:
+                                bouncer = get_bouncer()
+                                p_rewritten = bouncer.bounce(p_rewritten)
+                            except Exception as bounce_err:
+                                logger.warning("Translation bounce pass skipped for para %d: %s", p_idx, bounce_err)
+
+                        p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para, mode=request.mode.value)
                         rewritten_paras.append(p_humanized)
                     rewritten = "\n\n".join(rewritten_paras)
                 else:
@@ -242,7 +251,15 @@ async def rewrite_text(
                     except Exception as opt_err:
                         logger.warning("Perplexity optimization pass skipped: %s", opt_err)
 
-                    rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text)
+                    # Step 2.5b: Multi-Language Translation Bounce Pass (HEAVY mode only)
+                    if int(request.level) >= 3:
+                        try:
+                            bouncer = get_bouncer()
+                            rewritten = bouncer.bounce(rewritten)
+                        except Exception as bounce_err:
+                            logger.warning("Translation bounce pass skipped: %s", bounce_err)
+
+                    rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text, mode=request.mode.value)
 
             # Step 2.6: Post-Hoc Statistical Validation Check
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
