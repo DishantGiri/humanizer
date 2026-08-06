@@ -688,17 +688,23 @@ def run_self_correction_loop(text: str, profile: ModeProfile, original_text: Opt
 
         needs_fix = False
 
-        # Target 1: Sentence length average too high
+        # Target 1: Sentence length average too high (only split on natural clause boundaries)
         if stats.avg_sentence_length > max_len:
             sentences = _split_sentences(current_text)
             res = []
             for s in sentences:
                 w = s.split()
-                if len(w) > 18:
-                    mid = len(w) // 2
-                    res.extend([" ".join(w[:mid]).rstrip(',') + ".", " ".join(w[mid:]).capitalize()])
-                else:
-                    res.append(s)
+                if len(w) > 22:
+                    # Look for natural clause separator
+                    split_match = re.search(r'(,\s*(?:and|but|so|which|where|while)\s+)', s, flags=re.IGNORECASE)
+                    if split_match:
+                        part1 = s[:split_match.start()].strip() + "."
+                        part2_raw = s[split_match.end():].strip()
+                        part2 = part2_raw[0].upper() + part2_raw[1:] if part2_raw else ""
+                        if part1 and part2:
+                            res.extend([part1, part2])
+                            continue
+                res.append(s)
             current_text = _join_sentences(res)
             needs_fix = True
 
@@ -867,11 +873,29 @@ def humanize(
     # Step 5: Apply paragraph intelligence & strict parity
     text = apply_paragraph_intelligence(text, original_text, rng)
 
-    # Step 6: Final Punctuation & Article Polish
+    # Step 6: Final Punctuation, Article Polish & Proper Noun Capitalization
     text = re.sub(r'\.{2,}', '.', text)
     text = re.sub(r',,+', ',', text)
     text = re.sub(r'\b(an)\s+([b-df-hj-np-tv-z])', r'a \2', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:So,?\s+|So\s+this\s+way,?\s+)', '', text, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Proper Noun & Sentence Start Capitalization Fix
+    proper_map = {
+        r'\bnepal\b': 'Nepal',
+        r'\bnepali\b': 'Nepali',
+        r'\bmount everest\b': 'Mount Everest',
+        r'\beverest\b': 'Everest',
+        r'\bhimalaya\b': 'Himalaya',
+        r'\bhimalayas\b': 'Himalayas',
+        r'\bkathmandu\b': 'Kathmandu',
+        r'\basia\b': 'Asia',
+        r'\basian\b': 'Asian',
+    }
+    for pattern, replacement in proper_map.items():
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    
+    # Capitalize sentence starters after sentence endings
+    text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
     text = re.sub(r'  +', ' ', text)
 
     final_text = text.strip()

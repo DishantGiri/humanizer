@@ -30,6 +30,8 @@ import {
   Calendar,
   ShieldCheck,
   Gauge,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
@@ -617,8 +619,8 @@ export default function DashboardPage() {
           <div onClick={() => setActiveMenu('humanizer')} style={{ cursor: 'pointer' }}>
             <Logo variant="full" size="sm" theme={theme} />
           </div>
-          <button type="button" className="mobile-topbar__theme" onClick={toggleTheme} aria-label="Toggle theme" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
-            <Sparkles size={18} />
+          <button type="button" className="mobile-topbar__theme" onClick={toggleTheme} aria-label="Toggle theme" title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
         <Navbar

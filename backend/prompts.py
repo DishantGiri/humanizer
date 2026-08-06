@@ -43,6 +43,7 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
 19. NO FALSE RANGES: Never use "from X to Y" unless X and Y form a real numerical or physical spectrum ("from innovation to cultural transformation" is invalid).
 20. NO MANUFACTURED SUSPENSE OR PATRONIZING ANALOGIES: Never use "Here's the kicker", "Here's the thing", "Think of it as...", "Imagine a world where...", "The truth is simple", or "Let's break this down step by step".
 21. NO SIGNPOSTED CONCLUSIONS OR "DESPITE CHALLENGES" FORMULA: Never start conclusions with "In conclusion", "To sum up", or "In summary". Never use the formula "Despite its challenges, X continues to thrive".
+22. STRICT PROPER NOUN CAPITALIZATION: Always capitalize proper names, countries, cities, and geographic landmarks accurately (e.g. "Nepal", "Mount Everest", "Everest", "Kathmandu"). Never output lowercase proper nouns ("nepal", "mount everest").
 
 # OUTPUT RULES
 Return ONLY the final rewritten text. Do NOT include thinking tags, commentary, quotes around output, or word count notes.
