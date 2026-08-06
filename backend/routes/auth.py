@@ -3,6 +3,7 @@ Authentication API routes integrated with MySQL / DB abstraction.
 """
 
 import os
+import re
 import hmac
 import requests
 import hashlib
@@ -237,6 +238,20 @@ def check_and_apply_pro_perk(email: str, user_id: Optional[str] = None) -> bool:
     return False
 
 
+def validate_user_name(name: str) -> str:
+    name_clean = name.strip()
+    if not name_clean:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+    if not re.match(r"^[a-zA-Z0-9\s.\-']+$", name_clean):
+        raise HTTPException(
+            status_code=400,
+            detail="Name cannot contain special characters (e.g., !@#$%^&*). Only letters, numbers, spaces, hyphens, and dots are allowed."
+        )
+    if not any(c.isalpha() for c in name_clean):
+        raise HTTPException(status_code=400, detail="Name must contain at least one letter.")
+    return name_clean
+
+
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.post("/register")
@@ -245,7 +260,7 @@ async def register(request: RegisterRequest):
     Register a new user account and send an SMTP email verification code.
     """
     email_clean = request.email.lower().strip()
-    name_clean = request.name.strip()
+    name_clean = validate_user_name(request.name)
 
     if fetch_one("SELECT id FROM users WHERE email = ?", (email_clean,)):
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
@@ -389,10 +404,11 @@ async def update_profile(
     updates = []
     params = []
 
-    if request.name is not None and request.name.strip():
+    if request.name is not None:
+        name_validated = validate_user_name(request.name)
         updates.append("name = ?")
-        params.append(request.name.strip())
-        current_user.name = request.name.strip()
+        params.append(name_validated)
+        current_user.name = name_validated
 
     if request.avatar_url is not None:
         updates.append("avatar_url = ?")

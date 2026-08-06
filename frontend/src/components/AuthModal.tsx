@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { loginUser, registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig, type User } from '@/lib/api';
+import { validateName } from '@/lib/utils';
 import { toast } from '@/components/Toast';
 
 interface AuthModalProps {
@@ -70,9 +71,12 @@ export default function AuthModal({
       return;
     }
 
-    if (mode === 'register' && !name.trim()) {
-      setError('Please enter your full name.');
-      return;
+    if (mode === 'register') {
+      const nameErr = validateName(name);
+      if (nameErr) {
+        setError(nameErr);
+        return;
+      }
     }
 
     if (!email.trim() || !password.trim()) {

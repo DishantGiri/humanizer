@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { updateProfile, changePassword, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
-import { getAvatarInitial, compressImage } from '@/lib/utils';
+import { getAvatarInitial, compressImage, validateName } from '@/lib/utils';
 
 interface AccountViewProps {
   user: User | null;
@@ -96,7 +96,13 @@ export default function AccountView({
   // Handle Save General Info
   const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !displayName.trim()) return;
+    if (!token) return;
+
+    const nameErr = validateName(displayName);
+    if (nameErr) {
+      toast.danger(nameErr);
+      return;
+    }
 
     setSavingGeneral(true);
 

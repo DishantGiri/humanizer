@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, MailCheck } from 'lucide-react';
 import { registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig } from '@/lib/api';
 import { toast } from '@/components/Toast';
+import { validateName } from '@/lib/utils';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -53,6 +54,12 @@ export default function RegisterPage() {
 
     if (!name.trim() || !email.trim() || !password.trim()) {
       toast.danger('Please fill in all required fields.');
+      return;
+    }
+
+    const nameErr = validateName(name);
+    if (nameErr) {
+      toast.danger(nameErr);
       return;
     }
 

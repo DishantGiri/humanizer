@@ -66,3 +66,19 @@ export function compressImage(
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Validates display name to ensure special characters (e.g. !@#$%^&*) are rejected.
+ * Allows letters, numbers, spaces, hyphens, dots, and apostrophes, but requires at least one letter.
+ */
+export function validateName(name: string): string | null {
+  const clean = name.trim();
+  if (!clean) return 'Please enter your name.';
+  if (!/^[a-zA-Z0-9\s.\-']+$/.test(clean)) {
+    return 'Name cannot contain special characters (e.g., !@#$%^&*).';
+  }
+  if (!/[a-zA-Z]/.test(clean)) {
+    return 'Name must contain at least one letter.';
+  }
+  return null;
+}
