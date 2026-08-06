@@ -500,6 +500,9 @@ async def change_password(
     if check_hash != row["password_hash"]:
         raise HTTPException(status_code=400, detail="Current password is incorrect. Please try again.")
 
+    if request.current_password == request.new_password:
+        raise HTTPException(status_code=400, detail="New password cannot be the same as your current password.")
+
     new_hash, new_salt = hash_password(request.new_password)
     execute_query("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", (new_hash, new_salt, current_user.id))
 

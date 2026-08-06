@@ -48,6 +48,7 @@ import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
 import LottieLoader from '@/components/LottieLoader';
 import TypewriterText from '@/components/TypewriterText';
+import { getAvatarInitial } from '@/lib/utils';
 import {
   rewriteText,
   getCurrentUser,
@@ -428,7 +429,7 @@ export default function DashboardPage() {
           {user && (
             <div className="mobile-sidebar__user">
               <div className="sidebar__user-avatar" style={{ width: 32, height: 32, fontSize: '0.9rem' }}>
-                {user.avatar_url ? <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : user.name.charAt(0).toUpperCase()}
+                {user.avatar_url ? <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getAvatarInitial(user.name) ? getAvatarInitial(user.name) : <User size={16} />}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
@@ -515,8 +516,10 @@ export default function DashboardPage() {
                     {user.avatar_url ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                    ) : getAvatarInitial(user.name) ? (
+                      getAvatarInitial(user.name)
                     ) : (
-                      user.name.charAt(0).toUpperCase()
+                      <User size={18} />
                     )}
                   </div>
                   <div className="sidebar__user-popover-info">
@@ -577,8 +580,10 @@ export default function DashboardPage() {
                   {user.avatar_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                  ) : getAvatarInitial(user.name) ? (
+                    getAvatarInitial(user.name)
                   ) : (
-                    user.name.charAt(0).toUpperCase()
+                    <User size={16} />
                   )}
                 </div>
                 <div className="sidebar__user-details">

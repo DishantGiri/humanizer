@@ -10,9 +10,12 @@ import {
   Lock,
   ArrowRight,
   LogOut,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { updateProfile, changePassword, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
+import { getAvatarInitial, compressImage } from '@/lib/utils';
 
 interface AccountViewProps {
   user: User | null;
@@ -45,6 +48,9 @@ export default function AccountView({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [savingSecurity, setSavingSecurity] = useState(false);
 
   if (!user || !token) {
@@ -74,21 +80,17 @@ export default function AccountView({
 
     setAvatarUploading(true);
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      try {
-        const updated = await updateProfile(token, { avatar_url: dataUrl });
-        onUpdateUser(updated);
-        toast.success('Profile picture updated successfully!');
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to update avatar.';
-        toast.danger(msg);
-      } finally {
-        setAvatarUploading(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressImage(file, 300, 300, 0.85);
+      const updated = await updateProfile(token, { avatar_url: compressedDataUrl });
+      onUpdateUser(updated);
+      toast.success('Profile picture updated successfully!');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update avatar.';
+      toast.danger(msg);
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   // Handle Save General Info
@@ -121,6 +123,10 @@ export default function AccountView({
     }
     if (newPassword.length < 6) {
       toast.danger('New password must be at least 6 characters long.');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      toast.danger('New password cannot be the same as your current password.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -202,8 +208,10 @@ export default function AccountView({
             >
               {user.avatar_url ? (
                 <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : getAvatarInitial(user.name) ? (
+                getAvatarInitial(user.name)
               ) : (
-                user.name.charAt(0).toUpperCase()
+                <UserIcon size={32} />
               )}
             </div>
           </div>
@@ -457,22 +465,47 @@ export default function AccountView({
                 <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '8px' }}>
                   Current Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.95rem',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    style={{
+                      width: '100%',
+                      padding: '12px 44px 12px 16px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.95rem',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-tertiary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               {/* New Password */}
@@ -480,22 +513,47 @@ export default function AccountView({
                 <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '8px' }}>
                   New Password (min 6 characters)
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.95rem',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    style={{
+                      width: '100%',
+                      padding: '12px 44px 12px 16px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.95rem',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    title={showNewPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-tertiary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               {/* Confirm New Password */}
@@ -503,22 +561,47 @@ export default function AccountView({
                 <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, marginBottom: '8px' }}>
                   Confirm New Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.95rem',
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    style={{
+                      width: '100%',
+                      padding: '12px 44px 12px 16px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.95rem',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-tertiary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
 
