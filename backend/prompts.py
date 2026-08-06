@@ -18,10 +18,10 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
 
 # CORE WRITING PRINCIPLES:
 1. NATURAL SENTENCE VARIATION: Vary sentence length naturally. Mix short, punchy lines with medium sentences and occasional longer flowing sentences where appropriate. Avoid repetitive, predictable rhythm.
-2. VARIED SENTENCE OPENINGS: Avoid repeatedly beginning consecutive sentences with the same grammatical structure or starter words. Vary sentence openings naturally.
+2. VARIED UNPREDICTABLE SENTENCE OPENINGS: Never start 2 consecutive sentences with the same grammatical pattern (e.g. Subject + Verb, 'The + Noun', 'This + Noun', 'It + Verb'). Alternate between prepositional openers ('In healthcare...'), clause-first starters ('Because of this...'), pronoun starters ('We see...'), and action verbs.
 3. SIMPLE, EVERYDAY VOCABULARY: Prefer simple, clear 1-2 syllable words ('work', 'green', 'rules', 'help', 'plans', 'save', 'tool', 'phones', 'people') over heavy abstract jargon ('biodiversity', 'sustainability', 'organizations', 'implementation', 'game-changers').
 4. AVOID CLICHÉ AI VOCABULARY & TROPES: Avoid cliché AI-style phrases and unnecessarily grandiose vocabulary (e.g. "delve into", "tapestry of", "testament to", "ever-evolving landscape", "pivotal role", "beacon of", "harness the power", "nestled in").
-5. UNPREDICTABLE SYNTAX RHYTHM: Vary sentence structure naturally. Avoid long runs of nearly identical sentence openings or repetitive grammatical rhythms.
+5. UNPREDICTABLE SYNTAX STRUCTURE: Destroy formulaic Subject-Verb-Object structures. Vary sentence architecture unpredictably: invert dependent clauses, mix micro-sentences (3-5 words) with medium sentences, and use mid-sentence pivots ('— though ...') to maintain chaotic, authentic human rhythm.
 6. PARAGRAPH & FACTUAL PARITY: Keep the exact same number of paragraphs as the input. Preserve 100% of all facts, numbers, dates, and core claims accurately.
 7. PRESERVE INTENT, EMPHASIS & TONE: In addition to raw facts, preserve the author's underlying intent, key emphasis, level of certainty, and emotional tone.
 8. PRESERVE FIXED TERMINOLOGY & HEADINGS: Keep original list bullets, item numbers, and headers intact. Preserve proper names, direct quotations, legal text, code, or technical terms that must remain unchanged.
@@ -112,12 +112,16 @@ _LEVEL_INSTRUCTIONS: dict[int, str] = {
         "- Keep the general structure and key phrases"
     ),
     3: (
-        "HEAVY rewrite — make it sound like a completely different person wrote it:\n"
-        "- Rephrase almost everything\n"
-        "- Reorganize for better flow\n"
-        "- Replace generic language with specific alternatives\n"
-        "- Vary paragraph lengths naturally\n"
-        "- Mix short punchy sentences with longer flowing ones where appropriate\n"
+        "HEAVY rewrite — make it sound like a completely different human wrote it:\n"
+        "- DESTROY PREDICTABLE STRUCTURE: Completely vary your writing patterns across sentences!\n"
+        "- Mix 6 distinct sentence structures:\n"
+        "  1) Prepositional/Context starters ('Across Nepal, ...', 'In healthcare, ...')\n"
+        "  2) Cause/Condition inversions ('If farmers get easy market access, production spikes...')\n"
+        "  3) Action hooks ('Take crops like rice and wheat — they form...')\n"
+        "  4) Punchy micro-sentence fragments (3-5 words: 'Simple as that.', 'That matters.')\n"
+        "  5) Em-dash/parenthetical pivots ('— though traditional farming still dominates —')\n"
+        "  6) Rhetorical questions or strong transitions ('Why does this matter?')\n"
+        "- Rephrase almost everything, reorganize for natural human flow, and replace generic language with specific alternatives.\n"
         "- Rewrite confidently while allowing occasional informal phrasing and natural transitions\n"
         "- But KEEP every fact, number, name, and specific claim"
     ),

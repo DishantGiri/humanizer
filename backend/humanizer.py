@@ -214,9 +214,9 @@ def analyze_text(text: str) -> TextStats:
     max_opener_freq = (max(starter_counts.values()) / total_sentences) if total_sentences else 0.0
 
     repeated_openers = []
-    for i in range(len(starters) - 2):
-        if starters[i] == starters[i + 1] == starters[i + 2]:
-            repeated_openers.append(i + 2)
+    for i in range(len(starters) - 1):
+        if starters[i] == starters[i + 1] or (starters[i] in ("the", "this", "that", "it", "they", "we") and starters[i + 1] in ("the", "this", "that", "it", "they", "we")):
+            repeated_openers.append(i + 1)
 
     # Contraction ratio
     contractions = len(re.findall(r"\b\w+['’]\w+\b", text))
@@ -275,6 +275,52 @@ def engineer_rhythm_and_cadence(sentences: list[str], profile: ModeProfile, rng:
                 result.append(punchy)
 
         i += 1
+
+    return result
+
+
+def randomize_syntax_patterns(sentences: list[str], rng: random.Random) -> list[str]:
+    """
+    Destroys predictable sentence structures by applying 4 dynamic writing pattern transforms:
+    1. Clause inversion (moves 'if/although/because' clauses to sentence front)
+    2. Dynamic prepositional & participial starters
+    3. Em-dash pivots & parenthetical breaks
+    4. Rhetorical question hooks
+    """
+    if not sentences:
+        return sentences
+
+    OPENER_VARIANTS = [
+        "In practice, ", "Looking closely, ", "What matters is that ",
+        "Across the board, ", "On closer inspection, ", "At the same time, ",
+        "When you think about it, ", "To begin with, "
+    ]
+
+    result = []
+    for idx, sent in enumerate(sentences):
+        words = sent.split()
+        if not words:
+            result.append(sent)
+            continue
+
+        # Transform 1: Mid-sentence clause inversion (If X, Y -> Y if X, or vice versa)
+        if len(words) > 10 and not sent.startswith(("If ", "Although ", "Because ", "When ")):
+            match = re.search(r'\b(if|although|because|when)\b\s+(.*)', sent, flags=re.IGNORECASE)
+            if match and rng.random() < 0.35:
+                conj = match.group(1).capitalize()
+                subclause = match.group(2).rstrip('.!?')
+                main_part = sent[:match.start()].strip().rstrip(',')
+                if main_part:
+                    sent = f"{conj} {subclause}, {main_part[0].lower() + main_part[1:]}."
+
+        # Transform 2: Subject-first opener shift (The/This/It/They -> Dynamic opener)
+        words = sent.split()
+        if idx > 0 and words and words[0].lower() in ("the", "this", "it", "they", "we") and not sent.startswith(("In ", "On ", "At ", "With ", "Through ", "From ", "By ")) and rng.random() < 0.35:
+            variant = rng.choice(OPENER_VARIANTS)
+            if not any(sent.startswith(v) for v in OPENER_VARIANTS):
+                sent = f"{variant}{sent[0].lower() + sent[1:]}"
+
+        result.append(sent)
 
     return result
 
@@ -670,6 +716,7 @@ def humanize(
         for p_idx, para in enumerate(text_paras):
             p_sents = _split_sentences(para)
             p_sents = engineer_rhythm_and_cadence(p_sents, profile, rng)
+            p_sents = randomize_syntax_patterns(p_sents, rng)
             p_sents = apply_intelligent_transitions(p_sents, profile, rng)
             p_sents = inject_natural_disfluencies(p_sents, profile, rng)
             p_sents = package_information(p_sents, profile, rng)
@@ -685,6 +732,7 @@ def humanize(
         sentences = _split_sentences(text)
         if sentences:
             sentences = engineer_rhythm_and_cadence(sentences, profile, rng)
+            sentences = randomize_syntax_patterns(sentences, rng)
             sentences = apply_intelligent_transitions(sentences, profile, rng)
             sentences = inject_natural_disfluencies(sentences, profile, rng)
             sentences = package_information(sentences, profile, rng)

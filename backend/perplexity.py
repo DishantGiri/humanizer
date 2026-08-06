@@ -72,7 +72,7 @@ class PerplexityOptimizer:
             "CORE PRINCIPLES:\n"
             "1. NATURAL SENTENCE VARIATION: Mix short, punchy lines with medium and occasional longer sentences naturally. Avoid repetitive rhythm.\n"
             "2. STRUCTURAL PARAPHRASING: Rephrase sentence structure and wording naturally where possible. Preserve any phrases that must remain unchanged (names, quotes, technical terms, code).\n"
-            "3. PRONOUN-FIRST FRAMING: Prefer starting sentences with pronouns ('we', 'you', 'it', 'they', 'I') over heavy abstract noun phrases.\n"
+            "3. RANDOM UNPREDICTABLE SYNTAX: Never repeat consecutive sentence openings or clause patterns. Alternate between prepositional openers ('In practice...'), clause inversions ('Because of this...'), micro-sentences (3-5 words), and action starters to eliminate predictable structures.\n"
             "4. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
             "5. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure.\n"
             "6. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
