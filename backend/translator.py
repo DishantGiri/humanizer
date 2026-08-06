@@ -18,7 +18,7 @@ import random
 import re
 from groq import Groq, RateLimitError, APITimeoutError
 
-from config import GROQ_API_KEY, GROQ_MODEL, GROQ_FALLBACK_MODEL, MAX_RETRIES, API_TIMEOUT
+from config import GROQ_API_KEY, GROQ_API_KEYS, GROQ_MODEL, GROQ_FALLBACK_MODEL, MAX_RETRIES, API_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
