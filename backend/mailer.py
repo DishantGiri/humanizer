@@ -51,6 +51,7 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
 def send_verification_email(email: str, name: str, code: str) -> bool:
     """
     Sends 6-digit email verification code for new user registration.
+    High contrast WCAG AA compliant inline styling.
     """
     subject = "Verification Code - CloakWriter AI"
     html = f"""
@@ -58,22 +59,17 @@ def send_verification_email(email: str, name: str, code: str) -> bool:
     <html>
     <head>
       <meta charset="utf-8">
-      <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
-        .card {{ max-width: 500px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }}
-        .header {{ font-size: 22px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }}
-        .code-box {{ font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #10b981; background: #0f172a; padding: 16px; border-radius: 12px; text-align: center; margin: 24px 0; border: 1px solid rgba(16,185,129,0.3); }}
-        .footer {{ font-size: 12px; color: #94a3b8; margin-top: 24px; text-align: center; }}
-      </style>
+      <meta name="color-scheme" content="dark">
+      <meta name="supported-color-schemes" content="dark">
     </head>
-    <body>
-      <div class="card">
-        <div class="header">CloakWriter AI</div>
-        <p>Hello {name},</p>
-        <p>Welcome to CloakWriter! Your registration verification code is below. Enter this code to verify your account:</p>
-        <div class="code-box">{code}</div>
-        <p>This code will expire in 15 minutes. If you did not register for an account, please ignore this email.</p>
-        <div class="footer">&copy; 2026 CloakWriter AI. All rights reserved.</div>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #ffffff; margin: 0; padding: 24px 12px;">
+      <div style="max-width: 520px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 32px 28px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <div style="font-size: 22px; font-weight: 800; color: #38bdf8; margin-bottom: 16px; letter-spacing: -0.01em;">CloakWriter AI</div>
+        <p style="color: #ffffff !important; font-size: 15px; line-height: 1.6; margin: 0 0 14px 0; font-weight: 600;">Hello {name},</p>
+        <p style="color: #e2e8f0 !important; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Welcome to CloakWriter! Your registration verification code is below. Enter this code to verify your account:</p>
+        <div style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #10b981 !important; background-color: #0f172a; padding: 18px; border-radius: 12px; text-align: center; margin: 20px 0; border: 1px solid rgba(16,185,129,0.4);">{code}</div>
+        <p style="color: #cbd5e1 !important; font-size: 14px; line-height: 1.6; margin: 16px 0 0 0;">This code will expire in 15 minutes. If you did not register for an account, please ignore this email.</p>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; font-size: 12px; color: #94a3b8 !important; text-align: center;">&copy; 2026 CloakWriter AI. All rights reserved.</div>
       </div>
     </body>
     </html>
@@ -84,6 +80,7 @@ def send_verification_email(email: str, name: str, code: str) -> bool:
 def send_forgot_password_email(email: str, name: str, code: str) -> bool:
     """
     Sends 6-digit password reset code for forgot password requests.
+    High contrast WCAG AA compliant inline styling.
     """
     subject = "Reset Password Code - CloakWriter AI"
     html = f"""
@@ -91,22 +88,17 @@ def send_forgot_password_email(email: str, name: str, code: str) -> bool:
     <html>
     <head>
       <meta charset="utf-8">
-      <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
-        .card {{ max-width: 500px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }}
-        .header {{ font-size: 22px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }}
-        .code-box {{ font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #f43f5e; background: #0f172a; padding: 16px; border-radius: 12px; text-align: center; margin: 24px 0; border: 1px solid rgba(244,63,94,0.3); }}
-        .footer {{ font-size: 12px; color: #94a3b8; margin-top: 24px; text-align: center; }}
-      </style>
+      <meta name="color-scheme" content="dark">
+      <meta name="supported-color-schemes" content="dark">
     </head>
-    <body>
-      <div class="card">
-        <div class="header">CloakWriter AI</div>
-        <p>Hello {name},</p>
-        <p>We received a request to reset your password. Use the verification code below to reset your password:</p>
-        <div class="code-box">{code}</div>
-        <p>This code is valid for 15 minutes. If you did not request a password reset, please secure your account immediately.</p>
-        <div class="footer">&copy; 2026 CloakWriter AI. All rights reserved.</div>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #ffffff; margin: 0; padding: 24px 12px;">
+      <div style="max-width: 520px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 32px 28px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <div style="font-size: 22px; font-weight: 800; color: #38bdf8; margin-bottom: 16px; letter-spacing: -0.01em;">CloakWriter AI</div>
+        <p style="color: #ffffff !important; font-size: 15px; line-height: 1.6; margin: 0 0 14px 0; font-weight: 600;">Hello {name},</p>
+        <p style="color: #e2e8f0 !important; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We received a request to reset your password. Use the verification code below to reset your password:</p>
+        <div style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #f43f5e !important; background-color: #0f172a; padding: 18px; border-radius: 12px; text-align: center; margin: 20px 0; border: 1px solid rgba(244,63,94,0.4);">{code}</div>
+        <p style="color: #cbd5e1 !important; font-size: 14px; line-height: 1.6; margin: 16px 0 0 0;">This code is valid for 15 minutes. If you did not request a password reset, please secure your account immediately.</p>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; font-size: 12px; color: #94a3b8 !important; text-align: center;">&copy; 2026 CloakWriter AI. All rights reserved.</div>
       </div>
     </body>
     </html>
@@ -117,6 +109,7 @@ def send_forgot_password_email(email: str, name: str, code: str) -> bool:
 def send_password_changed_notice(email: str, name: str) -> bool:
     """
     Sends confirmation email when password is successfully changed.
+    High contrast WCAG AA compliant inline styling.
     """
     subject = "Password Security Alert - CloakWriter AI"
     html = f"""
@@ -124,20 +117,18 @@ def send_password_changed_notice(email: str, name: str) -> bool:
     <html>
     <head>
       <meta charset="utf-8">
-      <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
-        .card {{ max-width: 500px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }}
-        .header {{ font-size: 22px; font-weight: 800; color: #10b981; margin-bottom: 8px; }}
-        .footer {{ font-size: 12px; color: #94a3b8; margin-top: 24px; text-align: center; }}
-      </style>
+      <meta name="color-scheme" content="dark">
+      <meta name="supported-color-schemes" content="dark">
     </head>
-    <body>
-      <div class="card">
-        <div class="header">Password Changed</div>
-        <p>Hello {name},</p>
-        <p>Your password for your CloakWriter account was successfully updated.</p>
-        <p>If you did not perform this change, please contact support immediately.</p>
-        <div class="footer">&copy; 2026 CloakWriter AI. All rights reserved.</div>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #ffffff; margin: 0; padding: 24px 12px;">
+      <div style="max-width: 520px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; padding: 32px 28px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <div style="font-size: 22px; font-weight: 800; color: #10b981; margin-bottom: 16px; letter-spacing: -0.01em;">Password Changed</div>
+        <p style="color: #ffffff !important; font-size: 15px; line-height: 1.6; margin: 0 0 14px 0; font-weight: 600;">Hello {name},</p>
+        <p style="color: #e2e8f0 !important; font-size: 15px; line-height: 1.6; margin: 0 0 14px 0;">Your password for your CloakWriter account was successfully updated.</p>
+        <p style="color: #cbd5e1 !important; font-size: 14px; line-height: 1.6; margin: 16px 0 0 0; padding: 12px 14px; background: rgba(244,63,94,0.1); border-left: 4px solid #f43f5e; border-radius: 6px;">
+          If you did not perform this change, please contact support immediately to secure your account.
+        </p>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 24px; padding-top: 16px; font-size: 12px; color: #94a3b8 !important; text-align: center;">&copy; 2026 CloakWriter AI. All rights reserved.</div>
       </div>
     </body>
     </html>
