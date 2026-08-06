@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 # Intermediate languages for the bounce. Each introduces different
 # structural changes when translating back to English.
 BOUNCE_LANGUAGES = [
-    ("French", "fr"),     # SOV tendencies, different adjective placement
+    ("Nepali", "ne"),     # SOV structure, postpositional phrases, rich verbal inflection
+    ("French", "fr"),     # Flexible adjective placement
     ("German", "de"),     # Verb-final in subclauses, compound nouns
     ("Spanish", "es"),    # Pro-drop, flexible word order
 ]
@@ -43,32 +44,44 @@ class TranslationBouncer:
         self.fallback_model = GROQ_FALLBACK_MODEL
 
     def _call_llm(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
-        """Make a single LLM call with failover. Uses fallback model directly to avoid rate limits."""
-        # Always use the fast fallback model for translation to prevent
-        # latency spikes from the primary model.
+        """Make a single LLM call with key rotation failover across GROQ_API_KEYS."""
         target_model = self.fallback_model
-        
-        try:
-            response = self.client.chat.completions.create(
-                model=target_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.7,
-                max_tokens=4096,
-                top_p=0.9,
-                timeout=10,  # Fast 10-second timeout
-            )
-            content = response.choices[0].message.content
-            if not content:
-                raise RuntimeError("Empty response from Groq API")
-            # Strip thinking tags if present
-            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL | re.IGNORECASE)
-            return content.strip()
-        except Exception as e:
-            logger.warning("Translation call with model %s failed: %s", target_model, e)
-            raise RuntimeError(f"Translation bounce failed: {e}")
+        effective_system = system_prompt
+        extra_kwargs = {}
+
+        if 'qwen' in target_model.lower():
+            effective_system = "/no_think\n\n" + system_prompt
+            extra_kwargs['extra_body'] = {'reasoning_format': 'hidden'}
+
+        keys_to_try = GROQ_API_KEYS if GROQ_API_KEYS else [GROQ_API_KEY]
+        last_err = None
+
+        for k_idx, key in enumerate(keys_to_try):
+            try:
+                client = Groq(api_key=key)
+                response = client.chat.completions.create(
+                    model=target_model,
+                    messages=[
+                        {"role": "system", "content": effective_system},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.7,
+                    max_tokens=3000,
+                    top_p=0.9,
+                    timeout=15,
+                    **extra_kwargs,
+                )
+                content = response.choices[0].message.content
+                if not content:
+                    continue
+                content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL | re.IGNORECASE)
+                content = re.sub(r'</?think>', '', content, flags=re.IGNORECASE)
+                return content.strip()
+            except Exception as e:
+                logger.warning("Translation call with Key #%d (%s) failed: %s", k_idx + 1, target_model, e)
+                last_err = e
+
+        raise RuntimeError(f"Translation bounce failed after trying all keys: {last_err}")
 
 
     def _translate_to(self, text: str, target_lang: str) -> str:
