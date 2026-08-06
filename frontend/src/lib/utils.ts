@@ -74,11 +74,27 @@ export function compressImage(
 export function validateName(name: string): string | null {
   const clean = name.trim();
   if (!clean) return 'Please enter your name.';
+  if (clean.length < 2) {
+    return 'Name must be at least 2 characters long.';
+  }
   if (!/^[a-zA-Z0-9\s.\-']+$/.test(clean)) {
     return 'Name cannot contain special characters (e.g., !@#$%^&*).';
   }
   if (!/[a-zA-Z]/.test(clean)) {
     return 'Name must contain at least one letter.';
+  }
+  return null;
+}
+
+/**
+ * Validates email format ensuring standard user@domain.tld format with a valid top-level domain.
+ */
+export function validateEmail(email: string): string | null {
+  const clean = email.trim();
+  if (!clean) return 'Please enter an email address.';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (!emailRegex.test(clean)) {
+    return 'Please enter correct email format';
   }
   return null;
 }

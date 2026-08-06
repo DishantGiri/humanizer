@@ -242,6 +242,8 @@ def validate_user_name(name: str) -> str:
     name_clean = name.strip()
     if not name_clean:
         raise HTTPException(status_code=400, detail="Name cannot be empty.")
+    if len(name_clean) < 2:
+        raise HTTPException(status_code=400, detail="Name must be at least 2 characters long.")
     if not re.match(r"^[a-zA-Z0-9\s.\-']+$", name_clean):
         raise HTTPException(
             status_code=400,

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User as UserIcon, Loader2, Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { loginUser, registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig, type User } from '@/lib/api';
-import { validateName } from '@/lib/utils';
+import { validateName, validateEmail } from '@/lib/utils';
 import { toast } from '@/components/Toast';
 
 interface AuthModalProps {
@@ -79,7 +79,13 @@ export default function AuthModal({
       }
     }
 
-    if (!email.trim() || !password.trim()) {
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+
+    if (!password.trim()) {
       setError('Please fill in all fields.');
       return;
     }

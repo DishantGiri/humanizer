@@ -86,7 +86,68 @@ export interface RewriteResponse {
 }
 
 export interface ApiError {
-  detail: string;
+  detail?: string | any;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Safely parses backend error responses (strings, Pydantic validation error lists, objects)
+ * into a clean, human-readable error message. Prevents [object Object] toast bugs.
+ */
+export function parseErrorMessage(errorJson: any, defaultMsg: string): string {
+  if (!errorJson) return defaultMsg;
+  if (typeof errorJson === 'string') {
+    if (errorJson.toLowerCase().includes('valid email address') || errorJson.includes('EmailStr')) {
+      return 'Please enter correct email format';
+    }
+    return errorJson;
+  }
+
+  const detail = errorJson.detail !== undefined ? errorJson.detail : (errorJson.message || errorJson.error);
+
+  if (typeof detail === 'string') {
+    if (detail.toLowerCase().includes('valid email address') || detail.includes('EmailStr')) {
+      return 'Please enter correct email format';
+    }
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          if (item.toLowerCase().includes('valid email address')) return 'Please enter correct email format';
+          return item;
+        }
+        if (item && typeof item === 'object') {
+          if (item.msg) {
+            if (typeof item.msg === 'string' && item.msg.toLowerCase().includes('valid email address')) {
+              return 'Please enter correct email format';
+            }
+            const field = Array.isArray(item.loc) && item.loc.length > 0 ? `${item.loc[item.loc.length - 1]}` : '';
+            return field && field !== 'body' ? `${field}: ${item.msg}` : item.msg;
+          }
+          return JSON.stringify(item);
+        }
+        return '';
+      })
+      .filter(Boolean);
+
+    if (messages.length > 0) return Array.from(new Set(messages)).join('. ');
+  }
+
+  if (typeof detail === 'object' && detail !== null) {
+    if (detail.msg) {
+      if (typeof detail.msg === 'string' && detail.msg.toLowerCase().includes('valid email address')) {
+        return 'Please enter correct email format';
+      }
+      return detail.msg;
+    }
+    return JSON.stringify(detail);
+  }
+
+  return defaultMsg;
 }
 
 // ── Auth & User Types ──────────────────────────────────────────────────────
@@ -139,10 +200,8 @@ export async function rewriteText(request: RewriteRequest, token?: string | null
     });
 
     if (!response.ok) {
-      const error: ApiError = await response.json().catch(() => ({
-        detail: `Server error (${response.status})`,
-      }));
-      throw new Error(error.detail);
+      const errorJson = await response.json().catch(() => null);
+      throw new Error(parseErrorMessage(errorJson, `Server error (${response.status})`));
     }
 
     return await response.json();
@@ -167,10 +226,8 @@ export async function analyzeText(text: string): Promise<TextStats> {
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Server error (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Server error (${response.status})`));
   }
 
   return await response.json();
@@ -193,10 +250,8 @@ export async function registerUser(name: string, email: string, password: string
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Registration failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Registration failed (${response.status})`));
   }
 
   return await response.json();
@@ -210,10 +265,8 @@ export async function verifyEmail(email: string, code: string): Promise<AuthResp
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Email verification failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Email verification failed (${response.status})`));
   }
 
   return await response.json();
@@ -227,10 +280,8 @@ export async function forgotPassword(email: string): Promise<{ message: string }
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Forgot password request failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Forgot password request failed (${response.status})`));
   }
 
   return await response.json();
@@ -244,10 +295,8 @@ export async function resetPassword(email: string, code: string, newPassword: st
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Password reset failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Password reset failed (${response.status})`));
   }
 
   return await response.json();
@@ -261,10 +310,8 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Login failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Login failed (${response.status})`));
   }
 
   return await response.json();
