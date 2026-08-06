@@ -75,7 +75,8 @@ class PerplexityOptimizer:
             "3. RANDOM UNPREDICTABLE SYNTAX: Never repeat consecutive sentence openings or clause patterns. Alternate between prepositional openers ('In practice...'), clause inversions ('Because of this...'), micro-sentences (3-5 words), and action starters to eliminate predictable structures.\n"
             "4. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
             "5. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure.\n"
-            "6. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
+            "6. NO OVERLY POLISHED PROSE: Write unpretentiously and directly. Avoid pristine, immaculate, hyper-polished corporate language.\n"
+            "7. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
         )
 
         logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)
