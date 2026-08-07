@@ -18,7 +18,7 @@ export default function AdminDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check auth status & admin role on mount
+  // Check auth status & live database admin role on mount
   useEffect(() => {
     const savedTheme =
       (localStorage.getItem('humyn_theme') as 'dark' | 'light') ||
@@ -33,6 +33,8 @@ export default function AdminDashboardPage() {
     }
 
     setToken(savedToken);
+
+    // Query live DB user record to verify current role
     getCurrentUser(savedToken)
       .then((userData) => {
         if (userData.role !== 'admin') {
@@ -41,7 +43,9 @@ export default function AdminDashboardPage() {
           return;
         }
 
+        // Fresh DB check confirmed user is admin
         setUser(userData);
+        localStorage.setItem('humanizer_user', JSON.stringify(userData));
       })
       .catch(() => {
         localStorage.removeItem('humanizer_token');
