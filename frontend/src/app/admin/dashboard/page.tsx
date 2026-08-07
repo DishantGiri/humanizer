@@ -4,23 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ShieldAlert,
-  Lock,
   Loader2,
   LogOut,
   LayoutDashboard,
-  KeyRound,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
-import { getCurrentUser, updateAdminCredentials, type User } from '@/lib/api';
+import { getCurrentUser, type User } from '@/lib/api';
 import AdminView from '@/components/AdminView';
 import { toast } from '@/components/Toast';
-
-const ADMIN_EMAILS = [
-  'admin@gmail.com',
-  'admin@cloakwriter.com',
-  'rahul@fishtailinfosolutions.com',
-];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -28,13 +18,7 @@ export default function AdminDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Forced First Login Setup state
-  const [newSetupPassword, setNewSetupPassword] = useState('');
-  const [confirmSetupPassword, setConfirmSetupPassword] = useState('');
-  const [showSetupPass, setShowSetupPass] = useState(false);
-  const [setupLoading, setSetupLoading] = useState(false);
-
-  // Check auth status & admin privileges on mount
+  // Check auth status & admin role on mount
   useEffect(() => {
     const savedTheme =
       (localStorage.getItem('humyn_theme') as 'dark' | 'light') ||
@@ -51,11 +35,7 @@ export default function AdminDashboardPage() {
     setToken(savedToken);
     getCurrentUser(savedToken)
       .then((userData) => {
-        const isAdmin =
-          userData.role === 'admin' ||
-          ADMIN_EMAILS.includes(userData.email.toLowerCase());
-
-        if (!isAdmin) {
+        if (userData.role !== 'admin') {
           toast.danger('Access Denied: Admin privileges required.');
           router.push('/dashboard');
           return;
@@ -75,39 +55,6 @@ export default function AdminDashboardPage() {
         setLoading(false);
       });
   }, [router]);
-
-  // Handle First-Login Forced Password Reset
-  const handleFirstLoginSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !user) return;
-    if (!newSetupPassword.trim() || newSetupPassword.length < 6) {
-      toast.danger('New password must be at least 6 characters long.');
-      return;
-    }
-    if (newSetupPassword !== confirmSetupPassword) {
-      toast.danger('Passwords do not match. Please recheck.');
-      return;
-    }
-
-    setSetupLoading(true);
-    try {
-      const res = await updateAdminCredentials(token, {
-        new_password: newSetupPassword.trim(),
-      });
-
-      localStorage.setItem('humanizer_token', res.token);
-      localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-      document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
-
-      setToken(res.token);
-      setUser(res.user);
-      toast.success('Admin password updated successfully! Welcome to your Admin Portal.');
-    } catch (err) {
-      toast.danger(err instanceof Error ? err.message : 'Failed to save admin password.');
-    } finally {
-      setSetupLoading(false);
-    }
-  };
 
   const handleAdminLogout = async () => {
     localStorage.removeItem('humanizer_token');
@@ -134,11 +81,9 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const isAdmin =
-    user &&
-    (user.role === 'admin' || ADMIN_EMAILS.includes(user.email.toLowerCase()));
+  const isAdmin = user && user.role === 'admin';
 
-  // Unauthenticated or non-admin -> Show loading while redirecting
+  // Unauthenticated or non-admin -> Show loading spinner while redirecting
   if (!token || !isAdmin) {
     return (
       <div style={{
@@ -154,141 +99,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // First-time Admin Login Setup -> Force Credential Update Step BEFORE Dashboard
-  const isFirstLogin = user?.is_first_login === 1;
-
-  if (isFirstLogin) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'radial-gradient(circle at 50% 20%, #0f172a 0%, #090d16 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        color: '#f8fafc'
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '460px',
-          background: 'rgba(15, 23, 42, 0.9)',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
-          borderRadius: '24px',
-          padding: '36px 32px',
-          backdropFilter: 'blur(20px)',
-          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '8px' }}>
-            <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(245, 158, 11, 0.3)',
-              marginBottom: '4px'
-            }}>
-              <KeyRound size={28} color="#ffffff" />
-            </div>
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: '#fef08a' }}>
-              Change Admin Password
-            </h1>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
-              For security purposes, please set a new password for <strong style={{ color: '#f8fafc' }}>{user?.email}</strong> before accessing the portal.
-            </p>
-          </div>
-
-          <form onSubmit={handleFirstLoginSetup} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Admin Password</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                <input
-                  type={showSetupPass ? 'text' : 'password'}
-                  placeholder="Minimum 6 characters"
-                  value={newSetupPassword}
-                  onChange={(e) => setNewSetupPassword(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 40px 10px 36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#f8fafc',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSetupPass(!showSetupPass)}
-                  style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
-                >
-                  {showSetupPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Confirm New Password</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                <input
-                  type={showSetupPass ? 'text' : 'password'}
-                  placeholder="Re-enter new password"
-                  value={confirmSetupPassword}
-                  onChange={(e) => setConfirmSetupPassword(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 40px 10px 36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#f8fafc',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={setupLoading}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                border: 'none',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)',
-                marginTop: '4px'
-              }}
-            >
-              {setupLoading ? <Loader2 size={18} className="spinner-animate" /> : 'Save Credentials & Continue'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // Fully Authenticated Admin User -> Render Standalone Admin Dashboard
+  // Authenticated Admin User -> Render Standalone Admin Management Portal
   return (
     <div style={{ minHeight: '100vh', background: '#090d16', color: '#f8fafc' }}>
       

@@ -416,7 +416,7 @@ export default function DashboardPage() {
           <button type="button" className={`sidebar__menu-item ${activeMenu === 'plans' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('plans')}>
             <CreditCard size={18} /><span className="sidebar__menu-text">Plans &amp; Pricing</span>
           </button>
-          {(user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@gmail.com' || user?.email?.toLowerCase() === 'admin@cloakwriter.com') && (
+          {user?.role === 'admin' && (
             <button type="button" className="sidebar__menu-item" onClick={() => { router.push('/admin/dashboard'); closeMobileMenu(); }} style={{ color: '#38bdf8' }}>
               <ShieldAlert size={18} /><span className="sidebar__menu-text">Admin Portal</span>
             </button>
@@ -480,7 +480,7 @@ export default function DashboardPage() {
             <span className="sidebar__menu-text">Plans & Pricing</span>
           </button>
 
-          {(user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@gmail.com' || user?.email?.toLowerCase() === 'admin@cloakwriter.com') && (
+          {user?.role === 'admin' && (
             <button
               type="button"
               className="sidebar__menu-item"

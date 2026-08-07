@@ -147,7 +147,7 @@ export default function LoginPage() {
       localStorage.setItem('humanizer_token', res.token);
       localStorage.setItem('humanizer_user', JSON.stringify(res.user));
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const redirectPath = urlParams?.get('redirect') || (res.user.role === 'admin' || ['admin@gmail.com', 'admin@cloakwriter.com', 'rahul@fishtailinfosolutions.com'].includes(res.user.email.toLowerCase()) ? '/admin/dashboard' : '/dashboard');
+      const redirectPath = urlParams?.get('redirect') || (res.user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
       router.push(redirectPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Invalid login credentials.';
