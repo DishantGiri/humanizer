@@ -29,6 +29,10 @@ import {
   Mail,
   Eye,
   EyeOff,
+  Activity,
+  Zap,
+  CheckCircle2,
+  Filter,
 } from 'lucide-react';
 import {
   fetchAdminAnalytics,
@@ -72,14 +76,15 @@ export default function AdminView({ user, token }: AdminViewProps) {
   // Coupons state
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
-  const [genPlan, setGenPlan] = useState('starter');
+  const [genPlan, setGenPlan] = useState('plus');
   const [genPrefix, setGenPrefix] = useState('CLOAK');
   const [genQuantity, setGenQuantity] = useState(1);
   const [genMaxUses, setGenMaxUses] = useState(1);
   const [generatingCoupons, setGeneratingCoupons] = useState(false);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  // Pagination states (No infinite scrolling)
+
+  // Pagination states
   const [userPage, setUserPage] = useState(1);
   const [userPageSize, setUserPageSize] = useState(10);
   const [couponPage, setCouponPage] = useState(1);
@@ -118,7 +123,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
       localStorage.setItem('humanizer_token', res.token);
       localStorage.setItem('humanizer_user', JSON.stringify(res.user));
       document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
-      
+
       toast.success('Admin credentials updated successfully!');
       setShowCredModal(false);
       setNewAdminPassword('');
@@ -130,7 +135,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
     }
   };
 
-  // Pagination slicing (No infinite scrolling)
+  // Pagination slicing
   const userStartIndex = (userPage - 1) * userPageSize;
   const paginatedUsers = users.slice(userStartIndex, userStartIndex + userPageSize);
   const totalUserPages = Math.ceil(users.length / userPageSize) || 1;
@@ -139,62 +144,77 @@ export default function AdminView({ user, token }: AdminViewProps) {
   const paginatedCoupons = coupons.slice(couponStartIndex, couponStartIndex + couponPageSize);
   const totalCouponPages = Math.ceil(coupons.length / couponPageSize) || 1;
 
-  // Load analytics
-  const loadAnalyticsData = async () => {
+  // Load analytics (with silent background polling support)
+  const loadAnalyticsData = async (silent = false) => {
     if (!token) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const data = await fetchAdminAnalytics(token);
       setAnalytics(data);
     } catch (err) {
-      toast.danger(err instanceof Error ? err.message : 'Failed to load analytics data.');
+      if (!silent) toast.danger(err instanceof Error ? err.message : 'Failed to load analytics data.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  // Load users list
-  const loadUsersData = async () => {
+  // Load users list (with silent background polling support)
+  const loadUsersData = async (silent = false) => {
     if (!token) return;
-    setUsersLoading(true);
+    if (!silent) setUsersLoading(true);
     try {
       const res = await fetchAdminUsers(token, userSearch, userPlanFilter);
       setUsers(res.users);
     } catch (err) {
-      toast.danger(err instanceof Error ? err.message : 'Failed to load users.');
+      if (!silent) toast.danger(err instanceof Error ? err.message : 'Failed to load users.');
     } finally {
-      setUsersLoading(false);
+      if (!silent) setUsersLoading(false);
     }
   };
 
-  // Load coupons list
-  const loadCouponsData = async () => {
+  // Load coupons list (with silent background polling support)
+  const loadCouponsData = async (silent = false) => {
     if (!token) return;
-    setCouponsLoading(true);
+    if (!silent) setCouponsLoading(true);
     try {
       const res = await fetchAdminCoupons(token);
       setCoupons(res.coupons);
     } catch (err) {
-      toast.danger(err instanceof Error ? err.message : 'Failed to load coupons.');
+      if (!silent) toast.danger(err instanceof Error ? err.message : 'Failed to load coupons.');
     } finally {
-      setCouponsLoading(false);
+      if (!silent) setCouponsLoading(false);
     }
   };
 
+  // Initial load and periodic polling per active tab
   useEffect(() => {
+    if (!token) return;
+
     if (activeTab === 'analytics') {
-      loadAnalyticsData();
+      loadAnalyticsData(false);
+      const interval = setInterval(() => {
+        loadAnalyticsData(true);
+      }, 10000); // Poll analytics every 10s
+      return () => clearInterval(interval);
     } else if (activeTab === 'users') {
-      loadUsersData();
+      loadUsersData(false);
+      const interval = setInterval(() => {
+        loadUsersData(true);
+      }, 15000); // Poll users every 15s
+      return () => clearInterval(interval);
     } else if (activeTab === 'coupons') {
-      loadCouponsData();
+      loadCouponsData(false);
+      const interval = setInterval(() => {
+        loadCouponsData(true);
+      }, 15000); // Poll coupons every 15s
+      return () => clearInterval(interval);
     }
   }, [activeTab, token]);
 
   useEffect(() => {
     if (activeTab === 'users') {
       const timer = setTimeout(() => {
-        loadUsersData();
+        loadUsersData(false);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -284,282 +304,253 @@ export default function AdminView({ user, token }: AdminViewProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Top Banner Header */}
-      <div style={{
-        padding: '24px 28px',
-        borderRadius: '16px',
-        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(20px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)'
-          }}>
-            <ShieldAlert size={24} color="#ffffff" />
+      <div
+        className="admin-glass-card"
+        style={{
+          padding: '28px 32px',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '20px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+          <div
+            style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 10px 28px rgba(37, 99, 235, 0.4)',
+            }}
+          >
+            <ShieldAlert size={28} color="#ffffff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>
-              Admin Management Portal
-            </h1>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '2px 0 0 0' }}>
-              Platform analytics, user access controls, and promo coupon management
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>
+                Admin Management Portal
+              </h1>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '3px 10px',
+                  borderRadius: '20px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  color: '#10b981',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                SYSTEM ONLINE
+              </span>
+            </div>
+            <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+              Platform analytics, user account management, and promotional coupon controls
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             type="button"
+            className="admin-btn-action"
+            onClick={() => {
+              if (activeTab === 'analytics') loadAnalyticsData();
+              if (activeTab === 'users') loadUsersData();
+              if (activeTab === 'coupons') loadCouponsData();
+              toast.info('Refreshed admin data stream');
+            }}
+            title="Refresh System Data"
+          >
+            <RefreshCw size={15} /> Refresh
+          </button>
+
+          <button
+            type="button"
+            className="admin-btn-action"
             onClick={() => {
               setNewAdminEmail(user?.email || '');
               setNewAdminName(user?.name || '');
               setShowCredModal(true);
             }}
             style={{
-              padding: '7px 14px',
-              borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
               color: '#38bdf8',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
             }}
           >
-            <KeyRound size={14} /> Admin Security Settings
+            <KeyRound size={15} /> Security Settings
           </button>
-          <span style={{
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            color: '#38bdf8',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            letterSpacing: '0.5px'
-          }}>
+
+          <span
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              color: '#38bdf8',
+              fontWeight: 800,
+              fontSize: '0.78rem',
+              letterSpacing: '0.05em',
+            }}
+          >
             ROLE: ADMIN ({user?.email})
           </span>
         </div>
       </div>
 
       {/* Admin Sub-Tabs Navigation */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        background: 'rgba(15, 23, 42, 0.6)',
-        padding: '6px',
-        borderRadius: '12px',
-        border: '1px solid rgba(255, 255, 255, 0.08)'
-      }}>
+      <div className="admin-tab-bar">
         <button
           type="button"
+          className={`admin-tab-btn ${activeTab === 'analytics' ? 'admin-tab-btn--active' : ''}`}
           onClick={() => setActiveTab('analytics')}
-          style={{
-            flex: 1,
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'analytics' ? 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)' : 'transparent',
-            color: activeTab === 'analytics' ? '#ffffff' : '#94a3b8',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <BarChart3 size={16} /> Analytics & Overview
+          <BarChart3 size={18} /> Analytics & Overview
         </button>
 
         <button
           type="button"
+          className={`admin-tab-btn ${activeTab === 'users' ? 'admin-tab-btn--active' : ''}`}
           onClick={() => setActiveTab('users')}
-          style={{
-            flex: 1,
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'users' ? 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)' : 'transparent',
-            color: activeTab === 'users' ? '#ffffff' : '#94a3b8',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <Users size={16} /> User Management
+          <Users size={18} /> User Management
         </button>
 
         <button
           type="button"
+          className={`admin-tab-btn ${activeTab === 'coupons' ? 'admin-tab-btn--active' : ''}`}
           onClick={() => setActiveTab('coupons')}
-          style={{
-            flex: 1,
-            padding: '10px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'coupons' ? 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)' : 'transparent',
-            color: activeTab === 'coupons' ? '#ffffff' : '#94a3b8',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <Ticket size={16} /> Coupon Generator
+          <Ticket size={18} /> Coupon Generator
         </button>
       </div>
 
       {/* ── TAB 1: ANALYTICS OVERVIEW ─────────────────────────────────── */}
       {activeTab === 'analytics' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Top 4 Metric Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '16px'
-          }}>
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              padding: '20px',
-              borderRadius: '14px',
-              backdropFilter: 'blur(16px)'
-            }}>
+          <div className="admin-kpi-grid">
+            <div className="admin-kpi-card" style={{ '--kpi-accent': '#38bdf8', '--kpi-glow': 'rgba(56, 189, 248, 0.2)' } as React.CSSProperties}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8' }}>Total Users</span>
-                <Users size={18} color="#38bdf8" />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Total Users
+                </span>
+                <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                  <Users size={20} />
+                </div>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', marginTop: '8px' }}>
+              <div className="admin-kpi-val">
                 {loading ? '...' : analytics?.stats.total_users ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <TrendingUp size={12} /> Registered accounts
+              <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                <TrendingUp size={14} /> Registered platform accounts
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              padding: '20px',
-              borderRadius: '14px',
-              backdropFilter: 'blur(16px)'
-            }}>
+            <div className="admin-kpi-card" style={{ '--kpi-accent': '#10b981', '--kpi-glow': 'rgba(16, 185, 129, 0.2)' } as React.CSSProperties}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8' }}>Total Humanizations</span>
-                <Sparkles size={18} color="#10b981" />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Total Humanizations
+                </span>
+                <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                  <Sparkles size={20} />
+                </div>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', marginTop: '8px' }}>
+              <div className="admin-kpi-val">
                 {loading ? '...' : analytics?.stats.total_rewrites ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px' }}>
-                Executed API rewrites
+              <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '6px', fontWeight: 600 }}>
+                Executed API AI rewrites
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              padding: '20px',
-              borderRadius: '14px',
-              backdropFilter: 'blur(16px)'
-            }}>
+            <div className="admin-kpi-card" style={{ '--kpi-accent': '#f59e0b', '--kpi-glow': 'rgba(245, 158, 11, 0.2)' } as React.CSSProperties}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8' }}>Total Words Processed</span>
-                <FileText size={18} color="#f59e0b" />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Total Words Processed
+                </span>
+                <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                  <FileText size={20} />
+                </div>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', marginTop: '8px' }}>
+              <div className="admin-kpi-val">
                 {loading ? '...' : (analytics?.stats.total_words ?? 0).toLocaleString()}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '4px' }}>
-                Words humanized
+              <div style={{ fontSize: '0.78rem', color: '#f59e0b', marginTop: '6px', fontWeight: 600 }}>
+                Words humanized across modes
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(236, 72, 153, 0.25)',
-              padding: '20px',
-              borderRadius: '14px',
-              backdropFilter: 'blur(16px)'
-            }}>
+            <div className="admin-kpi-card" style={{ '--kpi-accent': '#ec4899', '--kpi-glow': 'rgba(236, 72, 153, 0.2)' } as React.CSSProperties}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8' }}>Active Subscribers</span>
-                <Crown size={18} color="#ec4899" />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Active Subscribers
+                </span>
+                <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
+                  <Crown size={20} />
+                </div>
               </div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', marginTop: '8px' }}>
+              <div className="admin-kpi-val">
                 {loading ? '...' : analytics?.stats.active_subscribers ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#ec4899', marginTop: '4px' }}>
-                Plus / Pro / Enterprise plans
+              <div style={{ fontSize: '0.78rem', color: '#ec4899', marginTop: '6px', fontWeight: 600 }}>
+                Plus / Pro / Enterprise tiers
               </div>
             </div>
           </div>
 
           {/* Plan Breakdown Progress Bars */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '24px',
-            borderRadius: '16px',
-            backdropFilter: 'blur(16px)'
-          }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 16px 0' }}>
-              Subscription Tier Distribution
-            </h3>
+          <div className="admin-glass-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Subscription Tier Distribution
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+                  Real-time active user distribution categorized by plan tiers
+                </p>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 700 }}>
+                TOTAL: {analytics?.stats.total_users ?? 0} USERS
+              </div>
+            </div>
 
             {analytics && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {[
-                  { name: 'Free Plan', key: 'free', color: '#94a3b8' },
-                  { name: 'Plus Plan ($1/mo)', key: 'starter', color: '#38bdf8' },
-                  { name: 'Pro Plan ($2/mo)', key: 'plus', color: '#10b981' },
-                  { name: 'Enterprise ($5/mo)', key: 'pro', color: '#ec4899' },
+                  { name: 'Free Plan ($0/mo)', key: 'free', color: '#94a3b8' },
+                  { name: 'Plus Plan ($1/mo)', key: 'plus', altKey: 'starter', color: '#38bdf8' },
+                  { name: 'Pro Plan ($2/mo)', key: 'pro', color: '#10b981' },
+                  { name: 'Enterprise Plan ($5/mo)', key: 'enterprise', color: '#ec4899' },
                 ].map((item) => {
-                  const count = analytics.plan_breakdown[item.key] || 0;
+                  const count = (analytics.plan_breakdown[item.key] || 0) + (item.altKey ? (analytics.plan_breakdown[item.altKey] || 0) : 0);
                   const total = analytics.stats.total_users || 1;
                   const pct = Math.round((count / total) * 100);
 
                   return (
-                    <div key={item.key}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                        <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{item.name}</span>
-                        <span style={{ color: item.color, fontWeight: 700 }}>{count} users ({pct}%)</span>
+                    <div key={item.key} style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 18px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', marginBottom: '8px' }}>
+                        <span style={{ color: '#f8fafc', fontWeight: 700 }}>{item.name}</span>
+                        <span style={{ color: item.color, fontWeight: 800 }}>{count} users ({pct}%)</span>
                       </div>
-                      <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.06)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                      <div style={{ height: '10px', borderRadius: '5px', background: 'rgba(255, 255, 255, 0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: '5px', transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)' }} />
                       </div>
                     </div>
                   );
@@ -569,45 +560,49 @@ export default function AdminView({ user, token }: AdminViewProps) {
           </div>
 
           {/* Recent Humanizations Activity Table */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '24px',
-            borderRadius: '16px',
-            backdropFilter: 'blur(16px)'
-          }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 16px 0' }}>
-              Live System Activity Stream
-            </h3>
+          <div className="admin-glass-card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                  Live System Activity Stream
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+                  Recent text humanizations processed by CloakWriter engine
+                </p>
+              </div>
+              <span className="admin-pill-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                <Activity size={13} /> REALTIME LOGS
+              </span>
+            </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+            <div className="admin-table-container">
+              <table className="admin-table">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                    <th style={{ padding: '10px 12px' }}>User</th>
-                    <th style={{ padding: '10px 12px' }}>Original Snippet</th>
-                    <th style={{ padding: '10px 12px' }}>Mode</th>
-                    <th style={{ padding: '10px 12px' }}>Words</th>
-                    <th style={{ padding: '10px 12px' }}>Timestamp</th>
+                  <tr>
+                    <th>User</th>
+                    <th>Original Snippet</th>
+                    <th>Mode</th>
+                    <th>Words</th>
+                    <th>Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analytics?.recent_activity.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#e2e8f0' }}>
-                      <td style={{ padding: '12px' }}>
-                        <div style={{ fontWeight: 600 }}>{item.user_name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.user_email}</div>
+                    <tr key={item.id}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>{item.user_name}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{item.user_email}</div>
                       </td>
-                      <td style={{ padding: '12px', color: '#94a3b8', fontStyle: 'italic', maxWidth: '300px' }}>
+                      <td style={{ color: '#94a3b8', fontStyle: 'italic', maxWidth: '320px' }}>
                         "{item.original_snippet}"
                       </td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600 }}>
+                      <td>
+                        <span className="admin-pill-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
                           {item.mode}
                         </span>
                       </td>
-                      <td style={{ padding: '12px', fontWeight: 700, color: '#10b981' }}>{item.word_count}</td>
-                      <td style={{ padding: '12px', color: '#64748b', fontSize: '0.78rem' }}>{new Date(item.created_at).toLocaleString()}</td>
+                      <td style={{ fontWeight: 800, color: '#10b981' }}>{item.word_count}</td>
+                      <td style={{ color: '#64748b', fontSize: '0.8rem' }}>{new Date(item.created_at).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -622,55 +617,65 @@ export default function AdminView({ user, token }: AdminViewProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Controls Bar: Search & Filter */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '16px 20px',
-            borderRadius: '14px',
-            backdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '14px'
-          }}>
+          <div
+            className="admin-glass-card"
+            style={{
+              padding: '18px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}
+          >
             {/* Search Input */}
-            <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+            <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
               <input
                 type="text"
-                placeholder="Search users by name or email..."
+                placeholder="Search users by name or email address..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '9px 12px 9px 36px',
-                  borderRadius: '10px',
+                  padding: '11px 14px 11px 42px',
+                  borderRadius: '12px',
                   background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
                   color: '#f8fafc',
-                  fontSize: '0.88rem',
-                  outline: 'none'
+                  fontSize: '0.9rem',
+                  outline: 'none',
                 }}
               />
+              {userSearch && (
+                <button
+                  type="button"
+                  onClick={() => setUserSearch('')}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
 
             {/* Filter Pills */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {['all', 'free', 'starter', 'plus', 'pro'].map((p) => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={16} color="#94a3b8" />
+              {['all', 'free', 'plus', 'pro', 'enterprise'].map((p) => (
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setUserPlanFilter(p)}
+                  onClick={() => { setUserPlanFilter(p); setUserPage(1); }}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
+                    padding: '7px 14px',
+                    borderRadius: '10px',
                     border: userPlanFilter === p ? '1px solid #0284c7' : '1px solid rgba(255,255,255,0.08)',
-                    background: userPlanFilter === p ? 'rgba(2, 132, 199, 0.2)' : 'transparent',
+                    background: userPlanFilter === p ? 'rgba(2, 132, 199, 0.25)' : 'transparent',
                     color: userPlanFilter === p ? '#38bdf8' : '#94a3b8',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   {p.toUpperCase()}
@@ -680,114 +685,85 @@ export default function AdminView({ user, token }: AdminViewProps) {
           </div>
 
           {/* Users Table */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            backdropFilter: 'blur(16px)'
-          }}>
+          <div className="admin-glass-card" style={{ padding: 0, overflow: 'hidden' }}>
             {usersLoading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                <Loader2 size={24} className="spinner-animate" /> Loading users...
+              <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+                <Loader2 size={28} className="spinner-animate" /> Loading registered users...
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+              <div className="admin-table-container">
+                <table className="admin-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', color: '#94a3b8' }}>
-                      <th style={{ padding: '12px 16px' }}>User Details</th>
-                      <th style={{ padding: '12px 16px' }}>Plan Tier</th>
-                      <th style={{ padding: '12px 16px' }}>Role</th>
-                      <th style={{ padding: '12px 16px' }}>Usage Count</th>
-                      <th style={{ padding: '12px 16px' }}>Joined Date</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                    <tr>
+                      <th>User Details</th>
+                      <th>Plan Tier</th>
+                      <th>Role</th>
+                      <th>Usage Count</th>
+                      <th>Joined Date</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                        <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
                           No users found matching your search query.
                         </td>
                       </tr>
                     ) : (
                       paginatedUsers.map((u) => (
-                        <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <td style={{ padding: '12px 16px' }}>
+                        <tr key={u.id}>
+                          <td>
                             <div style={{ fontWeight: 700, color: '#f8fafc' }}>{u.name}</div>
                             <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{u.email}</div>
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              background: u.plan === 'pro' ? 'rgba(236, 72, 153, 0.15)' : u.plan === 'plus' ? 'rgba(16, 185, 129, 0.15)' : u.plan === 'starter' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                              color: u.plan === 'pro' ? '#ec4899' : u.plan === 'plus' ? '#10b981' : u.plan === 'starter' ? '#38bdf8' : '#94a3b8',
-                              border: `1px solid ${u.plan === 'pro' ? 'rgba(236, 72, 153, 0.3)' : u.plan === 'plus' ? 'rgba(16, 185, 129, 0.3)' : u.plan === 'starter' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(148, 163, 184, 0.3)'}`
-                            }}>
+                          <td>
+                            <span
+                              className="admin-pill-badge"
+                              style={{
+                                background: u.plan === 'enterprise' ? 'rgba(236, 72, 153, 0.18)' : u.plan === 'pro' ? 'rgba(16, 185, 129, 0.18)' : (u.plan === 'plus' || u.plan === 'starter') ? 'rgba(56, 189, 248, 0.18)' : 'rgba(148, 163, 184, 0.18)',
+                                color: u.plan === 'enterprise' ? '#ec4899' : u.plan === 'pro' ? '#10b981' : (u.plan === 'plus' || u.plan === 'starter') ? '#38bdf8' : '#94a3b8',
+                                border: `1px solid ${u.plan === 'enterprise' ? 'rgba(236, 72, 153, 0.35)' : u.plan === 'pro' ? 'rgba(16, 185, 129, 0.35)' : (u.plan === 'plus' || u.plan === 'starter') ? 'rgba(56, 189, 248, 0.35)' : 'rgba(148, 163, 184, 0.35)'}`,
+                              }}
+                            >
                               {u.plan.toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              background: u.role === 'admin' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.05)',
-                              color: u.role === 'admin' ? '#f59e0b' : '#94a3b8'
-                            }}>
+                          <td>
+                            <span
+                              className="admin-pill-badge"
+                              style={{
+                                background: u.role === 'admin' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.05)',
+                                color: u.role === 'admin' ? '#f59e0b' : '#94a3b8',
+                              }}
+                            >
                               {u.role ? u.role.toUpperCase() : 'USER'}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 16px', fontWeight: 700, color: '#f8fafc' }}>
+                          <td style={{ fontWeight: 700, color: '#f8fafc' }}>
                             {u.usage_count} rewrites
                           </td>
-                          <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.78rem' }}>
+                          <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
                             {new Date(u.created_at).toLocaleDateString()}
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '8px' }}>
                               <button
                                 type="button"
+                                className="admin-btn-action"
                                 onClick={() => handleOpenEditUser(u)}
-                                style={{
-                                  padding: '6px 10px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(56, 189, 248, 0.1)',
-                                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                                  color: '#38bdf8',
-                                  cursor: 'pointer',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 600,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
+                                title="Edit User"
                               >
-                                <Edit3 size={13} /> Edit
+                                <Edit3 size={14} /> Edit
                               </button>
+
                               <button
                                 type="button"
+                                className="admin-btn-action admin-btn-danger"
                                 onClick={() => handleDeleteUser(u)}
-                                style={{
-                                  padding: '6px 10px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(244, 63, 94, 0.1)',
-                                  border: '1px solid rgba(244, 63, 94, 0.25)',
-                                  color: '#f43f5e',
-                                  cursor: 'pointer',
-                                  fontSize: '0.78rem',
-                                  fontWeight: 600,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
+                                title="Delete User"
                               >
-                                <Trash2 size={13} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
@@ -799,58 +775,42 @@ export default function AdminView({ user, token }: AdminViewProps) {
 
                 {/* User Table Pagination Footer */}
                 {users.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '16px 20px',
-                    borderTop: '1px solid rgba(255,255,255,0.08)',
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    fontSize: '0.82rem',
-                    color: '#94a3b8'
-                  }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '16px 24px',
+                      borderTop: '1px solid rgba(255,255,255,0.08)',
+                      background: 'rgba(15, 23, 42, 0.5)',
+                      fontSize: '0.85rem',
+                      color: '#94a3b8',
+                    }}
+                  >
                     <div>
                       Showing {userStartIndex + 1}–{Math.min(userStartIndex + userPageSize, users.length)} of {users.length} users
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <button
                         type="button"
+                        className="admin-btn-action"
                         disabled={userPage === 1}
                         onClick={() => setUserPage((prev) => Math.max(prev - 1, 1))}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: userPage === 1 ? '#475569' : '#e2e8f0',
-                          cursor: userPage === 1 ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
+                        style={{ opacity: userPage === 1 ? 0.4 : 1, cursor: userPage === 1 ? 'not-allowed' : 'pointer' }}
                       >
-                        <ChevronLeft size={14} /> Previous
+                        <ChevronLeft size={15} /> Previous
                       </button>
-                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                      <span style={{ fontWeight: 800, color: '#f8fafc' }}>
                         Page {userPage} of {totalUserPages}
                       </span>
                       <button
                         type="button"
+                        className="admin-btn-action"
                         disabled={userPage >= totalUserPages}
                         onClick={() => setUserPage((prev) => Math.min(prev + 1, totalUserPages))}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: userPage >= totalUserPages ? '#475569' : '#e2e8f0',
-                          cursor: userPage >= totalUserPages ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
+                        style={{ opacity: userPage >= totalUserPages ? 0.4 : 1, cursor: userPage >= totalUserPages ? 'not-allowed' : 'pointer' }}
                       >
-                        Next <ChevronRight size={14} />
+                        Next <ChevronRight size={15} />
                       </button>
                     </div>
                   </div>
@@ -861,185 +821,34 @@ export default function AdminView({ user, token }: AdminViewProps) {
         </div>
       )}
 
-      {/* Edit User Modal */}
-      {editingUser && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
-          background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px'
-        }}>
-          <div style={{
-            background: '#0f172a',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '20px',
-            padding: '24px',
-            maxWidth: '440px',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
-                Edit User Settings
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingUser(null)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-              Target: <strong style={{ color: '#f8fafc' }}>{editingUser.name}</strong> ({editingUser.email})
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Subscription Plan</label>
-              <select
-                value={editPlan}
-                onChange={(e) => setEditPlan(e.target.value)}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#f8fafc',
-                  fontSize: '0.88rem'
-                }}
-              >
-                <option value="free" style={{ background: '#0f172a' }}>Free Plan ($0/mo - 250 words)</option>
-                <option value="starter" style={{ background: '#0f172a' }}>Plus Plan ($1/mo - 600 words)</option>
-                <option value="plus" style={{ background: '#0f172a' }}>Pro Plan ($2/mo - 1,200 words)</option>
-                <option value="pro" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo - 2,500 words)</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>User Role</label>
-              <select
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value)}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#f8fafc',
-                  fontSize: '0.88rem'
-                }}
-              >
-                <option value="user" style={{ background: '#0f172a' }}>User (Standard)</option>
-                <option value="admin" style={{ background: '#0f172a' }}>Admin (Full Portal Access)</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Usage Count</label>
-              <input
-                type="number"
-                value={editUsage}
-                onChange={(e) => setEditUsage(parseInt(e.target.value, 10) || 0)}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#f8fafc',
-                  fontSize: '0.88rem'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button
-                type="button"
-                onClick={() => setEditingUser(null)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#94a3b8',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveUser}
-                disabled={updatingUser}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                {updatingUser ? <Loader2 size={16} className="spinner-animate" /> : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 3: COUPON GENERATOR & REVOKER ─────────────────────────── */}
+      {/* ── TAB 3: COUPON GENERATOR ───────────────────────────────────── */}
       {activeTab === 'coupons' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Generator Form */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '24px',
-            borderRadius: '16px',
-            backdropFilter: 'blur(16px)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px'
-          }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Ticket size={18} color="#38bdf8" /> Generate Promo Coupons
+          {/* Generator Controls Card */}
+          <div className="admin-glass-card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 16px 0' }}>
+              Generate Promo Coupon Codes
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8' }}>Target Plan</label>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8' }}>Target Plan Tier</label>
                 <select
                   value={genPlan}
                   onChange={(e) => setGenPlan(e.target.value)}
                   style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.12)',
                     color: '#f8fafc',
-                    fontSize: '0.88rem'
+                    fontSize: '0.9rem',
                   }}
                 >
-                  <option value="starter" style={{ background: '#0f172a' }}>Plus Plan ($1/mo)</option>
-                  <option value="plus" style={{ background: '#0f172a' }}>Pro Plan ($2/mo)</option>
-                  <option value="pro" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo)</option>
+                  <option value="plus" style={{ background: '#0f172a' }}>Plus Plan ($1/mo)</option>
+                  <option value="pro" style={{ background: '#0f172a' }}>Pro Plan ($2/mo)</option>
+                  <option value="enterprise" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo)</option>
                 </select>
               </div>
 
@@ -1051,12 +860,12 @@ export default function AdminView({ user, token }: AdminViewProps) {
                   onChange={(e) => setGenPrefix(e.target.value)}
                   placeholder="CLOAK"
                   style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.12)',
                     color: '#f8fafc',
-                    fontSize: '0.88rem'
+                    fontSize: '0.9rem',
                   }}
                 />
               </div>
@@ -1066,16 +875,34 @@ export default function AdminView({ user, token }: AdminViewProps) {
                 <input
                   type="number"
                   min={1}
-                  max={20}
+                  max={50}
                   value={genQuantity}
                   onChange={(e) => setGenQuantity(parseInt(e.target.value, 10) || 1)}
                   style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.12)',
                     color: '#f8fafc',
-                    fontSize: '0.88rem'
+                    fontSize: '0.9rem',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8' }}>Max Uses Per Code</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={genMaxUses}
+                  onChange={(e) => setGenMaxUses(parseInt(e.target.value, 10) || 1)}
+                  style={{
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
                   }}
                 />
               </div>
@@ -1083,465 +910,324 @@ export default function AdminView({ user, token }: AdminViewProps) {
 
             <button
               type="button"
-              onClick={handleGenerateCoupons}
+              className="admin-btn-action admin-btn-primary"
               disabled={generatingCoupons}
-              style={{
-                alignSelf: 'flex-start',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                border: 'none',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)'
-              }}
+              onClick={handleGenerateCoupons}
+              style={{ marginTop: '20px', padding: '12px 24px', fontSize: '0.92rem' }}
             >
-              {generatingCoupons ? <Loader2 size={16} className="spinner-animate" /> : <Plus size={16} />}
-              Generate {genQuantity} Coupon Code(s)
+              {generatingCoupons ? <Loader2 size={18} className="spinner-animate" /> : <Plus size={18} />} Generate Coupon Batch
             </button>
-
-            {/* Generated Codes Output Display Box */}
-            {generatedCodes.length > 0 && (
-              <div style={{
-                marginTop: '12px',
-                padding: '16px',
-                borderRadius: '12px',
-                background: 'rgba(16, 185, 129, 0.08)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#10b981' }}>
-                    ✓ Newly Generated Coupon Codes:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(generatedCodes.join('\n'))}
-                    style={{
-                      background: 'rgba(16, 185, 129, 0.2)',
-                      border: 'none',
-                      color: '#10b981',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Copy size={13} /> Copy All
-                  </button>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {generatedCodes.map((code) => (
-                    <span
-                      key={code}
-                      onClick={() => copyToClipboard(code)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        background: '#0f172a',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        color: '#f8fafc',
-                        fontFamily: 'monospace',
-                        fontWeight: 700,
-                        fontSize: '0.88rem',
-                        cursor: 'pointer'
-                      }}
-                      title="Click to copy"
-                    >
-                      {code}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Coupons List Table */}
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            backdropFilter: 'blur(16px)'
-          }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
-                Active & Past Coupons Directory
-              </h3>
-            </div>
-
+          {/* Active Coupons List */}
+          <div className="admin-glass-card" style={{ padding: 0, overflow: 'hidden' }}>
             {couponsLoading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                <Loader2 size={24} className="spinner-animate" /> Loading coupons...
+              <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+                <Loader2 size={28} className="spinner-animate" /> Loading coupons list...
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+              <div className="admin-table-container">
+                <table className="admin-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', color: '#94a3b8' }}>
-                      <th style={{ padding: '12px 16px' }}>Coupon Code</th>
-                      <th style={{ padding: '12px 16px' }}>Target Plan</th>
-                      <th style={{ padding: '12px 16px' }}>Status</th>
-                      <th style={{ padding: '12px 16px' }}>Redeemed By</th>
-                      <th style={{ padding: '12px 16px' }}>Created Date</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                    <tr>
+                      <th>Coupon Code</th>
+                      <th>Plan Tier</th>
+                      <th>Redemptions</th>
+                      <th>Status</th>
+                      <th>Created Date</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {coupons.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                          No coupons generated yet. Use the form above to generate promo coupons.
+                        <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                          No promo coupons generated yet.
                         </td>
                       </tr>
                     ) : (
                       paginatedCoupons.map((c) => (
-                        <tr key={c.code} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#38bdf8', fontSize: '0.92rem' }}>
-                              {c.code}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              background: 'rgba(56, 189, 248, 0.1)',
-                              color: '#38bdf8'
-                            }}>
-                              {c.plan.toUpperCase()}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              background: c.is_redeemed ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: c.is_redeemed ? '#f43f5e' : '#10b981'
-                            }}>
-                              {c.is_redeemed ? 'REDEEMED' : 'ACTIVE (AVAILABLE)'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: '0.78rem' }}>
-                            {c.redeemed_by ? c.redeemed_by : '—'}
-                          </td>
-                          <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.78rem' }}>
-                            {new Date(c.created_at).toLocaleDateString()}
-                          </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                        <tr key={c.code}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <code style={{ background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.05em' }}>
+                                {c.code}
+                              </code>
                               <button
                                 type="button"
                                 onClick={() => copyToClipboard(c.code)}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(255,255,255,0.06)',
-                                  border: '1px solid rgba(255,255,255,0.1)',
-                                  color: '#e2e8f0',
-                                  cursor: 'pointer',
-                                  fontSize: '0.78rem',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
+                                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
                               >
-                                {copiedCode === c.code ? <Check size={13} color="#10b981" /> : <Copy size={13} />} Copy
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeCoupon(c.code)}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '6px',
-                                  background: 'rgba(244, 63, 94, 0.1)',
-                                  border: '1px solid rgba(244, 63, 94, 0.25)',
-                                  color: '#f43f5e',
-                                  cursor: 'pointer',
-                                  fontSize: '0.78rem',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
-                              >
-                                <Trash2 size={13} /> Revoke
+                                {copiedCode === c.code ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
                               </button>
                             </div>
+                          </td>
+                          <td>
+                            <span className="admin-pill-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                              {c.plan.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 700 }}>
+                            {c.used_count} / {c.max_uses}
+                          </td>
+                          <td>
+                            <span
+                              className="admin-pill-badge"
+                              style={{
+                                background: c.is_redeemed ? 'rgba(244, 63, 94, 0.18)' : 'rgba(16, 185, 129, 0.18)',
+                                color: c.is_redeemed ? '#f43f5e' : '#10b981',
+                              }}
+                            >
+                              {c.is_redeemed ? 'MAX USES REACHED' : 'ACTIVE'}
+                            </span>
+                          </td>
+                          <td style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                            {new Date(c.created_at).toLocaleDateString()}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className="admin-btn-action admin-btn-danger"
+                              onClick={() => handleRevokeCoupon(c.code)}
+                            >
+                              <Trash2 size={14} /> Revoke
+                            </button>
                           </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
-
-                {/* Coupon Table Pagination Footer */}
-                {coupons.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '16px 20px',
-                    borderTop: '1px solid rgba(255,255,255,0.08)',
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    fontSize: '0.82rem',
-                    color: '#94a3b8'
-                  }}>
-                    <div>
-                      Showing {couponStartIndex + 1}–{Math.min(couponStartIndex + couponPageSize, coupons.length)} of {coupons.length} coupons
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        type="button"
-                        disabled={couponPage === 1}
-                        onClick={() => setCouponPage((prev) => Math.max(prev - 1, 1))}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: couponPage === 1 ? '#475569' : '#e2e8f0',
-                          cursor: couponPage === 1 ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <ChevronLeft size={14} /> Previous
-                      </button>
-                      <span style={{ fontWeight: 700, color: '#f8fafc' }}>
-                        Page {couponPage} of {totalCouponPages}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={couponPage >= totalCouponPages}
-                        onClick={() => setCouponPage((prev) => Math.min(prev + 1, totalCouponPages))}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: couponPage >= totalCouponPages ? '#475569' : '#e2e8f0',
-                          cursor: couponPage >= totalCouponPages ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        Next <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Admin Credentials Reset Modal */}
-      {showCredModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '460px',
-            background: 'rgba(15, 23, 42, 0.95)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '24px',
-            padding: '28px 24px',
-            color: '#f8fafc',
-            boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9)',
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(16px)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
-          }}>
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div className="admin-glass-card" style={{ maxWidth: '460px', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <KeyRound size={22} color="#38bdf8" />
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>
-                  Admin Security Settings
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCredModal(false)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-              >
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                Edit User Settings
+              </h3>
+              <button type="button" onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
                 <X size={20} />
               </button>
             </div>
 
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-              Update your administrative email address or password to secure your account.
-            </p>
+            <div style={{ fontSize: '0.88rem', color: '#94a3b8' }}>
+              Target: <strong style={{ color: '#f8fafc' }}>{editingUser.name}</strong> ({editingUser.email})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>Subscription Plan</label>
+              <select
+                value={editPlan}
+                onChange={(e) => setEditPlan(e.target.value)}
+                style={{
+                  padding: '11px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#f8fafc',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <option value="free" style={{ background: '#0f172a' }}>Free Plan ($0/mo - 250 words)</option>
+                <option value="plus" style={{ background: '#0f172a' }}>Plus Plan ($1/mo - 600 words)</option>
+                <option value="pro" style={{ background: '#0f172a' }}>Pro Plan ($2/mo - 1,200 words)</option>
+                <option value="enterprise" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo - 2,500 words)</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>User Role</label>
+              <select
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                style={{
+                  padding: '11px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#f8fafc',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <option value="user" style={{ background: '#0f172a' }}>User (Standard)</option>
+                <option value="admin" style={{ background: '#0f172a' }}>Admin (Full Portal Access)</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>Usage Count</label>
+              <input
+                type="number"
+                value={editUsage}
+                onChange={(e) => setEditUsage(parseInt(e.target.value, 10) || 0)}
+                style={{
+                  padding: '11px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#f8fafc',
+                  fontSize: '0.9rem',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+              <button
+                type="button"
+                className="admin-btn-action"
+                onClick={() => setEditingUser(null)}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-action admin-btn-primary"
+                disabled={updatingUser}
+                onClick={handleSaveUser}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                {updatingUser ? <Loader2 size={16} className="spinner-animate" /> : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Credentials Security Modal */}
+      {showCredModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div className="admin-glass-card" style={{ maxWidth: '480px', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                Admin Security Credentials
+              </h3>
+              <button type="button" onClick={() => setShowCredModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
 
             <form onSubmit={handleSaveAdminCredentials} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Full Name</label>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Name</label>
                 <input
                   type="text"
                   value={newAdminName}
                   onChange={(e) => setNewAdminName(e.target.value)}
                   style={{
-                    width: '100%',
-                    padding: '10px 12px',
+                    padding: '11px',
                     borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
                     color: '#f8fafc',
                     fontSize: '0.9rem',
-                    outline: 'none'
                   }}
                   required
                 />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Email Address</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                  <input
-                    type="email"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 36px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#f8fafc',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                    required
-                  />
-                </div>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Email</label>
+                <input
+                  type="email"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  style={{
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                  }}
+                  required
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Current Password (Required)</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                  <input
-                    type={showAdminPass ? 'text' : 'password'}
-                    placeholder="Enter current password to authorize changes"
-                    value={currAdminPassword}
-                    onChange={(e) => setCurrAdminPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 40px 10px 36px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#f8fafc',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminPass(!showAdminPass)}
-                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
-                  >
-                    {showAdminPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>New Password (Optional)</label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep current"
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  style={{
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                  }}
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Password (Optional)</label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                  <input
-                    type={showAdminPass ? 'text' : 'password'}
-                    placeholder="Leave blank to keep current password"
-                    value={newAdminPassword}
-                    onChange={(e) => setNewAdminPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 40px 10px 36px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#f8fafc',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminPass(!showAdminPass)}
-                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
-                  >
-                    {showAdminPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>Current Password (Required)</label>
+                <input
+                  type="password"
+                  placeholder="Enter current password to save"
+                  value={currAdminPassword}
+                  onChange={(e) => setCurrAdminPassword(e.target.value)}
+                  style={{
+                    padding: '11px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#f8fafc',
+                    fontSize: '0.9rem',
+                  }}
+                  required
+                />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button
                   type="button"
+                  className="admin-btn-action"
                   onClick={() => setShowCredModal(false)}
-                  style={{
-                    padding: '9px 16px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#94a3b8',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer'
-                  }}
+                  style={{ flex: 1, justifyContent: 'center' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="admin-btn-action admin-btn-primary"
                   disabled={updatingCreds}
-                  style={{
-                    padding: '9px 20px',
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
+                  style={{ flex: 1, justifyContent: 'center' }}
                 >
-                  {updatingCreds ? <Loader2 size={16} className="spinner-animate" /> : 'Save Changes'}
+                  {updatingCreds ? <Loader2 size={16} className="spinner-animate" /> : 'Update Credentials'}
                 </button>
               </div>
             </form>

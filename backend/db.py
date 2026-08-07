@@ -283,66 +283,6 @@ def init_db():
         if engine == "sqlite":
             conn.close()
 
-    ensure_default_admin()
-
-
-def ensure_default_admin():
-    """
-    Ensures primary admin accounts exist on application startup.
-    Automatically seeds rahul@fishtailinfosolutions.com and admin@gmail.com.
-    """
-    try:
-        conn, engine = get_db_connection()
-        try:
-            cursor = conn.cursor()
-            
-            admins_to_seed = [
-                {
-                    "email": "rahul@fishtailinfosolutions.com",
-                    "password": "9D:;n]06{^9i",
-                    "name": "Rahul Admin"
-                },
-                {
-                    "email": "admin@gmail.com",
-                    "password": "admin123",
-                    "name": "System Admin"
-                }
-            ]
-
-            import uuid, hashlib
-            from datetime import datetime
-
-            for admin_data in admins_to_seed:
-                email = admin_data["email"]
-                q_check = _prepare_query("SELECT id, role FROM users WHERE LOWER(email) = LOWER(?)", engine)
-                cursor.execute(q_check, (email,))
-                existing = cursor.fetchone()
-
-                if not existing:
-                    salt = os.urandom(16).hex()
-                    pwd_hash = hashlib.pbkdf2_hmac('sha256', admin_data["password"].encode('utf-8'), salt.encode('utf-8'), 100000).hex()
-                    u_id = "usr_" + uuid.uuid4().hex[:12]
-                    created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                    q_ins = _prepare_query("""
-                        INSERT INTO users (id, name, email, password_hash, salt, plan, role, email_verified, is_first_login, usage_count, created_at)
-                        VALUES (?, ?, ?, ?, ?, 'pro', 'admin', 1, 1, 0, ?)
-                    """, engine)
-                    cursor.execute(q_ins, (u_id, admin_data["name"], email, pwd_hash, salt, created_at))
-                    logger.info("Admin account seeded: %s", email)
-                else:
-                    user_id = existing["id"] if isinstance(existing, dict) else existing[0]
-                    q_upd = _prepare_query("""
-                        UPDATE users SET role = 'admin', plan = 'pro', email_verified = 1 WHERE id = ?
-                    """, engine)
-                    cursor.execute(q_upd, (user_id,))
-
-            if hasattr(conn, 'commit'):
-                conn.commit()
-        finally:
-            conn.close()
-    except Exception as e:
-        logger.info("Admin auto-regeneration note: %s", e)
-
 
 # Initialize DB on module load
 init_db()

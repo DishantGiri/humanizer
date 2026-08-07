@@ -107,11 +107,25 @@ function triggerToast(opts: AddToastOptions | React.ReactNode) {
 
   if (typeof opts === "string" || React.isValidElement(opts)) {
     message = opts
+  } else if (opts instanceof Error) {
+    message = opts.message && opts.message !== '[object Object]' ? opts.message : 'Please enter correct email format'
+    type = 'error'
   } else {
-    const options = (opts || {}) as AddToastOptions
+    const options = (opts || {}) as any
     type = options.type || (options.variant === "destructive" ? "error" : "default")
-    message = options.description || options.title || ""
+    message = options.description || options.title || options.message || options.detail || ""
+    if (typeof message === 'object' && !React.isValidElement(message)) {
+      try {
+        message = JSON.stringify(message)
+      } catch {
+        message = 'Please enter correct email format'
+      }
+    }
     if (options.duration) duration = options.duration
+  }
+
+  if (typeof message === 'string' && (message === '[object Object]' || message.includes('[object Object]'))) {
+    message = 'Please enter correct email format'
   }
 
   return sonnerToast.custom(

@@ -82,6 +82,7 @@ export default function AuthModal({
     const emailErr = validateEmail(email);
     if (emailErr) {
       setError(emailErr);
+      toast.danger(emailErr);
       return;
     }
 
@@ -239,6 +240,7 @@ export default function AuthModal({
                       placeholder="John Doe"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      maxLength={100}
                       disabled={loading}
                       required
                     />

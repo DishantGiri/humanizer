@@ -33,7 +33,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_DAYS = 30
 
 
-def create_jwt_token(user_id: str, email: str, name: str) -> str:
+def create_jwt_token(user_id: str, email: str, name: str, role: str = "user") -> str:
     """
     Generate a signed JWT token containing user identity and expiration claims.
     """
@@ -42,6 +42,7 @@ def create_jwt_token(user_id: str, email: str, name: str) -> str:
         "sub": user_id,
         "email": email,
         "name": name,
+        "role": role,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(days=JWT_EXPIRATION_DAYS)).timestamp())
     }
@@ -64,7 +65,7 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
 # ── Models ──────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=2, description="User full name")
+    name: str = Field(..., min_length=2, max_length=100, description="User full name")
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., min_length=6, description="User password (min 6 chars)")
 
@@ -244,6 +245,8 @@ def validate_user_name(name: str) -> str:
         raise HTTPException(status_code=400, detail="Name cannot be empty.")
     if len(name_clean) < 2:
         raise HTTPException(status_code=400, detail="Name must be at least 2 characters long.")
+    if len(name_clean) > 100:
+        raise HTTPException(status_code=400, detail="Name cannot exceed 100 characters.")
     if not re.match(r"^[a-zA-Z0-9\s.\-']+$", name_clean):
         raise HTTPException(
             status_code=400,
@@ -368,7 +371,7 @@ async def login(request: LoginRequest):
         execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
         user_plan = "pro"
 
-    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"])
+    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"], user_row.get("role", "user"))
     execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_row["id"]))
 
     return AuthResponse(

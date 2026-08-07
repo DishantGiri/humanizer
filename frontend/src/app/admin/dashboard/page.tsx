@@ -1,26 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ShieldAlert,
   Lock,
-  Mail,
   Loader2,
-  ArrowLeft,
-  Eye,
-  EyeOff,
   LogOut,
-  Sparkles,
-  UserCheck,
   LayoutDashboard,
   KeyRound,
-  CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
-import { loginUser, getCurrentUser, updateAdminCredentials, type User } from '@/lib/api';
+import { getCurrentUser, updateAdminCredentials, type User } from '@/lib/api';
 import AdminView from '@/components/AdminView';
 import { toast } from '@/components/Toast';
+
+const ADMIN_EMAILS = [
+  'admin@gmail.com',
+  'admin@cloakwriter.com',
+  'rahul@fishtailinfosolutions.com',
+];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -28,20 +28,13 @@ export default function AdminDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Admin Login state (if unauthenticated)
-  const [email, setEmail] = useState('admin@gmail.com');
-  const [password, setPassword] = useState('admin123');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
-
   // Forced First Login Setup state
-  const [newSetupEmail, setNewSetupEmail] = useState('');
   const [newSetupPassword, setNewSetupPassword] = useState('');
   const [confirmSetupPassword, setConfirmSetupPassword] = useState('');
   const [showSetupPass, setShowSetupPass] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
 
-  // Check auth status on mount
+  // Check auth status & admin privileges on mount
   useEffect(() => {
     const savedTheme =
       (localStorage.getItem('humyn_theme') as 'dark' | 'light') ||
@@ -51,14 +44,24 @@ export default function AdminDashboardPage() {
     const savedToken = localStorage.getItem('humanizer_token');
     if (!savedToken) {
       setLoading(false);
+      router.push('/login?redirect=/admin/dashboard');
       return;
     }
 
     setToken(savedToken);
     getCurrentUser(savedToken)
       .then((userData) => {
+        const isAdmin =
+          userData.role === 'admin' ||
+          ADMIN_EMAILS.includes(userData.email.toLowerCase());
+
+        if (!isAdmin) {
+          toast.danger('Access Denied: Admin privileges required.');
+          router.push('/dashboard');
+          return;
+        }
+
         setUser(userData);
-        setNewSetupEmail(userData.email);
       })
       .catch(() => {
         localStorage.removeItem('humanizer_token');
@@ -66,43 +69,12 @@ export default function AdminDashboardPage() {
         document.cookie = 'humanizer_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
         setToken(null);
         setUser(null);
+        router.push('/login?redirect=/admin/dashboard');
       })
       .finally(() => {
         setLoading(false);
       });
-  }, []);
-
-  // Handle Admin Login Submit
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast.danger('Please enter admin email and password.');
-      return;
-    }
-
-    setLoginLoading(true);
-    try {
-      const res = await loginUser(email, password);
-      if (res.user.role !== 'admin' && res.user.email.toLowerCase() !== 'admin@gmail.com' && res.user.email.toLowerCase() !== 'admin@cloakwriter.com') {
-        toast.danger('Access Denied: This account does not have admin privileges.');
-        setLoginLoading(false);
-        return;
-      }
-
-      localStorage.setItem('humanizer_token', res.token);
-      localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-      document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
-      
-      setToken(res.token);
-      setUser(res.user);
-      setNewSetupEmail(res.user.email);
-      toast.success(`Welcome, ${res.user.name}!`);
-    } catch (err) {
-      toast.danger(err instanceof Error ? err.message : 'Admin login failed.');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
+  }, [router]);
 
   // Handle First-Login Forced Password Reset
   const handleFirstLoginSetup = async (e: React.FormEvent) => {
@@ -144,6 +116,7 @@ export default function AdminDashboardPage() {
     setToken(null);
     setUser(null);
     toast.info('Logged out of Admin Portal.');
+    router.push('/login');
   };
 
   if (loading) {
@@ -161,184 +134,27 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Check Admin Role
-  const isAdmin = user && (user.role === 'admin' || user.email.toLowerCase() === 'admin@gmail.com' || user.email.toLowerCase() === 'admin@cloakwriter.com');
+  const isAdmin =
+    user &&
+    (user.role === 'admin' || ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
-  // Case 1: Unauthenticated or non-admin user -> Render Admin Login Form
+  // Unauthenticated or non-admin -> Show loading while redirecting
   if (!token || !isAdmin) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'radial-gradient(circle at 50% 20%, #0f172a 0%, #090d16 100%)',
+        background: '#090d16',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
-        color: '#f8fafc'
+        color: '#94a3b8'
       }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '440px',
-          background: 'rgba(15, 23, 42, 0.85)',
-          border: '1px solid rgba(56, 189, 248, 0.2)',
-          borderRadius: '24px',
-          padding: '36px 32px',
-          backdropFilter: 'blur(20px)',
-          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.8)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px'
-        }}>
-          
-          {/* Top Logo / Icon */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '8px' }}>
-            <div style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)',
-              marginBottom: '4px'
-            }}>
-              <ShieldAlert size={28} color="#ffffff" />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: '#f8fafc' }}>
-              Admin Portal
-            </h1>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
-              Sign in with your administrative credentials to manage CloakWriter AI
-            </p>
-          </div>
-
-          {/* Quick Default Credentials Callout */}
-          <div style={{
-            padding: '12px 14px',
-            borderRadius: '10px',
-            background: 'rgba(56, 189, 248, 0.1)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            fontSize: '0.8rem',
-            color: '#38bdf8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <p className="admin-login-hint">
-              Default Admin: <strong style={{ color: '#f8fafc' }}>rahul@fishtailinfosolutions.com</strong>
-            </p>
-            <button
-              type="button"
-              className="admin-login-autofill-btn"
-              onClick={() => { setEmail('rahul@fishtailinfosolutions.com'); setPassword('9D:;n]06{^9i'); }}
-              style={{
-                background: 'rgba(56, 189, 248, 0.2)',
-                border: 'none',
-                color: '#38bdf8',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              Fill Credentials
-            </button>
-          </div>
-
-          <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Admin Email</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                <input
-                  type="email"
-                  placeholder="admin@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px 10px 36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#f8fafc',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                  required
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>Password</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 40px 10px 36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#f8fafc',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loginLoading}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                border: 'none',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
-                marginTop: '4px'
-              }}
-            >
-              {loginLoading ? <Loader2 size={18} className="spinner-animate" /> : 'Log In to Admin Portal'}
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '4px' }}>
-            <Link href="/dashboard" style={{ fontSize: '0.82rem', color: '#64748b', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowLeft size={14} /> Back to User Dashboard
-            </Link>
-          </div>
-        </div>
+        <Loader2 size={32} className="spinner-animate" />
       </div>
     );
   }
 
-  // Case 2: First-time Admin Login -> Force Credential Update Step BEFORE Dashboard
+  // First-time Admin Login Setup -> Force Credential Update Step BEFORE Dashboard
   const isFirstLogin = user?.is_first_login === 1;
 
   if (isFirstLogin) {
@@ -388,7 +204,6 @@ export default function AdminDashboardPage() {
           </div>
 
           <form onSubmit={handleFirstLoginSetup} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>New Admin Password</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -473,7 +288,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Case 3: Fully Authenticated & Credentials Setup Complete -> Render Standalone Admin Dashboard
+  // Fully Authenticated Admin User -> Render Standalone Admin Dashboard
   return (
     <div style={{ minHeight: '100vh', background: '#090d16', color: '#f8fafc' }}>
       

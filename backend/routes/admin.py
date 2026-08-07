@@ -22,10 +22,9 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 def require_admin_user(current_user: UserResponse = Depends(get_current_user_from_token)) -> UserResponse:
     """
-    Guard function verifying user has admin privileges.
-    Allow if user.role == 'admin' OR user is a primary admin email.
+    Guard function verifying user has admin privileges based on DB role.
     """
-    if current_user.role == 'admin' or current_user.email.lower() in ('admin@gmail.com', 'admin@cloakwriter.com', 'rahul@fishtailinfosolutions.com'):
+    if current_user.role == 'admin':
         return current_user
     raise HTTPException(status_code=403, detail="Access denied. Admin privileges required.")
 
@@ -268,8 +267,8 @@ async def generate_coupons(
     Generate one or multiple promo coupon codes for starter, plus, or pro plans.
     """
     target_plan = request.plan.lower().strip()
-    if target_plan not in ("starter", "plus", "pro"):
-        raise HTTPException(status_code=400, detail="Invalid plan. Must be starter, plus, or pro.")
+    if target_plan not in ("starter", "plus", "pro", "enterprise"):
+        raise HTTPException(status_code=400, detail="Invalid plan. Must be starter, plus, pro, or enterprise.")
 
     generated_codes = []
     prefix = request.prefix.upper().strip() or "CLOAK"
@@ -328,15 +327,11 @@ async def update_admin_credentials(
     if not admin_row:
         raise HTTPException(status_code=404, detail="Admin user record not found.")
 
-    is_first_login = admin_row.get("is_first_login", 0)
-
-    # Bypass current_password on first login setup (is_first_login == 1)
-    if is_first_login != 1:
-        if request.current_password and request.current_password.strip():
-            if not verify_password(request.current_password, admin_row["password_hash"], admin_row["salt"]):
-                raise HTTPException(status_code=400, detail="Incorrect current password.")
-        else:
-            raise HTTPException(status_code=400, detail="Current password is required to change credentials.")
+    if request.current_password and request.current_password.strip():
+        if not verify_password(request.current_password, admin_row["password_hash"], admin_row["salt"]):
+            raise HTTPException(status_code=400, detail="Incorrect current password.")
+    else:
+        raise HTTPException(status_code=400, detail="Current password is required to change credentials.")
 
     updates = []
     params = []

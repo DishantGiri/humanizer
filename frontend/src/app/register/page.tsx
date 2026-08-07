@@ -130,6 +130,12 @@ export default function RegisterPage() {
         <div className="auth-split-card">
           {/* Left Column: Form */}
           <div className="auth-left-col">
+            <div className="auth-mobile-banner">
+              <Sparkles size={14} color="#38bdf8" />
+              <span>CloakWriter Engine v3.0</span>
+              <span className="auth-mobile-banner-dot">•</span>
+              <span className="auth-mobile-banner-badge">100% Human Score</span>
+            </div>
             {step === 'verify' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{
@@ -206,7 +212,7 @@ export default function RegisterPage() {
                   Enter your details below to create your account
                 </p>
 
-                <form onSubmit={handleSubmit} className="auth-split-form">
+                <form onSubmit={handleSubmit} className="auth-split-form" noValidate>
               {/* Name */}
               <div className="auth-split-field">
                 <label className="auth-split-label" htmlFor="name">
@@ -219,6 +225,7 @@ export default function RegisterPage() {
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  maxLength={100}
                   disabled={loading}
                   required
                 />

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, KeyRound, X, MailCheck } from 'lucide-react';
 import { loginUser, googleAuthUser, forgotPassword, resetPassword, fetchGoogleOauthConfig } from '@/lib/api';
+import { validateEmail } from '@/lib/utils';
 import { toast } from '@/components/Toast';
 
 export default function LoginPage() {
@@ -133,14 +134,21 @@ export default function LoginPage() {
       return;
     }
 
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      toast.danger(emailErr);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await loginUser(email, password);
       localStorage.setItem('humanizer_token', res.token);
       localStorage.setItem('humanizer_user', JSON.stringify(res.user));
-      document.cookie = `humanizer_token=${res.token}; path=/; max-age=2592000; SameSite=Lax`;
-      router.push('/dashboard');
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const redirectPath = urlParams?.get('redirect') || (res.user.role === 'admin' || ['admin@gmail.com', 'admin@cloakwriter.com', 'rahul@fishtailinfosolutions.com'].includes(res.user.email.toLowerCase()) ? '/admin/dashboard' : '/dashboard');
+      router.push(redirectPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Invalid login credentials.';
       toast.danger(msg);
@@ -153,6 +161,11 @@ export default function LoginPage() {
     e.preventDefault();
     if (!forgotEmail.trim()) {
       toast.danger('Please enter your email address.');
+      return;
+    }
+    const forgotEmailErr = validateEmail(forgotEmail);
+    if (forgotEmailErr) {
+      toast.danger(forgotEmailErr);
       return;
     }
     setForgotLoading(true);
@@ -228,6 +241,12 @@ export default function LoginPage() {
         <div className="auth-split-card">
           {/* Left Column: Form */}
           <div className="auth-left-col">
+            <div className="auth-mobile-banner">
+              <Sparkles size={14} color="#38bdf8" />
+              <span>CloakWriter Engine v3.0</span>
+              <span className="auth-mobile-banner-dot">•</span>
+              <span className="auth-mobile-banner-badge">100% Human Score</span>
+            </div>
             <h1 className="auth-split-title">Welcome back</h1>
             <p className="auth-split-subtitle">
               Enter your email below to sign in to your account

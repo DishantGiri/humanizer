@@ -97,54 +97,177 @@ export interface ApiError {
  */
 export function parseErrorMessage(errorJson: any, defaultMsg: string): string {
   if (!errorJson) return defaultMsg;
-  if (typeof errorJson === 'string') {
-    if (errorJson.toLowerCase().includes('valid email address') || errorJson.includes('EmailStr')) {
-      return 'Please enter correct email format';
+
+  const isEmailError = (str: string, locArr?: any[]) => {
+    const lower = str.toLowerCase();
+    if (
+      lower.includes('already exists') ||
+      lower.includes('already registered') ||
+      lower.includes('invalid email or password') ||
+      lower.includes('email or password') ||
+      lower.includes('incorrect email or password') ||
+      lower.includes('user not found') ||
+      lower.includes('invalid credentials')
+    ) {
+      return false;
     }
+    if (
+      lower.includes('valid email') ||
+      lower.includes('not a valid email') ||
+      lower.includes('email format') ||
+      lower.includes('emailstr') ||
+      lower.includes('top-level domain') ||
+      lower.includes('contain a @') ||
+      lower.includes('value_error.email') ||
+      lower.includes('email_parsing') ||
+      (Array.isArray(locArr) && locArr.some((loc) => String(loc).toLowerCase() === 'email'))
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const isNameError = (str: string, locArr?: any[]): string | null => {
+    const lower = str.toLowerCase();
+    const isNameLoc = Array.isArray(locArr) && locArr.some((loc) => String(loc).toLowerCase() === 'name');
+    if (isNameLoc || lower.includes('name')) {
+      if (
+        lower.includes('at least 2') ||
+        lower.includes('2 character') ||
+        lower.includes('too short') ||
+        lower.includes('min_length') ||
+        lower.includes('string_too_short') ||
+        lower.includes('special character')
+      ) {
+        if (lower.includes('special character')) {
+          return 'Name cannot contain special characters (e.g., !@#$%^&*).';
+        }
+        return 'Name must be at least 2 characters long.';
+      }
+    }
+    return null;
+  };
+
+  const isPasswordError = (str: string, locArr?: any[]): string | null => {
+    const lower = str.toLowerCase();
+    const isPwdLoc = Array.isArray(locArr) && locArr.some((loc) => String(loc).toLowerCase() === 'password');
+    if (isPwdLoc || lower.includes('password')) {
+      if (lower.includes('6 character') || lower.includes('min_length') || lower.includes('too short') || lower.includes('string_too_short')) {
+        return 'Password must be at least 6 characters long.';
+      }
+    }
+    return null;
+  };
+
+  if (typeof errorJson === 'string') {
+    if (errorJson === '[object Object]') return defaultMsg;
+    if (isEmailError(errorJson)) return 'Please enter correct email format';
+    const nameErr = isNameError(errorJson);
+    if (nameErr) return nameErr;
+    const pwdErr = isPasswordError(errorJson);
+    if (pwdErr) return pwdErr;
     return errorJson;
   }
 
   const detail = errorJson.detail !== undefined ? errorJson.detail : (errorJson.message || errorJson.error);
 
   if (typeof detail === 'string') {
-    if (detail.toLowerCase().includes('valid email address') || detail.includes('EmailStr')) {
-      return 'Please enter correct email format';
-    }
+    if (detail === '[object Object]') return defaultMsg;
+    if (isEmailError(detail)) return 'Please enter correct email format';
+    const nameErr = isNameError(detail);
+    if (nameErr) return nameErr;
+    const pwdErr = isPasswordError(detail);
+    if (pwdErr) return pwdErr;
     return detail;
   }
 
   if (Array.isArray(detail)) {
+    let emailErrFound = false;
+    let nameErrFound: string | null = null;
+    let pwdErrFound: string | null = null;
+
     const messages = detail
       .map((item) => {
         if (typeof item === 'string') {
-          if (item.toLowerCase().includes('valid email address')) return 'Please enter correct email format';
+          if (isEmailError(item)) {
+            emailErrFound = true;
+            return 'Please enter correct email format';
+          }
+          const nErr = isNameError(item);
+          if (nErr) {
+            nameErrFound = nErr;
+            return nErr;
+          }
+          const pErr = isPasswordError(item);
+          if (pErr) {
+            pwdErrFound = pErr;
+            return pErr;
+          }
           return item;
         }
         if (item && typeof item === 'object') {
-          if (item.msg) {
-            if (typeof item.msg === 'string' && item.msg.toLowerCase().includes('valid email address')) {
-              return 'Please enter correct email format';
-            }
-            const field = Array.isArray(item.loc) && item.loc.length > 0 ? `${item.loc[item.loc.length - 1]}` : '';
-            return field && field !== 'body' ? `${field}: ${item.msg}` : item.msg;
+          const loc = Array.isArray(item.loc) ? item.loc : [];
+          const itemMsg = typeof item.msg === 'string' ? item.msg : (item.detail || item.message || '');
+          const itemType = typeof item.type === 'string' ? item.type : '';
+
+          if (isEmailError(itemMsg, loc) || itemType.includes('email')) {
+            emailErrFound = true;
+            return 'Please enter correct email format';
           }
-          return JSON.stringify(item);
+
+          const nErr = isNameError(itemMsg + ' ' + itemType, loc);
+          if (nErr) {
+            nameErrFound = nErr;
+            return nErr;
+          }
+
+          const pErr = isPasswordError(itemMsg + ' ' + itemType, loc);
+          if (pErr) {
+            pwdErrFound = pErr;
+            return pErr;
+          }
+
+          if (itemMsg) {
+            const field = loc.length > 0 ? `${loc[loc.length - 1]}` : '';
+            return field && field !== 'body' ? `${field}: ${itemMsg}` : itemMsg;
+          }
+          try {
+            return JSON.stringify(item);
+          } catch {
+            return '';
+          }
         }
         return '';
       })
       .filter(Boolean);
 
+    if (nameErrFound) return nameErrFound;
+    if (emailErrFound) return 'Please enter correct email format';
+    if (pwdErrFound) return pwdErrFound;
     if (messages.length > 0) return Array.from(new Set(messages)).join('. ');
   }
 
   if (typeof detail === 'object' && detail !== null) {
-    if (detail.msg) {
-      if (typeof detail.msg === 'string' && detail.msg.toLowerCase().includes('valid email address')) {
-        return 'Please enter correct email format';
-      }
+    const loc = Array.isArray(detail.loc) ? detail.loc : [];
+    if (detail.msg && typeof detail.msg === 'string') {
+      if (isEmailError(detail.msg, loc)) return 'Please enter correct email format';
+      const nErr = isNameError(detail.msg, loc);
+      if (nErr) return nErr;
+      const pErr = isPasswordError(detail.msg, loc);
+      if (pErr) return pErr;
       return detail.msg;
     }
-    return JSON.stringify(detail);
+    try {
+      const jsonStr = JSON.stringify(detail);
+      if (isEmailError(jsonStr, loc)) return 'Please enter correct email format';
+      const nErr = isNameError(jsonStr, loc);
+      if (nErr) return nErr;
+      const pErr = isPasswordError(jsonStr, loc);
+      if (pErr) return pErr;
+      return jsonStr !== '{}' && jsonStr !== '[object Object]' ? jsonStr : defaultMsg;
+    } catch {
+      return defaultMsg;
+    }
   }
 
   return defaultMsg;
@@ -336,10 +459,8 @@ export async function googleAuthUser(params: { credential?: string; code?: strin
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Google authentication failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Google authentication failed (${response.status})`));
   }
 
   return await response.json();
@@ -352,10 +473,8 @@ export async function getCurrentUser(token: string): Promise<User> {
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Failed to authenticate (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Failed to authenticate (${response.status})`));
   }
 
   return await response.json();
@@ -372,10 +491,8 @@ export async function upgradeToPro(token: string, plan: string = 'pro'): Promise
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Upgrade failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Upgrade failed (${response.status})`));
   }
 
   return await response.json();
@@ -397,10 +514,8 @@ export async function createRazorpayOrder(token: string, plan: string): Promise<
     body: JSON.stringify({ plan }),
   });
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Failed to create order (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Failed to create order (${response.status})`));
   }
   return await response.json();
 }
@@ -423,10 +538,8 @@ export async function verifyRazorpayPayment(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Payment verification failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Payment verification failed (${response.status})`));
   }
   return await response.json();
 }
@@ -442,10 +555,8 @@ export async function redeemCoupon(token: string, code: string): Promise<User> {
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Coupon redemption failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Coupon redemption failed (${response.status})`));
   }
 
   return await response.json();
@@ -462,10 +573,8 @@ export async function updateProfile(token: string, data: { name?: string; avatar
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Profile update failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Profile update failed (${response.status})`));
   }
 
   return await response.json();
@@ -482,10 +591,8 @@ export async function changePassword(token: string, currentPassword: string, new
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      detail: `Password change failed (${response.status})`,
-    }));
-    throw new Error(error.detail);
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Password change failed (${response.status})`));
   }
 
   return await response.json();
@@ -566,8 +673,8 @@ export async function fetchAdminAnalytics(token: string): Promise<AdminAnalytics
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch admin analytics' }));
-    throw new Error(errorData.detail || 'Failed to fetch admin analytics');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to fetch admin analytics'));
   }
   return await response.json();
 }
@@ -581,8 +688,8 @@ export async function fetchAdminUsers(token: string, search?: string, planFilter
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch users list' }));
-    throw new Error(errorData.detail || 'Failed to fetch users list');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to fetch users list'));
   }
   return await response.json();
 }
@@ -601,8 +708,8 @@ export async function updateAdminUser(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to update user' }));
-    throw new Error(errorData.detail || 'Failed to update user');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to update user'));
   }
   const result = await response.json();
   return result.user;
@@ -614,8 +721,8 @@ export async function deleteAdminUser(token: string, userId: string): Promise<vo
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to delete user' }));
-    throw new Error(errorData.detail || 'Failed to delete user');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to delete user'));
   }
 }
 
@@ -624,8 +731,8 @@ export async function fetchAdminCoupons(token: string): Promise<{ total: number;
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch coupons list' }));
-    throw new Error(errorData.detail || 'Failed to fetch coupons list');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to fetch coupons list'));
   }
   return await response.json();
 }
@@ -643,8 +750,8 @@ export async function generateAdminCoupons(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate coupons' }));
-    throw new Error(errorData.detail || 'Failed to generate coupons');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to generate coupons'));
   }
   return await response.json();
 }
@@ -658,8 +765,8 @@ export async function revokeAdminCoupon(token: string, code: string): Promise<{ 
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new Error(error.detail || 'Failed to revoke coupon code.');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to revoke coupon code.'));
   }
 
   return response.json();
@@ -679,8 +786,8 @@ export async function updateAdminCredentials(
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new Error(error.detail || 'Failed to update admin credentials.');
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to update admin credentials.'));
   }
 
   return response.json();

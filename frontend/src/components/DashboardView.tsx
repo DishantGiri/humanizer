@@ -36,11 +36,22 @@ export default function DashboardView({
 
   useEffect(() => {
     if (user && token) {
-      queueMicrotask(() => setLoadingHistory(true));
-      getUserHistory(token)
-        .then((items) => setHistory(items))
-        .catch(() => setHistory([]))
-        .finally(() => setLoadingHistory(false));
+      const fetchHistory = (silent = false) => {
+        if (!silent) setLoadingHistory(true);
+        getUserHistory(token)
+          .then((items) => setHistory(items))
+          .catch(() => setHistory([]))
+          .finally(() => {
+            if (!silent) setLoadingHistory(false);
+          });
+      };
+
+      fetchHistory(false);
+      const interval = setInterval(() => {
+        fetchHistory(true);
+      }, 15000); // Background poll user history every 15s
+
+      return () => clearInterval(interval);
     }
   }, [user, token]);
 

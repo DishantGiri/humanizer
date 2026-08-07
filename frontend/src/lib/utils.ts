@@ -77,6 +77,9 @@ export function validateName(name: string): string | null {
   if (clean.length < 2) {
     return 'Name must be at least 2 characters long.';
   }
+  if (clean.length > 100) {
+    return 'Name cannot exceed 100 characters.';
+  }
   if (!/^[a-zA-Z0-9\s.\-']+$/.test(clean)) {
     return 'Name cannot contain special characters (e.g., !@#$%^&*).';
   }
