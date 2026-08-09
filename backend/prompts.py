@@ -24,7 +24,7 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
    - BANNED PHRASES: "beyond mere", "essential skills", "they navigate", "a deeper understanding of", "a solid foundation for", "game-changer", "testament to", "leading-edge", "state-of-the-art", "plug-and-play", "future-proof", "results-driven", "paradigm-shifting".
    - BANNED WORDS: "delve", "realm", "harness", "unlock", "tapestry", "paradigm", "cutting-edge", "revolutionize", "landscape", "intricate", "showcase", "showcasing", "crucial", "pivotal", "surpass", "meticulous", "meticulously", "vibrant", "unparalleled", "underscore", "leverage", "synergy", "synergize", "innovative", "commendable", "groundbreaking", "align", "foster", "enhance", "holistic", "garner", "accentuate", "pioneering", "trailblazing", "unleash", "versatile", "transformative", "redefine", "seamless", "optimize", "scalable", "robust", "breakthrough", "empower", "streamline", "next-gen", "next-generation", "frictionless", "elevate", "adaptive", "effortless", "data-driven", "insightful", "proactive", "mission-critical", "visionary", "disruptive", "reimagine", "agile", "customizable", "personalized", "unprecedented", "intuitive", "democratize", "automate", "accelerate", "cloud-native", "immersive", "predictive", "proprietary", "turnkey", "AI-powered", "always-on", "hyper-personalized", "machine-first".
    Replace every single one of them with simple, direct, everyday human words.
-5. UNPREDICTABLE SYNTAX STRUCTURE: Destroy formulaic Subject-Verb-Object structures. Vary sentence architecture unpredictably: invert dependent clauses, mix micro-sentences (3-5 words) with medium sentences, and use mid-sentence pivots ('— though ...') to maintain chaotic, authentic human rhythm.
+5. UNPREDICTABLE SYNTAX STRUCTURE: Destroy formulaic Subject-Verb-Object structures. Vary sentence architecture unpredictably: invert dependent clauses, mix micro-sentences (3-5 words) with medium sentences, and use mid-sentence pivots (like ', though ...') to maintain chaotic, authentic human rhythm.
 6. PARAGRAPH & FACTUAL PARITY: Keep the exact same number of paragraphs as the input. Preserve 100% of all facts, numbers, dates, and core claims accurately.
 7. PRESERVE INTENT, EMPHASIS & TONE: In addition to raw facts, preserve the author's underlying intent, key emphasis, level of certainty, and emotional tone.
 8. PRESERVE FIXED TERMINOLOGY & HEADINGS: Keep original list bullets, item numbers, and headers intact. Preserve proper names, direct quotations, legal text, code, or technical terms that must remain unchanged.
@@ -35,7 +35,7 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
 # ABSOLUTE BAN ON KNOWN AI WRITING TROPES (tropes.fyi):
 12. NEVER USE MAGIC ADVERBS: Do not overuse "quietly", "deeply", "fundamentally", "remarkably", or "arguably" to inflate mundane descriptions.
 13. NEVER USE "SERVES AS" / "STANDS AS" DODGE: Use simple copulas ("is", "are", "shows") instead of pompous alternatives like "serves as a reminder", "stands as an example", "marks a pivotal moment", or "represents".
-14. NO NEGATIVE PARALLELISM: Never use the formulaic "It's not X — it's Y", "not because X, but because Y", or "The question isn't X. The question is Y." reframe patterns. State claims directly.
+14. NO NEGATIVE PARALLELISM: Never use the formulaic "It's not X - it's Y", "not because X, but because Y", or "The question isn't X. The question is Y." reframe patterns. State claims directly.
 15. NO DRAMATIC COUNTDOWNS OR SELF-POSED QUESTIONS: Never use "Not X. Not Y. Just Z." or self-answering questions like "The result? Devastating." or "The worst part? Nobody saw it."
 16. NO ANAPHORA OR TRICOLON ABUSE: Never repeat identical sentence starters 3+ times ("They assume... They assume...") or stack rule-of-three listings back-to-back.
 17. NO FILLER TRANSITIONS: Never use "It's worth noting that", "It bears mentioning", "Importantly", "Interestingly", or "Notably" to bridge points.
@@ -76,8 +76,8 @@ _MODE_INSTRUCTIONS: dict[str, str] = {
         "This should sound like real spontaneous human writing, not an essay."
     ),
     "academic": (
-        "Smart but readable. Use precise terms only when they're genuinely needed — "
-        "don't reach for big words to sound clever. Mix analytical sentences with "
+        "Smart but readable. Use precise terms only when they're genuinely needed, "
+        "and don't reach for big words to sound clever. Mix analytical sentences with "
         "shorter direct ones. It's fine to say 'this suggests' instead of always "
         "hedging with 'it could potentially indicate'. Write like a confident researcher, "
         "not a thesaurus."
@@ -91,7 +91,7 @@ _MODE_INSTRUCTIONS: dict[str, str] = {
     "professional": (
         "Clear and confident, like a smart colleague's email. Use contractions sometimes. "
         "Get to the point. Don't pad with corporate filler. It's fine to start with "
-        "'But' or 'And'. Avoid buzzwords — if you catch yourself typing 'synergy' or "
+        "'But' or 'And'. Avoid buzzwords - if you catch yourself typing 'synergy' or "
         "'action items', stop."
     ),
     "casual": (
@@ -115,8 +115,8 @@ _MODE_INSTRUCTIONS: dict[str, str] = {
     "simple": (
         "Plain English for everyone. Short sentences. Common words. One idea per sentence. "
         "'Use' not 'utilize'. 'Help' not 'facilitate'. 'Start' not 'commence'. "
-        "Break complex ideas into steps. It's fine to repeat key terms for clarity — "
-        "that's what real humans do when explaining things simply."
+        "Break complex ideas into steps. It's fine to repeat key terms for clarity, "
+        "as that is what real humans do when explaining things simply."
     ),
     "native": (
         "Sound like an educated native English speaker in casual conversation. "
@@ -152,19 +152,18 @@ _LEVEL_INSTRUCTIONS: dict[int, str] = {
         "MODERATE rewrite:\n"
         "- Restructure clunky sentences\n"
         "- Kill repetition (same word 3+ times nearby)\n"
-        "- Mix up sentence starters — never begin 3+ sentences the same way\n"
+        "- Mix up sentence starters - never begin 3+ sentences the same way\n"
         "- Keep the general structure and key phrases"
     ),
     3: (
-        "HEAVY rewrite — make it sound like a completely different human wrote it:\n"
+        "HEAVY rewrite - make it sound like a completely different human wrote it:\n"
         "- DESTROY PREDICTABLE STRUCTURE: Completely vary your writing patterns across sentences!\n"
-        "- Mix 6 distinct sentence structures:\n"
+        "- Mix 5 distinct sentence structures:\n"
         "  1) Prepositional/Context starters ('Across Nepal, ...', 'In healthcare, ...')\n"
         "  2) Cause/Condition inversions ('If farmers get easy market access, production spikes...')\n"
-        "  3) Action hooks ('Take crops like rice and wheat — they form...')\n"
+        "  3) Action hooks ('Take crops like rice and wheat, they form...')\n"
         "  4) Punchy micro-sentence fragments (3-5 words: 'Simple as that.', 'That matters.')\n"
-        "  5) Em-dash/parenthetical pivots ('— though traditional farming still dominates —')\n"
-        "  6) Rhetorical questions or strong transitions ('Why does this matter?')\n"
+        "  5) Rhetorical questions or strong transitions ('Why does this matter?')\n"
         "- Rephrase almost everything, reorganize for natural human flow, and replace generic language with specific alternatives.\n"
         "- Rewrite confidently while allowing occasional informal phrasing and natural transitions\n"
         "- But KEEP every fact, number, name, and specific claim"
