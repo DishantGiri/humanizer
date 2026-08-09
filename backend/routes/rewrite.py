@@ -192,6 +192,15 @@ async def rewrite_text(
                 for line in lines if line.strip()
             )
 
+            def is_heading_or_title(text: str) -> bool:
+                s = text.strip()
+                words = s.split()
+                if len(words) <= 10 and not any(punct in s for punct in ('.', '!', '?', ';')):
+                    return True
+                if s.startswith(('#', 'Title:', 'TITLE:', 'Heading:', 'HEADING:')):
+                    return True
+                return False
+
             if is_list:
                 rewritten_lines = []
                 for line in lines:
@@ -224,6 +233,11 @@ async def rewrite_text(
                 if len(orig_paras) > 1:
                     rewritten_paras = []
                     for p_idx, para in enumerate(orig_paras):
+                        if is_heading_or_title(para):
+                            # Preserve title/heading directly to avoid essay hallucination
+                            rewritten_paras.append(para)
+                            continue
+
                         p_rewritten = rewriter.rewrite(para, request.mode, request.level)
                         
                         # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)

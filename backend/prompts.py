@@ -46,6 +46,8 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
 22. STRICT PROPER NOUN CAPITALIZATION: Always capitalize proper names, countries, cities, and geographic landmarks accurately (e.g. "Nepal", "Mount Everest", "Everest", "Kathmandu"). Never output lowercase proper nouns ("nepal", "mount everest").
 23. STRICT LENGTH & WORD COUNT PARITY: Never inflate the text, elaborate, or add unsolicited explanations, examples, or filler padding. The output word count MUST stay strictly within +/- 10% of the input word count.
 24. NO EM-DASHES: Never use em-dashes (—); always use standard hyphens (-) or commas.
+25. NEVER INJECT COUNTERARGUMENTS OR NEW THESES (STRICT CONTENT FIDELITY): Preserve the exact stance, argument, and scope of the input. Never invent counterpoints, drawbacks, criticisms, or new angles (e.g. 'harming critical thinking', 'bite-sized content', 'unequal access') if they are not in the source text. Never flip a one-sided essay into a balanced pro/con debate.
+26. PRESERVE HEADINGS: If the input is a title or heading, output ONLY the title/heading. Do NOT write an essay or body paragraph about it.
 
 # OUTPUT RULES
 Return ONLY the final rewritten text. Do NOT include thinking tags, commentary, quotes around output, or word count notes.
@@ -248,22 +250,30 @@ HOW MUCH TO CHANGE:
     ref = _STYLE_REFERENCES.get(mode_val, _STYLE_REFERENCES["native"])
     
     word_cnt = len(text.split())
+    is_title = word_cnt <= 10 and not any(punct in text for punct in ('.', '!', '?', ';'))
     if word_cnt < 10:
-        min_cnt = max(3, word_cnt - 2)
-        max_cnt = word_cnt + 3
+        min_cnt = max(2, word_cnt - 2)
+        max_cnt = word_cnt + 2
     else:
         min_cnt = max(5, int(word_cnt * 0.90))
         max_cnt = max(8, int(word_cnt * 1.10))
 
-    user_prompt = f"""STYLE REFERENCE EXAMPLE FOR '{mode_val.upper()}' STYLE:
+    if is_title:
+        user_prompt = f"""CRITICAL INSTRUCTION: The input text is a SHORT TITLE / HEADING ({word_cnt} words).
+Do NOT write an article, essay, or body paragraph about it!
+Output ONLY the rewritten title/heading in {min_cnt} to {max_cnt} words:
+
+"{text}" """
+    else:
+        user_prompt = f"""STYLE REFERENCE EXAMPLE FOR '{mode_val.upper()}' STYLE:
 Input: "{ref['original']}"
 Rewritten (human style): "{ref['rewritten']}"
 
 ---
 
-CRITICAL LENGTH & FORMATTING REQUIREMENT:
+CRITICAL LENGTH, FIDELITY & FORMATTING REQUIREMENT:
 The input text has {word_cnt} words. Your rewrite MUST have approximately {word_cnt} words (target range: {min_cnt} to {max_cnt} words).
-Do NOT expand, elaborate, or add extra padding sentences!
+Do NOT expand, elaborate, or introduce new arguments/counterarguments!
 Do NOT use em-dashes (—); always use standard hyphens (-) or commas instead.
 
 ---
