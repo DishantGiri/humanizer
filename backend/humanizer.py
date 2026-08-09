@@ -434,22 +434,27 @@ def engineer_rhythm_and_cadence(sentences: list[str], profile: ModeProfile, rng:
     return result
 
 
-def randomize_syntax_patterns(sentences: list[str], rng: random.Random) -> list[str]:
+def randomize_syntax_patterns(sentences: list[str], profile: Optional[ModeProfile], rng: random.Random) -> list[str]:
     """
-    Destroys predictable sentence structures by applying 4 dynamic writing pattern transforms:
-    1. Clause inversion (moves 'if/although/because' clauses to sentence front)
-    2. Dynamic prepositional & participial starters
-    3. Em-dash pivots & parenthetical breaks
-    4. Rhetorical question hooks
+    Destroys predictable sentence structures by applying dynamic writing pattern transforms.
     """
     if not sentences:
         return sentences
 
-    OPENER_VARIANTS = [
-        "In practice, ", "Looking closely, ", "What matters is that ",
-        "Across the board, ", "On closer inspection, ", "At the same time, ",
-        "When you think about it, ", "To begin with, "
-    ]
+    is_formal = profile and profile.formality_score > 0.6
+
+    if is_formal:
+        OPENER_VARIANTS = [
+            "In practice, ", "On closer examination, ", "Specifically, ",
+            "Across these settings, ", "In this regard, ", "At the same time, ",
+            "To this end, ", "Notably, "
+        ]
+    else:
+        OPENER_VARIANTS = [
+            "In practice, ", "Looking closely, ", "Across the board, ",
+            "On closer inspection, ", "At the same time, ", "To begin with, ",
+            "As it happens, ", "In fact, "
+        ]
 
     result = []
     for idx, sent in enumerate(sentences):
@@ -470,7 +475,7 @@ def randomize_syntax_patterns(sentences: list[str], rng: random.Random) -> list[
 
         # Transform 2: Subject-first opener shift (The/This/It/They -> Dynamic opener)
         words = sent.split()
-        if idx > 0 and words and words[0].lower() in ("the", "this", "it", "they", "we") and not sent.startswith(("In ", "On ", "At ", "With ", "Through ", "From ", "By ")) and rng.random() < 0.35:
+        if idx > 0 and words and words[0].lower() in ("the", "this", "it", "they", "we") and not sent.startswith(("In ", "On ", "At ", "With ", "Through ", "From ", "By ")) and rng.random() < 0.25:
             variant = rng.choice(OPENER_VARIANTS)
             if not any(sent.startswith(v) for v in OPENER_VARIANTS):
                 sent = f"{variant}{sent[0].lower() + sent[1:]}"

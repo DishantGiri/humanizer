@@ -21,6 +21,8 @@ class TextStats:
     avg_sentence_length: float = 0.0
     readability_score: float = 0.0
     readability_grade: str = ""
+    grammar_score: float = 100.0
+    grammar_issues_count: int = 0
     vocabulary_diversity: float = 0.0
     repeated_words: list[dict] = None
     repeated_phrases: list[dict] = None
@@ -120,6 +122,54 @@ def _readability_label(score: float) -> str:
         return "Very Difficult"
 
 
+def calculate_grammar_score(text: str) -> tuple[float, int]:
+    """
+    Evaluates real grammatical correctness, sentence completeness, and boundary integrity.
+    Detects:
+    1. Erroneous mid-sentence periods and fragments (e.g., 'into. Individual', 'adds. Up', 'tasks. Freeing').
+    2. Missing main clause / relative pronoun fragments ('That expanded exponentially').
+    3. Trailing prepositions or particles with periods.
+    4. Consecutive or duplicate punctuation marks.
+    Returns (grammar_score_percent, issues_count).
+    """
+    if not text or not text.strip():
+        return 100.0, 0
+
+    issues = 0
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
+
+    fragment_patterns = [
+        # Preposition/verb before period followed by word: 'into. Individual', 'adds. Up'
+        r'\b(into|with|from|about|through|under|over|upon|at|by|to|for|of|as|how|even|between|among|than|adds|takes|sets|turns|points)\.\s+[A-Za-z]',
+        # Mid-sentence period before non-proper lowercase word
+        r'(\b\w{2,})\.\s+([a-z])',
+        # Dangling participial: 'tasks. Freeing'
+        r'\b\w{2,}\.\s+(?:Freeing|Providing|Highlighting|Leading|Making|Resulting|Creating|Allowing|Pinpointing|Offering|Helping)\b',
+        # Relative pronoun fragment: 'number. That expanded'
+        r'\b\w{2,}\.\s+(?:That|Which|Who|Whom|Whose|Where)\s+(?:expanded|was|were|had|is|are|could|would|should|resulted|showed|made)\b',
+        # Duplicate or misplaced punctuation
+        r'\.{2,}|,,+|\s+[,.;:!?]|\.\s*,',
+    ]
+
+    for pat in fragment_patterns:
+        matches = re.findall(pat, text)
+        issues += len(matches)
+
+    for s in sentences:
+        words = s.split()
+        if len(words) <= 3 and not any(w.lower() in ('yes', 'no', 'indeed', 'exactly', 'thanks', 'sure') for w in words):
+            if words and words[0].lower() in ('that', 'which', 'who', 'where', 'because', 'although', 'freeing', 'providing'):
+                issues += 1
+
+    if len(sentences) > 0:
+        penalty = min(75.0, (issues * 6.0))
+        score = max(25.0, 100.0 - penalty)
+    else:
+        score = 100.0
+
+    return round(score, 1), issues
+
+
 def analyze(text: str) -> TextStats:
     """
     Run full analysis on the provided text and return a TextStats object.
@@ -139,6 +189,9 @@ def analyze(text: str) -> TextStats:
     readability = textstat.flesch_reading_ease(text)
     readability = max(0.0, min(100.0, readability))
 
+    # Grammar score calculation
+    grammar_score, grammar_issues = calculate_grammar_score(text)
+
     # Vocabulary diversity
     unique_words = set(words)
     diversity = round(len(unique_words) / max(word_count, 1), 3)
@@ -157,6 +210,8 @@ def analyze(text: str) -> TextStats:
         avg_sentence_length=avg_sentence_length,
         readability_score=round(readability, 1),
         readability_grade=_readability_label(readability),
+        grammar_score=grammar_score,
+        grammar_issues_count=grammar_issues,
         vocabulary_diversity=diversity,
         repeated_words=_find_repeated_words(words),
         repeated_phrases=_find_repeated_phrases(text),

@@ -66,6 +66,8 @@ export interface TextStats {
   avg_sentence_length: number;
   readability_score: number;
   readability_grade: string;
+  grammar_score?: number;
+  grammar_issues_count?: number;
   vocabulary_diversity: number;
   repeated_words: { word: string; count: number }[];
   repeated_phrases: { phrase: string; count: number }[];

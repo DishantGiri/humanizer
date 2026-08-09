@@ -1077,8 +1077,18 @@ export default function DashboardPage() {
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         Grammar
                       </span>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#10b981' : 'var(--text-primary)' }}>
-                        {result ? '100%' : '0%'}
+                      <span style={{
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        color: !result
+                          ? 'var(--text-primary)'
+                          : (result.rewritten_stats.grammar_score ?? 100) >= 88
+                          ? '#10b981'
+                          : (result.rewritten_stats.grammar_score ?? 100) >= 70
+                          ? '#f59e0b'
+                          : '#f43f5e'
+                      }}>
+                        {result ? `${Math.round(result.rewritten_stats.grammar_score ?? 100)}%` : '0%'}
                       </span>
                     </div>
                   </div>
