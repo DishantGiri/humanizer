@@ -391,7 +391,15 @@ export default function DashboardPage() {
     }
     const scorePool = [96, 98, 95, 97, 94, 99];
     const index = Math.abs(hash) % scorePool.length;
-    return scorePool[index];
+    let baseScore = scorePool[index];
+
+    // Penalty for grammatical / punctuation defects
+    const grammarScore = res.rewritten_stats.grammar_score ?? 100;
+    if (grammarScore < 95) {
+      const penalty = Math.round((95 - grammarScore) * 1.25);
+      baseScore = Math.max(25, baseScore - penalty);
+    }
+    return baseScore;
   };
 
   const humanScore = result ? getDynamicHumanScore(result) : 0;
