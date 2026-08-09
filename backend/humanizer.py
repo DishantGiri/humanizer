@@ -542,16 +542,16 @@ def inject_natural_disfluencies(sentences: list[str], profile: ModeProfile, rng:
             choice = rng.choice(["self_correction", "aside", "rephrase"])
             
             if choice == "self_correction":
-                # "The project—well, actually the entire initiative—"
+                # "The project - well, actually the entire initiative..."
                 mid = len(words) // 2
                 first = " ".join(words[:mid])
                 second = " ".join(words[mid:])
-                sent = f"{first}—well, actually {second[0].lower() + second[1:]}"
+                sent = f"{first} - well, actually {second[0].lower() + second[1:]}"
                 disfluency_count += 1
             elif choice == "aside":
                 # " (and this is important) "
                 mid = len(words) // 2
-                aside = rng.choice([" (and this matters) ", " — at least for now — ", " (which is key) "])
+                aside = rng.choice([" (and this matters) ", " - at least for now - ", " (which is key) "])
                 sent = " ".join(words[:mid]) + aside + " ".join(words[mid:])
                 disfluency_count += 1
             elif choice == "rephrase":
