@@ -499,6 +499,36 @@ export async function googleAuthUser(params: { credential?: string; code?: strin
   return await response.json();
 }
 
+export function getUserFromToken(token: string): User | null {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (!payload || (!payload.sub && !payload.id && !payload.email)) return null;
+    return {
+      id: payload.sub || payload.id || '',
+      email: payload.email || '',
+      name: payload.name || payload.email?.split('@')[0] || 'User',
+      role: payload.role || 'user',
+      plan: payload.plan || 'free',
+      usage_count: payload.usage_count || 0,
+      avatar_url: payload.avatar_url || null,
+      created_at: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentUser(token: string): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/me`, {
     method: 'GET',

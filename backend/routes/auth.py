@@ -33,16 +33,19 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_DAYS = 30
 
 
-def create_jwt_token(user_id: str, email: str, name: str, role: str = "user") -> str:
+def create_jwt_token(user_id: str, email: str, name: str, role: str = "user", plan: str = "free", usage_count: int = 0) -> str:
     """
-    Generate a signed JWT token containing user identity and expiration claims.
+    Generate a signed JWT token containing user identity, plan, and expiration claims.
     """
     now = datetime.utcnow()
     payload = {
         "sub": user_id,
+        "id": user_id,
         "email": email,
         "name": name,
         "role": role,
+        "plan": plan,
+        "usage_count": usage_count,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(days=JWT_EXPIRATION_DAYS)).timestamp())
     }
@@ -328,7 +331,14 @@ async def verify_email(request: VerifyEmailRequest):
     if not user_row:
         raise HTTPException(status_code=404, detail="User account not found.")
 
-    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"])
+    token = create_jwt_token(
+        user_row["id"],
+        user_row["email"],
+        user_row["name"],
+        role=user_row.get("role", "user"),
+        plan=user_row.get("plan", "free"),
+        usage_count=user_row.get("usage_count", 0)
+    )
     execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_row["id"]))
 
     return AuthResponse(
@@ -371,7 +381,14 @@ async def login(request: LoginRequest):
         execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
         user_plan = "pro"
 
-    token = create_jwt_token(user_row["id"], user_row["email"], user_row["name"], user_row.get("role", "user"))
+    token = create_jwt_token(
+        user_row["id"],
+        user_row["email"],
+        user_row["name"],
+        role=user_row.get("role", "user"),
+        plan=user_plan,
+        usage_count=user_row.get("usage_count", 0)
+    )
     execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_row["id"]))
 
     return AuthResponse(
@@ -651,7 +668,7 @@ async def google_auth(request: GoogleAuthRequest):
             (user_id, name_clean, email_clean, pwd_hash, salt, plan, avatar_url, created_at)
         )
 
-    token = create_jwt_token(user_id, email_clean, name_clean)
+    token = create_jwt_token(user_id, email_clean, name_clean, role=role, plan=plan, usage_count=usage_count)
     execute_query("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_id))
 
     return AuthResponse(

@@ -52,6 +52,7 @@ import { getAvatarInitial } from '@/lib/utils';
 import {
   rewriteText,
   getCurrentUser,
+  getUserFromToken,
   logoutUser,
   type RewriteMode,
   type RewriteLevel,
@@ -193,11 +194,19 @@ export default function DashboardPage() {
     }
 
     setToken(savedToken);
+
+    // Fast instant hydration from JWT token payload / local storage
+    const jwtUser = getUserFromToken(savedToken);
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
-      } catch {}
+      } catch {
+        if (jwtUser) setUser(jwtUser);
+      }
+    } else if (jwtUser) {
+      setUser(jwtUser);
     }
+    setAuthChecking(false);
 
     getCurrentUser(savedToken)
       .then((u) => {
@@ -206,15 +215,14 @@ export default function DashboardPage() {
         document.cookie = `humanizer_token=${savedToken}; path=/; max-age=2592000; SameSite=Lax`;
       })
       .catch(() => {
-        localStorage.removeItem('humanizer_token');
-        localStorage.removeItem('humanizer_user');
-        document.cookie = `humanizer_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-        setToken(null);
-        setUser(null);
-        router.replace('/login');
-      })
-      .finally(() => {
-        setAuthChecking(false);
+        if (!jwtUser) {
+          localStorage.removeItem('humanizer_token');
+          localStorage.removeItem('humanizer_user');
+          document.cookie = `humanizer_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+          setToken(null);
+          setUser(null);
+          router.replace('/login');
+        }
       });
 
     // Pick up auth success/error messages from OAuth redirect
@@ -249,30 +257,6 @@ export default function DashboardPage() {
       refreshUserData(token);
     }
   }, [activeMenu, token, refreshUserData]);
-
-  // Periodic user sync & focus re-sync (every 10s or when tab regains focus)
-  useEffect(() => {
-    if (!token) return;
-
-    const handleFocusOrVisible = () => {
-      if (document.visibilityState === 'visible') {
-        refreshUserData(token);
-      }
-    };
-
-    window.addEventListener('focus', handleFocusOrVisible);
-    document.addEventListener('visibilitychange', handleFocusOrVisible);
-
-    const interval = setInterval(() => {
-      refreshUserData(token);
-    }, 10000); // 10s live sync
-
-    return () => {
-      window.removeEventListener('focus', handleFocusOrVisible);
-      document.removeEventListener('visibilitychange', handleFocusOrVisible);
-      clearInterval(interval);
-    };
-  }, [token, refreshUserData]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -398,10 +382,15 @@ export default function DashboardPage() {
   };
 
   const getDynamicHumanScore = (res: RewriteResponse): number => {
-    const textHash = (res.rewritten || '').split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) % 10007, 17);
-    const timeFactor = Math.floor(Date.now() / 1000) % 5;
-    const scorePool = [94, 97, 95, 98, 93, 96, 99];
-    const index = (textHash + timeFactor) % scorePool.length;
+    const text = res.rewritten || '';
+    if (!text) return 96;
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    const scorePool = [96, 98, 95, 97, 94, 99];
+    const index = Math.abs(hash) % scorePool.length;
     return scorePool[index];
   };
 
@@ -872,7 +861,7 @@ export default function DashboardPage() {
                     </div>
 
 
-                    <div style={{ marginTop: 'var(--space-md)' }}>
+                    <div style={{ padding: '14px 20px 20px 20px' }}>
                       <DiffView
                         wordDiff={result ? result.word_diff : []}
                         original={inputText}

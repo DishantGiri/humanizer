@@ -985,31 +985,31 @@ body::before {
 /* ── Diff View ─────────────────────────────────────────────────────────── */
 
 .diff-section {
-  margin-top: var(--space-lg);
-  animation: fadeInUp 0.6s ease-out 0.4s both;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  animation: fadeInUp 0.4s ease-out both;
 }
 
 .diff-toggle {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-  margin-bottom: var(--space-sm);
+  gap: 8px;
+  margin: 0;
 }
 
 .diff-toggle__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
+  border-radius: 10px;
+  color: var(--text-secondary);
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1017,24 +1017,27 @@ body::before {
 
 .diff-toggle__btn:hover {
   border-color: var(--border-light);
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.09);
+  transform: translateY(-1px);
 }
 
 .diff-toggle__btn--active {
-  background: rgba(56, 189, 248, 0.12);
+  background: rgba(56, 189, 248, 0.14);
   border-color: var(--accent-blue);
   color: var(--accent-blue);
 }
 
 [data-theme="light"] .diff-toggle__btn {
-  background: #f1f5f9;
+  background: #f8fafc;
   border-color: #cbd5e1;
-  color: #475569;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .diff-toggle__btn:hover {
-  background: #e2e8f0;
+  background: #f1f5f9;
+  border-color: #94a3b8;
   color: #0f172a;
 }
 
@@ -1045,7 +1048,9 @@ body::before {
 }
 
 .diff-container {
-  padding: var(--space-lg);
+  margin-top: 12px;
+  padding: 16px 20px;
+  border-radius: 14px;
 }
 
 .diff-text {

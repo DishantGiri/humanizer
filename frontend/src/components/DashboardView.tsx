@@ -49,35 +49,13 @@ export default function DashboardView({
 
   useEffect(() => {
     if (token) {
-      const fetchUserData = () => {
-        getCurrentUser(token)
-          .then((freshUser) => {
-            if (onUpdateUser) onUpdateUser(freshUser);
-          })
-          .catch(() => {});
-      };
-
-      const fetchHistory = (silent = false) => {
-        if (!silent) setLoadingHistory(true);
-        getUserHistory(token)
-          .then((items) => setHistory(items))
-          .catch(() => setHistory([]))
-          .finally(() => {
-            if (!silent) setLoadingHistory(false);
-          });
-      };
-
-      fetchUserData();
-      fetchHistory(false);
-
-      const interval = setInterval(() => {
-        fetchUserData();
-        fetchHistory(true);
-      }, 10000); // Live poll user & history every 10s
-
-      return () => clearInterval(interval);
+      setLoadingHistory(true);
+      getUserHistory(token)
+        .then((items) => setHistory(items))
+        .catch(() => setHistory([]))
+        .finally(() => setLoadingHistory(false));
     }
-  }, [token, onUpdateUser]);
+  }, [token]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
