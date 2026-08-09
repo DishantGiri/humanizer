@@ -175,6 +175,29 @@ async def rewrite_text(
     if not clean_text:
         raise HTTPException(status_code=400, detail="Input text is empty after sanitization.")
 
+    def extract_document_title(text: str) -> tuple[Optional[str], str]:
+        if not text:
+            return None, text
+        lines = [l.strip() for l in text.strip().split('\n') if l.strip()]
+        if not lines:
+            return None, text
+        first_line = lines[0]
+        words = first_line.split()
+        is_title = False
+        if first_line.startswith(('#', 'Title:', 'TITLE:', 'Heading:', 'HEADING:')):
+            is_title = True
+        elif len(words) <= 12 and not any(punct in first_line for punct in ('.', '!', '?', ';', ':')):
+            is_title = True
+
+        if is_title and len(lines) > 1:
+            title = first_line
+            body_start_idx = text.find(first_line) + len(first_line)
+            body_text = text[body_start_idx:].strip()
+            return title, body_text
+        return None, text
+
+    doc_title, text_body = extract_document_title(clean_text)
+
     # Step B: Check Redis cache
     cached_output = get_cached_rewrite(clean_text, request.mode.value, request.level.value)
     if cached_output:
@@ -184,22 +207,14 @@ async def rewrite_text(
         try:
             rewriter = get_rewriter()
             intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
+            target_text = text_body if doc_title else clean_text
 
-            lines = [line for line in clean_text.split('\n')]
+            lines = [line for line in target_text.split('\n')]
             is_list = len(lines) > 2 and any(
                 line.strip().startswith(('-', '*', '•', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')) or
                 (':' in line and len(line.split(':')[0].split()) <= 4)
                 for line in lines if line.strip()
             )
-
-            def is_heading_or_title(text: str) -> bool:
-                s = text.strip()
-                words = s.split()
-                if len(words) <= 10 and not any(punct in s for punct in ('.', '!', '?', ';')):
-                    return True
-                if s.startswith(('#', 'Title:', 'TITLE:', 'Heading:', 'HEADING:')):
-                    return True
-                return False
 
             if is_list:
                 rewritten_lines = []
@@ -221,23 +236,18 @@ async def rewrite_text(
                         key = parts[0].strip()
                         val = parts[1].strip()
                         val_rewritten = rewriter.rewrite(val, request.mode, request.level)
-                        val_humanized = humanize(val_rewritten, intensity=intensity, original_text=val)
+                        val_humanized = humanize(val_rewritten, intensity=intensity, original_text=val, mode=request.mode.value)
                         rewritten_lines.append(f"{prefix}{key}: {val_humanized}")
                     else:
                         line_rewritten = rewriter.rewrite(core_text, request.mode, request.level)
-                        line_humanized = humanize(line_rewritten, intensity=intensity, original_text=core_text)
+                        line_humanized = humanize(line_rewritten, intensity=intensity, original_text=core_text, mode=request.mode.value)
                         rewritten_lines.append(f"{prefix}{line_humanized}")
                 rewritten = "\n".join(rewritten_lines)
             else:
-                orig_paras = [p.strip() for p in clean_text.split('\n\n') if p.strip()]
+                orig_paras = [p.strip() for p in target_text.split('\n\n') if p.strip()]
                 if len(orig_paras) > 1:
                     rewritten_paras = []
                     for p_idx, para in enumerate(orig_paras):
-                        if is_heading_or_title(para):
-                            # Preserve title/heading directly to avoid essay hallucination
-                            rewritten_paras.append(para)
-                            continue
-
                         p_rewritten = rewriter.rewrite(para, request.mode, request.level)
                         
                         # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
@@ -258,7 +268,7 @@ async def rewrite_text(
                         rewritten_paras.append(p_humanized)
                     rewritten = "\n\n".join(rewritten_paras)
                 else:
-                    rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
+                    rewritten = rewriter.rewrite(target_text, request.mode, request.level)
                     
                     # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
                     if int(request.level) >= 3:
@@ -274,7 +284,7 @@ async def rewrite_text(
                         except Exception as bounce_err:
                             logger.warning("Translation bounce pass skipped: %s", bounce_err)
 
-                    rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text, mode=request.mode.value)
+                    rewritten = humanize(rewritten, intensity=intensity, original_text=target_text, mode=request.mode.value)
 
             # Step 2.6: Post-Hoc Statistical Validation Check & Grammar Sanitization
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
@@ -284,6 +294,10 @@ async def rewrite_text(
                 rewritten = add_burstiness(rewritten)
 
             rewritten = clean_erroneous_punctuation(rewritten)
+
+            # Re-attach document title if present
+            if doc_title:
+                rewritten = f"{doc_title}\n\n{rewritten}"
 
             # Store in Redis cache
             set_cached_rewrite(clean_text, request.mode.value, request.level.value, rewritten)
