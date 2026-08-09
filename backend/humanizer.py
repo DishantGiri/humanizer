@@ -1056,7 +1056,7 @@ def humanize(
         for p_idx, para in enumerate(text_paras):
             p_sents = _split_sentences(para)
             p_sents = engineer_rhythm_and_cadence(p_sents, profile, rng)
-            p_sents = randomize_syntax_patterns(p_sents, rng)
+            p_sents = randomize_syntax_patterns(p_sents, profile, rng)
             p_sents = apply_intelligent_transitions(p_sents, profile, rng)
             p_sents = inject_natural_disfluencies(p_sents, profile, rng)
             p_sents = package_information(p_sents, profile, rng)
@@ -1072,7 +1072,7 @@ def humanize(
         sentences = _split_sentences(text)
         if sentences:
             sentences = engineer_rhythm_and_cadence(sentences, profile, rng)
-            sentences = randomize_syntax_patterns(sentences, rng)
+            sentences = randomize_syntax_patterns(sentences, profile, rng)
             sentences = apply_intelligent_transitions(sentences, profile, rng)
             sentences = inject_natural_disfluencies(sentences, profile, rng)
             sentences = package_information(sentences, profile, rng)
