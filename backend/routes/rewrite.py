@@ -267,6 +267,20 @@ async def rewrite_text(
                         p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para, mode=request.mode.value)
                         rewritten_paras.append(p_humanized)
                     rewritten = "\n\n".join(rewritten_paras)
+
+                    # ── Paragraph parity enforcement ─────────────────────────────
+                    # If the LLM split or merged paragraphs, force the output to
+                    # have exactly len(orig_paras) paragraphs by collapsing any
+                    # extras into the last paragraph.
+                    out_paras = [p.strip() for p in rewritten.split('\n\n') if p.strip()]
+                    if len(out_paras) != len(orig_paras) and out_paras:
+                        if len(out_paras) > len(orig_paras):
+                            # Collapse surplus paragraphs into the last slot
+                            keep = out_paras[:len(orig_paras) - 1]
+                            tail = " ".join(out_paras[len(orig_paras) - 1:])
+                            out_paras = keep + [tail]
+                        # If fewer, just use what we have (merging can't split content)
+                        rewritten = "\n\n".join(out_paras)
                 else:
                     rewritten = rewriter.rewrite(target_text, request.mode, request.level)
                     

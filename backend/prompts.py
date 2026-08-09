@@ -274,6 +274,7 @@ CRITICAL LENGTH, FIDELITY & FORMATTING REQUIREMENT:
 The input text has {word_cnt} words. Your rewrite MUST have approximately {word_cnt} words (target range: {min_cnt} to {max_cnt} words).
 Do NOT expand, elaborate, or introduce new arguments/counterarguments!
 Do NOT use em-dashes (—); always use standard hyphens (-) or commas instead.
+IMPORTANT: Return EXACTLY ONE paragraph of text with no extra blank lines or paragraph breaks.
 
 ---
 
