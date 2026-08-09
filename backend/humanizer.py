@@ -820,19 +820,37 @@ def clean_erroneous_punctuation(text: str) -> str:
     text = re.sub(r'\s*—\s*', ' - ', text)
     text = re.sub(r'\s*–\s*', ' - ', text)
 
-    # 1. Fix periods immediately before prepositions, articles, or connecting words/adverbs
+    # 1. Fix phrasal / particle verbs with period: "adds. Up" -> "adds up", "takes. Off" -> "takes off"
+    text = re.sub(
+        r'\b(adds|add|added|takes|take|took|taken|sets|set|turns|turned|turn|points|point|pointed|brings|brought|bring|looks|looked|look|makes|made|make)\.\s+([A-Za-z]+)\b',
+        lambda m: f"{m.group(1)} {m.group(2).lower()}",
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # 2. Fix dangling prepositions and connectors with trailing period and lowercase continuation:
+    # "into. Individual" -> "into individual", "to. Each" -> "to each", "just how. Seamlessly" -> "just how seamlessly"
+    text = re.sub(
+        r'\b(into|with|from|about|through|under|over|upon|at|by|to|for|of|as|how|even|between|among|than)\.\s+([A-Za-z]+)\b',
+        lambda m: f"{m.group(1)} {m.group(2).lower()}" if m.group(2).lower() not in ('nepal', 'chatgpt', 'openai', 'everest', 'asia', 'kathmandu', 'november', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'december') else f"{m.group(1)} {m.group(2)}",
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # 3. Fix periods immediately before prepositions, articles, pronouns, adverbs, or continuation words
     # e.g., "insights into. Individual" -> "insights into individual", "easily. Digestible" -> "easily digestible"
     bad_split_starters = (
-        r'into|of|for|with|to|in|on|at|by|from|about|against|between|through|during|before|after|'
+        r'into|of|for|with|to|in|on|at|by|from|about|against|between|among|through|during|before|after|'
         r'above|below|upon|toward|towards|under|within|without|because|since|unless|until|'
-        r'although|though|while|whereas|despite|except|besides|individual|easily|digestible|'
-        r'unequal|learning|and|or|nor|but|yet|so'
+        r'although|though|while|whereas|despite|except|besides|each|every|individual|easily|digestible|'
+        r'unequal|learning|and|or|nor|but|yet|so|that|which|who|whom|whose|where|when|why|how|'
+        r'seamlessly|exponentially|largely|responsible|made|only|widely|especially|particularly'
     )
     
     def _fix_mid_sentence_split(m):
         before = m.group(1).rstrip('.')
         word = m.group(2)
-        if word.lower() in ('and', 'but', 'so', 'or', 'nor', 'yet', 'while', 'because', 'since', 'although'):
+        if word.lower() in ('and', 'but', 'so', 'or', 'nor', 'yet', 'while', 'because', 'since', 'although', 'which', 'where', 'whereas'):
             return f"{before}, {word.lower()}"
         return f"{before} {word.lower()}"
 
@@ -843,22 +861,37 @@ def clean_erroneous_punctuation(text: str) -> str:
         flags=re.IGNORECASE
     )
 
-    # 2. Fix periods immediately followed by lowercase words: "word. lowercase" -> "word lowercase"
+    # 4. Fix participial -ing fragment splits: "administrative tasks. Freeing instructors" -> "administrative tasks, freeing instructors"
+    text = re.sub(
+        r'(\b\w{2,})\.\s+([A-Z][a-z]+ing)\b',
+        lambda m: f"{m.group(1)}, {m.group(2).lower()}" if m.group(2).lower() not in ('during', 'spring', 'morning', 'evening', 'something', 'nothing', 'everything', 'anything') else m.group(0),
+        text
+    )
+
+    # 5. Fix relative clause splits: "a number. That expanded" -> "a number that expanded"
+    text = re.sub(
+        r'(\b\w{2,})\.\s+(That|Which|Who|Whom|Whose|Where|When)\b',
+        lambda m: f"{m.group(1)} {m.group(2).lower()}",
+        text
+    )
+
+    # 6. Fix periods immediately followed by lowercase words: "word. lowercase" -> "word lowercase"
     text = re.sub(r'(\b\w{2,})\.\s+([a-z])', r'\1 \2', text)
 
-    # 3. Clean consecutive periods, duplicate commas, or spaces before punctuation
+    # 7. Clean consecutive periods, duplicate commas, or spaces before punctuation
     text = re.sub(r'\.{2,}', '.', text)
     text = re.sub(r',,+', ',', text)
     text = re.sub(r'\s+([,.;:!?])', r'\1', text)
     text = re.sub(r'([,;:])\s*([.!?])', r'\2', text)
+    text = re.sub(r'\.\s*,', ',', text)
 
-    # 4. Fix dangling prepositions with trailing period: "into." -> "into"
-    text = re.sub(r'\b(into|with|from|about|through|under|over|upon|at|by|to|for|of)\.\s+', r'\1 ', text, flags=re.IGNORECASE)
+    # 8. Remove stray standalone canned fragments
+    text = re.sub(r'\s*\b(Simple as that|Clearly|That matters|No question about it)\.\s*', ' ', text)
 
-    # 5. Fix double spaces
+    # 9. Fix double spaces
     text = re.sub(r' +', ' ', text)
 
-    # 6. Ensure true sentences start with a capital letter
+    # 10. Ensure true sentences start with a capital letter
     text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
 
     return text.strip()
