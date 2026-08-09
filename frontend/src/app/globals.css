@@ -1246,7 +1246,7 @@ body::before {
 .diff-paragraph {
   margin: 0 0 12px 0;
 }
-
+  
 .diff-paragraph:last-child {
   margin-bottom: 0;
 }
