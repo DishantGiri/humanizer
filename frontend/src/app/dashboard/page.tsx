@@ -1066,11 +1066,37 @@ export default function DashboardPage() {
                       padding: '14px 0',
                       borderTop: '1px solid var(--border-subtle)'
                     }}>
-                      <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                      <span style={{
+                        fontSize: '0.9rem',
+                        color: 'var(--text-secondary)',
+                        fontWeight: 500,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
                         Readability
+                        <span
+                          title="Flesch Reading Ease Index (0-100 scale):\n• 90-100: Very Easy (5th Grade)\n• 60-69: Standard (8th-9th Grade)\n• 30-49: Difficult (College level)\n• 0-29: Very Difficult (Academic level)"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '50%',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            fontSize: '0.68rem',
+                            cursor: 'help',
+                            color: 'var(--text-tertiary)'
+                          }}
+                        >
+                          ?
+                        </span>
                       </span>
                       <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {result ? `${Math.round(result.rewritten_stats.readability_score)}%` : '0%'}
+                        {result
+                          ? `${Math.round(result.rewritten_stats.readability_score)}% (${result.rewritten_stats.readability_grade ?? 'Standard'})`
+                          : '0%'}
                       </span>
                     </div>
 
