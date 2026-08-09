@@ -857,10 +857,10 @@ export default function LandingHero({
 
                 <ul className="pricing-features-list">
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 30 humanization / day
+                    <Check size={16} /> 80 humanizations / day
                   </li>
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 1,200 words per input
+                    <Check size={16} /> 2,500 words per input
                   </li>
                   <li className="pricing-feature-item">
                     <Check size={16} /> Advanced Humanization Engine
@@ -897,10 +897,10 @@ export default function LandingHero({
 
                 <ul className="pricing-features-list">
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 80 Humanizations / day
+                    <Check size={16} /> 250 Humanizations / day
                   </li>
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 2,500 words per input
+                    <Check size={16} /> 5,000 words per input
                   </li>
                   <li className="pricing-feature-item">
                     <Check size={16} /> Maximum Detection Bypass

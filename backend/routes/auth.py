@@ -121,7 +121,7 @@ class UpgradeRequest(BaseModel):
     plan: Optional[str] = "pro"
 
 class CreateRazorpayOrderRequest(BaseModel):
-    plan: str = Field(..., description="Plan name: starter, plus, or pro")
+    plan: str = Field(..., description="Plan name: plus, pro, or enterprise")
 
 class VerifyRazorpayPaymentRequest(BaseModel):
     razorpay_order_id: str
@@ -758,26 +758,40 @@ async def redeem_coupon(
     current_user: UserResponse = Depends(get_current_user_from_token)
 ):
     """
-    Redeem a one-time coupon code to upgrade user's plan.
+    Redeem a promo coupon code to immediately upgrade user's plan.
     """
-    code_clean = request.code.strip()
-    coupon = fetch_one("SELECT code, plan, redeemed_by FROM coupons WHERE code = ?", (code_clean,))
+    code_clean = request.code.upper().strip()
+    if not code_clean:
+        raise HTTPException(status_code=400, detail="Please enter a valid coupon code.")
+
+    coupon = fetch_one(
+        "SELECT code, plan, redeemed_by, max_uses, used_count FROM coupons WHERE UPPER(TRIM(code)) = ?",
+        (code_clean,)
+    )
 
     if not coupon:
         raise HTTPException(status_code=400, detail="Invalid coupon code. Please check and try again.")
-    if coupon.get("redeemed_by"):
-        raise HTTPException(status_code=400, detail="This coupon has already been redeemed.")
 
+    max_uses = int(coupon.get("max_uses") or 1)
+    used_count = int(coupon.get("used_count") or (1 if coupon.get("redeemed_by") else 0))
+
+    if used_count >= max_uses or (coupon.get("redeemed_by") and max_uses <= 1):
+        raise HTTPException(status_code=400, detail="This coupon code has already reached its maximum redemption limit.")
+
+    new_used = used_count + 1
     redeemed_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
     execute_query(
-        "UPDATE coupons SET redeemed_by = ?, redeemed_at = ? WHERE code = ?",
-        (current_user.id, redeemed_at, code_clean)
+        "UPDATE coupons SET used_count = ?, redeemed_by = ?, redeemed_at = ? WHERE UPPER(TRIM(code)) = ?",
+        (new_used, current_user.id if new_used >= max_uses else (coupon.get("redeemed_by") or current_user.id), redeemed_at, code_clean)
     )
 
-    target_plan = coupon["plan"]
+    raw_target_plan = str(coupon.get("plan") or "plus").lower().strip()
+    target_plan = "plus" if raw_target_plan == "starter" else raw_target_plan
+
     execute_query("UPDATE users SET plan = ? WHERE id = ?", (target_plan, current_user.id))
     current_user.plan = target_plan
-    logger.info("Coupon %s redeemed by user %s -> plan %s", code_clean, current_user.id, target_plan)
+    logger.info("Coupon %s successfully redeemed by user %s -> activated plan: %s", code_clean, current_user.id, target_plan)
     return current_user
 
 

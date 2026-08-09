@@ -350,11 +350,11 @@ def seed_coupons():
         logger.info("Coupons already seeded, skipping.")
         return
 
-    # Distribution: 4 starter, 3 plus, 3 pro
+    # Distribution: 4 plus, 3 pro, 3 enterprise
     plan_distribution = (
-        ['starter'] * 4 +
-        ['plus'] * 3 +
-        ['pro'] * 3
+        ['plus'] * 4 +
+        ['pro'] * 3 +
+        ['enterprise'] * 3
     )
 
     for plan in plan_distribution:

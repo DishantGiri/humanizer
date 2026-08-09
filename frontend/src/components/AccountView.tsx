@@ -12,8 +12,9 @@ import {
   LogOut,
   Eye,
   EyeOff,
+  Ticket,
 } from 'lucide-react';
-import { updateProfile, changePassword, type User } from '@/lib/api';
+import { updateProfile, changePassword, redeemCoupon, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
 import { getAvatarInitial, compressImage, validateName } from '@/lib/utils';
 
@@ -52,6 +53,11 @@ export default function AccountView({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [savingSecurity, setSavingSecurity] = useState(false);
+
+  // Billing coupon state
+  const [accountCoupon, setAccountCoupon] = useState('');
+  const [accountCouponLoading, setAccountCouponLoading] = useState(false);
+  const [accountCouponError, setAccountCouponError] = useState<string | null>(null);
 
   if (!user || !token) {
     return (
@@ -156,11 +162,38 @@ export default function AccountView({
     }
   };
 
+  const handleAccountCouponRedeem = async () => {
+    if (!accountCoupon.trim()) {
+      setAccountCouponError('Please enter a promo coupon code.');
+      return;
+    }
+    if (!token) {
+      toast.info('Please log in to redeem a coupon.');
+      onRequireAuth();
+      return;
+    }
+
+    setAccountCouponLoading(true);
+    setAccountCouponError(null);
+
+    try {
+      const updatedUser = await redeemCoupon(token, accountCoupon.trim());
+      onUpdateUser(updatedUser);
+      toast.success(`Promo code applied! ${updatedUser.plan.toUpperCase()} Plan activated.`);
+      setAccountCoupon('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Invalid or expired coupon code.';
+      setAccountCouponError(msg);
+    } finally {
+      setAccountCouponLoading(false);
+    }
+  };
+
   const getPlanBadgeLabel = (planStr: string) => {
-    const p = planStr.toLowerCase();
+    const p = (planStr || '').toLowerCase().trim();
+    if (p === 'enterprise') return 'Enterprise';
     if (p === 'pro') return 'Pro';
-    if (p === 'plus') return 'Plus';
-    if (p === 'starter') return 'Starter';
+    if (p === 'plus' || p === 'starter') return 'Plus';
     return 'Free';
   };
 
@@ -706,6 +739,71 @@ export default function AccountView({
                 {user.usage_count} rewrites
               </span>
             </div>
+          </div>
+
+          {/* Promo Code Redemption Card */}
+          <div
+            style={{
+              padding: '20px',
+              borderRadius: '12px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-light)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-accent)' }}>
+              <Ticket size={18} />
+              Redeem Promo Coupon Code
+            </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Have an admin-generated promo code or special voucher? Enter it below to instantly upgrade your plan.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <input
+                type="text"
+                value={accountCoupon}
+                onChange={(e) => { setAccountCoupon(e.target.value); setAccountCouponError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAccountCouponRedeem(); }}
+                placeholder="e.g. HUMYN-4a2b9c1d or CLOAK-PRO-..."
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: accountCouponError ? '1px solid #f87171' : '1px solid var(--border-light)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.88rem',
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.04em',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                className="action-btn-solid"
+                onClick={handleAccountCouponRedeem}
+                disabled={accountCouponLoading || !accountCoupon.trim()}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {accountCouponLoading ? <Loader2 size={14} className="spinner-animate" /> : 'Redeem Code'}
+              </button>
+            </div>
+            {accountCouponError && (
+              <div style={{ color: '#f87171', fontSize: '0.8rem', fontWeight: 500 }}>
+                {accountCouponError}
+              </div>
+            )}
           </div>
         </div>
       )}

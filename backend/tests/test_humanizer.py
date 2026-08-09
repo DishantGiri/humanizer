@@ -99,5 +99,14 @@ class TestHumanizerEngine(unittest.TestCase):
         self.assertLess(stats.ai_score, 10, "Self-correction loop should lower AI score")
 
 
+    def test_new_modes_profiles(self):
+        """Test standard, fluency, natural, and creative mode profiles."""
+        for m in ["standard", "fluency", "natural", "creative"]:
+            self.assertIn(m, MODE_PROFILES, f"Mode {m} must exist in MODE_PROFILES")
+            res = humanize(self.sample_text, intensity=0.7, original_text=self.sample_text, mode=m)
+            self.assertIsInstance(res, str)
+            self.assertGreater(len(res), 20)
+
+
 if __name__ == "__main__":
     unittest.main()

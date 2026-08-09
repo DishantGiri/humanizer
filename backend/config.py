@@ -50,13 +50,20 @@ API_TIMEOUT: int = 120  # seconds (increased for translation bounce pipeline)
 
 
 class RewriteMode(str, Enum):
+    # Primary UI Modes
+    STANDARD = "standard"
+    FLUENCY = "fluency"
+    NATURAL = "natural"
     ACADEMIC = "academic"
+    CREATIVE = "creative"
+
+    # Aliases & Legacy Modes
+    NATIVE = "native"
     PROFESSIONAL = "professional"
     CASUAL = "casual"
     BUSINESS = "business"
     FRIENDLY = "friendly"
     SIMPLE = "simple"
-    NATIVE = "native"
     FORMAL = "formal"
     CONCISE = "concise"
 
@@ -73,13 +80,17 @@ class RewriteLevel(int, Enum):
 # ── Mode Descriptions (used in UI and prompt building) ──────────────────────
 
 MODE_DESCRIPTIONS: dict[str, str] = {
+    RewriteMode.STANDARD: "Natural, idiomatic English as a native speaker would write",
+    RewriteMode.FLUENCY: "Clean, fluent, confident, workplace-appropriate language",
+    RewriteMode.NATURAL: "Relaxed, conversational, everyday natural language",
     RewriteMode.ACADEMIC: "Scholarly tone with precise vocabulary and formal structure",
+    RewriteMode.CREATIVE: "Warm, engaging, approachable, and personable tone",
+    RewriteMode.NATIVE: "Natural, idiomatic English as a native speaker would write",
     RewriteMode.PROFESSIONAL: "Clean, confident, workplace-appropriate language",
     RewriteMode.CASUAL: "Relaxed, conversational, everyday language",
     RewriteMode.BUSINESS: "Clear, action-oriented, executive communication style",
     RewriteMode.FRIENDLY: "Warm, approachable, and personable tone",
     RewriteMode.SIMPLE: "Plain English, short sentences, easy to understand",
-    RewriteMode.NATIVE: "Natural, idiomatic English as a native speaker would write",
     RewriteMode.FORMAL: "Respectful, polished, ceremonial or official tone",
     RewriteMode.CONCISE: "Tight, minimal, every word earns its place",
 }

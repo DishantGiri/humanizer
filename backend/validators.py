@@ -83,20 +83,20 @@ def validate_human_statistics(text: str) -> Tuple[bool, str, Dict[str, Any]]:
         return True, "Short snippet, stats skipped.", stats
 
     issues = []
-    if stats["avg_sentence_length"] > 13.0:
-        issues.append(f"Avg sentence length too high ({stats['avg_sentence_length']} words, max target 13.0)")
+    if stats["avg_sentence_length"] > 22.0:
+        issues.append(f"Avg sentence length too high ({stats['avg_sentence_length']} words, max target 22.0)")
 
-    if stats["burstiness_ratio"] < 0.30:
-        issues.append(f"Low burstiness ({int(stats['burstiness_ratio']*100)}% micro-sentences, target >= 30%)")
+    if stats["burstiness_ratio"] < 0.15:
+        issues.append(f"Low burstiness ({int(stats['burstiness_ratio']*100)}% micro-sentences, target >= 15%)")
 
-    if stats["function_word_ratio"] < 0.40:
-        issues.append(f"Low function word ratio ({int(stats['function_word_ratio']*100)}% function words, target >= 40%)")
+    if stats["function_word_ratio"] < 0.35:
+        issues.append(f"Low function word ratio ({int(stats['function_word_ratio']*100)}% function words, target >= 35%)")
 
-    if stats["mean_word_length"] > 5.3:
-        issues.append(f"High mean word length ({stats['mean_word_length']} chars, target <= 5.3)")
+    if stats["mean_word_length"] > 5.8:
+        issues.append(f"High mean word length ({stats['mean_word_length']} chars, target <= 5.8)")
 
     if issues:
-        reason = "Statistical anti-AI boundaries violated: " + "; ".join(issues)
+        reason = "Statistical anti-AI boundaries notice: " + "; ".join(issues)
         logger.info("Validation note: %s", reason)
         return False, reason, stats
 

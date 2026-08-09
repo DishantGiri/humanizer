@@ -43,7 +43,7 @@ class AdminUpdateCredentialsRequest(BaseModel):
     current_password: Optional[str] = None
 
 class GenerateCouponRequest(BaseModel):
-    plan: str = Field(..., description="Target plan: starter, plus, or pro")
+    plan: str = Field(..., description="Target plan: plus, pro, or enterprise")
     prefix: str = Field("CLOAK", description="Coupon code prefix")
     quantity: int = Field(1, ge=1, le=50, description="Number of coupons to generate")
     max_uses: int = Field(1, ge=1, description="Max uses per coupon")
@@ -59,6 +59,26 @@ class CouponItem(BaseModel):
     created_at: str
 
 
+def format_mode_label(mode_raw: Optional[str]) -> str:
+    m = (mode_raw or "standard").strip().lower()
+    mapping = {
+        "standard": "Standard",
+        "native": "Standard",
+        "fluency": "Fluency",
+        "professional": "Fluency",
+        "natural": "Natural",
+        "casual": "Natural",
+        "academic": "Academic",
+        "creative": "Creative",
+        "friendly": "Creative",
+        "business": "Business",
+        "formal": "Formal",
+        "simple": "Simple",
+        "concise": "Concise",
+    }
+    return mapping.get(m, m.capitalize() if m else "Standard")
+
+
 # ── Analytics Endpoint ──────────────────────────────────────────────────────
 
 @router.get("/analytics")
@@ -69,15 +89,24 @@ async def get_analytics_overview(admin: UserResponse = Depends(require_admin_use
     u_total = fetch_one("SELECT COUNT(*) as count FROM users")
     h_total = fetch_one("SELECT COUNT(*) as count FROM history")
     w_total = fetch_one("SELECT SUM(word_count) as total_words FROM history")
-    subs_total = fetch_one("SELECT COUNT(*) as count FROM users WHERE plan != 'free'")
+    subs_total = fetch_one("SELECT COUNT(*) as count FROM users WHERE LOWER(TRIM(COALESCE(plan, 'free'))) NOT IN ('free', '')")
 
     # Plan distribution
-    plans_raw = fetch_all("SELECT plan, COUNT(*) as count FROM users GROUP BY plan")
+    plans_raw = fetch_all("SELECT LOWER(TRIM(COALESCE(plan, 'free'))) as plan_name, COUNT(*) as count FROM users GROUP BY LOWER(TRIM(COALESCE(plan, 'free')))")
     plan_counts = {"free": 0, "plus": 0, "pro": 0, "enterprise": 0, "starter": 0}
     for item in plans_raw:
-        p_name = item.get("plan", "free")
-        if p_name in plan_counts:
-            plan_counts[p_name] = item.get("count", 0)
+        raw_name = str(item.get("plan_name") or item.get("plan") or "free").lower().strip()
+        cnt = int(item.get("count", 0) or 0)
+        if raw_name in ("pro", "pro plan"):
+            plan_counts["pro"] += cnt
+        elif raw_name in ("enterprise", "enterprise plan"):
+            plan_counts["enterprise"] += cnt
+        elif raw_name in ("plus", "plus plan"):
+            plan_counts["plus"] += cnt
+        elif raw_name in ("starter", "starter plan"):
+            plan_counts["starter"] += cnt
+        else:
+            plan_counts["free"] += cnt
 
     # Recent rewrites stream
     recent_raw = fetch_all("""
@@ -97,7 +126,7 @@ async def get_analytics_overview(admin: UserResponse = Depends(require_admin_use
             "original_snippet": (r["original_text"][:60] + "...") if len(r["original_text"]) > 60 else r["original_text"],
             "rewritten_snippet": (r["rewritten_text"][:60] + "...") if len(r["rewritten_text"]) > 60 else r["rewritten_text"],
             "word_count": r.get("word_count", 0),
-            "mode": r.get("mode", "native"),
+            "mode": format_mode_label(r.get("mode")),
             "created_at": str(r["created_at"])
         })
 
@@ -137,20 +166,27 @@ async def list_all_users(
         params.extend([s_term, s_term])
 
     if plan_filter and plan_filter.lower() != "all":
-        query += " AND plan = ?"
-        params.append(plan_filter.lower())
+        p_filter = plan_filter.lower().strip()
+        if p_filter == "plus":
+            query += " AND LOWER(TRIM(COALESCE(plan, 'free'))) IN ('plus', 'starter')"
+        elif p_filter == "free":
+            query += " AND LOWER(TRIM(COALESCE(plan, 'free'))) = 'free'"
+        else:
+            query += " AND LOWER(TRIM(COALESCE(plan, 'free'))) = ?"
+            params.append(p_filter)
 
     query += " ORDER BY created_at DESC"
 
     users_raw = fetch_all(query, tuple(params))
     users_list = []
     for u in users_raw:
+        raw_plan = str(u.get("plan") or "free").lower().strip()
         users_list.append({
             "id": u["id"],
             "name": u["name"],
             "email": u["email"],
-            "plan": u.get("plan", "free"),
-            "role": u.get("role", "user"),
+            "plan": raw_plan,
+            "role": str(u.get("role") or "user").lower().strip(),
             "usage_count": u.get("usage_count", 0),
             "avatar_url": u.get("avatar_url"),
             "created_at": str(u["created_at"])
@@ -264,11 +300,11 @@ async def generate_coupons(
     admin: UserResponse = Depends(require_admin_user)
 ):
     """
-    Generate one or multiple promo coupon codes for starter, plus, or pro plans.
+    Generate one or multiple promo coupon codes for plus, pro, or enterprise plans.
     """
     target_plan = request.plan.lower().strip()
-    if target_plan not in ("starter", "plus", "pro", "enterprise"):
-        raise HTTPException(status_code=400, detail="Invalid plan. Must be starter, plus, pro, or enterprise.")
+    if target_plan not in ("plus", "pro", "enterprise", "starter"):
+        raise HTTPException(status_code=400, detail="Invalid plan. Must be plus, pro, or enterprise.")
 
     generated_codes = []
     prefix = request.prefix.upper().strip() or "CLOAK"

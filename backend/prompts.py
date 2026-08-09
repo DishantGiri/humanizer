@@ -44,6 +44,8 @@ Your objective is to rewrite the input text so it reads naturally, preserves cor
 20. NO MANUFACTURED SUSPENSE OR PATRONIZING ANALOGIES: Never use "Here's the kicker", "Here's the thing", "Think of it as...", "Imagine a world where...", "The truth is simple", or "Let's break this down step by step".
 21. NO SIGNPOSTED CONCLUSIONS OR "DESPITE CHALLENGES" FORMULA: Never start conclusions with "In conclusion", "To sum up", or "In summary". Never use the formula "Despite its challenges, X continues to thrive".
 22. STRICT PROPER NOUN CAPITALIZATION: Always capitalize proper names, countries, cities, and geographic landmarks accurately (e.g. "Nepal", "Mount Everest", "Everest", "Kathmandu"). Never output lowercase proper nouns ("nepal", "mount everest").
+23. STRICT LENGTH & WORD COUNT PARITY: Never inflate the text, elaborate, or add unsolicited explanations, examples, or filler padding. The output word count MUST stay strictly within +/- 10% of the input word count.
+24. NO EM-DASHES: Never use em-dashes (—); always use standard hyphens (-) or commas.
 
 # OUTPUT RULES
 Return ONLY the final rewritten text. Do NOT include thinking tags, commentary, quotes around output, or word count notes.
@@ -53,12 +55,36 @@ Return ONLY the final rewritten text. Do NOT include thinking tags, commentary, 
 # ── Mode-specific instructions ──────────────────────────────────────────────
 
 _MODE_INSTRUCTIONS: dict[str, str] = {
+    "standard": (
+        "Sound like an educated native English speaker in natural conversation. "
+        "Natural idioms: 'figure out' not 'determine', 'come up with' not 'devise'. "
+        "Contractions mandatory. Vary rhythm. Use parenthetical asides when natural. "
+        "Start some sentences with 'And', 'But', 'So'. "
+        "The output should pass as something a real human typed naturally."
+    ),
+    "fluency": (
+        "Clean, fluent, and confident, like a smart colleague's polished communication. "
+        "Use contractions naturally. Get straight to the point. Don't pad with corporate filler. "
+        "It's fine to start with 'But' or 'And'. Avoid robotic buzzwords."
+    ),
+    "natural": (
+        "Like chatting with a thoughtful friend. Contractions everywhere. "
+        "Short sentences mixed with longer conversational ones. Fragments are fine. "
+        "Start with 'So' or 'Look' sometimes. "
+        "This should sound like real spontaneous human writing, not an essay."
+    ),
     "academic": (
         "Smart but readable. Use precise terms only when they're genuinely needed — "
         "don't reach for big words to sound clever. Mix analytical sentences with "
         "shorter direct ones. It's fine to say 'this suggests' instead of always "
         "hedging with 'it could potentially indicate'. Write like a confident researcher, "
         "not a thesaurus."
+    ),
+    "creative": (
+        "Warm, lively, and approachable, like explaining something over coffee. "
+        "Use 'you' and conversational analogies. Rhetorical questions are good. "
+        "Contractions are natural. Throw in 'honestly' or 'actually' occasionally. "
+        "Sound like an engaging person who genuinely wants to connect, not a chatbot."
     ),
     "professional": (
         "Clear and confident, like a smart colleague's email. Use contractions sometimes. "
@@ -147,9 +173,25 @@ _LEVEL_INSTRUCTIONS: dict[int, str] = {
 # ── Retrieval-Augmented Style References (Few-Shot In-Context Learning) ──────
 
 _STYLE_REFERENCES: dict[str, dict[str, str]] = {
+    "standard": {
+        "original": "We must determine a solution to resolve this issue immediately, as it is causing significant inconvenience to our customer base.",
+        "rewritten": "We need to figure this out right away because it's really frustrating our customers."
+    },
+    "fluency": {
+        "original": "It is critical that we leverage our core competencies to facilitate a seamless transition during the upcoming corporate restructuring. Please ensure all key stakeholders are fully aligned with the project milestones by the end of the business day.",
+        "rewritten": "We need to use our main strengths to keep things smooth during the restructuring. Please check that everyone involved is aligned on the project timeline by the end of the day today."
+    },
+    "natural": {
+        "original": "I am writing to express my dissatisfaction with the culinary experience at your establishment. The meat was prepared to an excessive degree, and the service staff demonstrated a notable lack of attentiveness.",
+        "rewritten": "Honestly, the food was a letdown. The steak was way overcooked, and our server basically ignored us the entire night."
+    },
     "academic": {
         "original": "Artificial intelligence technologies exhibit substantial potential for the optimization of diagnostic accuracy within clinical healthcare settings. However, issues regarding dataset bias and algorithmic opacity represent key challenges that necessitate comprehensive mitigation strategies prior to widespread implementation.",
         "rewritten": "AI has real promise for sharpening diagnosis in clinics. But we have to address data bias and opaque 'black box' algorithms before deploying these tools widely."
+    },
+    "creative": {
+        "original": "Should you require assistance with the assembly of your new furniture, I would be pleased to offer my services at a time of your convenience.",
+        "rewritten": "If you need any help putting together your new furniture, just let me know. I'd be happy to swing by whenever works for you!"
     },
     "professional": {
         "original": "It is critical that we leverage our core competencies to facilitate a seamless transition during the upcoming corporate restructuring. Please ensure all key stakeholders are fully aligned with the project milestones by the end of the business day.",
@@ -207,11 +249,11 @@ HOW MUCH TO CHANGE:
     
     word_cnt = len(text.split())
     if word_cnt < 10:
-        min_cnt = max(3, word_cnt - 3)
-        max_cnt = word_cnt + 6
+        min_cnt = max(3, word_cnt - 2)
+        max_cnt = word_cnt + 3
     else:
-        min_cnt = max(5, int(word_cnt * 0.80))
-        max_cnt = int(word_cnt * 1.20)
+        min_cnt = max(5, int(word_cnt * 0.90))
+        max_cnt = max(8, int(word_cnt * 1.10))
 
     user_prompt = f"""STYLE REFERENCE EXAMPLE FOR '{mode_val.upper()}' STYLE:
 Input: "{ref['original']}"
@@ -219,13 +261,14 @@ Rewritten (human style): "{ref['rewritten']}"
 
 ---
 
-LENGTH & PARAPHRASING REQUIREMENT:
-The input text has {word_cnt} words. Target output length range: {min_cnt} to {max_cnt} words.
-Fully rephrase and reorder clauses to eliminate plagiarized n-gram overlap with the input, while preserving all facts!
+CRITICAL LENGTH & FORMATTING REQUIREMENT:
+The input text has {word_cnt} words. Your rewrite MUST have approximately {word_cnt} words (target range: {min_cnt} to {max_cnt} words).
+Do NOT expand, elaborate, or add extra padding sentences!
+Do NOT use em-dashes (—); always use standard hyphens (-) or commas instead.
 
 ---
 
-Now rewrite this input text using all rules:
+Now rewrite this input text:
 
 "{text}" """
 

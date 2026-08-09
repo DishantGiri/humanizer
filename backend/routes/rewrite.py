@@ -16,7 +16,7 @@ from rewriter import TextRewriter, RewriteError
 from verifier import MeaningVerifier
 from translator import TranslationBouncer
 from utils import count_changes, compute_reading_time, sanitize_input, compute_word_diff
-from humanizer import humanize, strip_formatting_artifacts, enforce_short_sentences, add_burstiness
+from humanizer import humanize, strip_formatting_artifacts, enforce_short_sentences, add_burstiness, clean_erroneous_punctuation
 from perplexity import PerplexityOptimizer
 from validators import validate_human_statistics
 
@@ -70,7 +70,7 @@ def get_perplexity_optimizer() -> PerplexityOptimizer:
 
 class RewriteRequest(BaseModel):
     text: str = Field(..., min_length=1, description="The text to rewrite")
-    mode: RewriteMode = Field(default=RewriteMode.NATIVE, description="Rewrite style mode")
+    mode: RewriteMode = Field(default=RewriteMode.STANDARD, description="Rewrite style mode")
     level: RewriteLevel = Field(default=RewriteLevel.MODERATE, description="Rewrite intensity level (1-3)")
 
 
@@ -225,14 +225,15 @@ async def rewrite_text(
                     rewritten_paras = []
                     for p_idx, para in enumerate(orig_paras):
                         p_rewritten = rewriter.rewrite(para, request.mode, request.level)
-                        try:
-                            optimizer = get_perplexity_optimizer()
-                            p_rewritten = optimizer.optimize(p_rewritten, request.mode)
-                        except Exception as opt_err:
-                            logger.warning("Perplexity optimization pass skipped for para %d: %s", p_idx, opt_err)
-
-                        # Step 2.5b: Multi-Language Translation Bounce Pass (HEAVY mode only)
+                        
+                        # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
                         if int(request.level) >= 3:
+                            try:
+                                optimizer = get_perplexity_optimizer()
+                                p_rewritten = optimizer.optimize(p_rewritten, request.mode)
+                            except Exception as opt_err:
+                                logger.warning("Perplexity pass skipped for para %d: %s", p_idx, opt_err)
+
                             try:
                                 bouncer = get_bouncer()
                                 p_rewritten = bouncer.bounce(p_rewritten)
@@ -244,15 +245,15 @@ async def rewrite_text(
                     rewritten = "\n\n".join(rewritten_paras)
                 else:
                     rewritten = rewriter.rewrite(clean_text, request.mode, request.level)
-                    # Step 2.5: Perplexity & Persona Optimization Pass
-                    try:
-                        optimizer = get_perplexity_optimizer()
-                        rewritten = optimizer.optimize(rewritten, request.mode)
-                    except Exception as opt_err:
-                        logger.warning("Perplexity optimization pass skipped: %s", opt_err)
-
-                    # Step 2.5b: Multi-Language Translation Bounce Pass (HEAVY mode only)
+                    
+                    # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
                     if int(request.level) >= 3:
+                        try:
+                            optimizer = get_perplexity_optimizer()
+                            rewritten = optimizer.optimize(rewritten, request.mode)
+                        except Exception as opt_err:
+                            logger.warning("Perplexity pass skipped: %s", opt_err)
+
                         try:
                             bouncer = get_bouncer()
                             rewritten = bouncer.bounce(rewritten)
@@ -261,12 +262,14 @@ async def rewrite_text(
 
                     rewritten = humanize(rewritten, intensity=intensity, original_text=clean_text, mode=request.mode.value)
 
-            # Step 2.6: Post-Hoc Statistical Validation Check
+            # Step 2.6: Post-Hoc Statistical Validation Check & Grammar Sanitization
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
             if not is_valid:
                 logger.info("Statistical validation notice: %s. Applying statistical refinement pass.", val_reason)
-                rewritten = enforce_short_sentences(rewritten, max_words=16)
+                rewritten = enforce_short_sentences(rewritten, max_words=26)
                 rewritten = add_burstiness(rewritten)
+
+            rewritten = clean_erroneous_punctuation(rewritten)
 
             # Store in Redis cache
             set_cached_rewrite(clean_text, request.mode.value, request.level.value, rewritten)
@@ -302,11 +305,23 @@ async def rewrite_text(
         word_cnt = rewritten_stats.word_count
         created_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         
+        raw_mode_str = str(request.mode.value if hasattr(request.mode, 'value') else request.mode).lower().strip()
+        if raw_mode_str in ("native", "standard"):
+            saved_mode = "standard"
+        elif raw_mode_str in ("casual", "natural"):
+            saved_mode = "natural"
+        elif raw_mode_str in ("professional", "fluency", "business"):
+            saved_mode = "fluency"
+        elif raw_mode_str in ("friendly", "creative"):
+            saved_mode = "creative"
+        else:
+            saved_mode = raw_mode_str
+
         q_hist = """
             INSERT INTO history (id, user_id, original_text, rewritten_text, mode, level, word_count, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
-        execute_query(q_hist, (hist_id, user.id, clean_text, rewritten, str(request.mode.value if hasattr(request.mode, 'value') else request.mode), int(request.level), word_cnt, created_at))
+        execute_query(q_hist, (hist_id, user.id, clean_text, rewritten, saved_mode, int(request.level), word_cnt, created_at))
 
     return RewriteResponse(
         rewritten=rewritten,
@@ -333,7 +348,30 @@ async def get_user_history(current_user: UserResponse = Depends(get_current_user
         FROM history
         WHERE user_id = ?
         ORDER BY created_at DESC
-        LIMIT 50
+        LIMIT 100
     """
     rows = fetch_all(q_get, (current_user.id,))
-    return rows
+    results = []
+    for r in rows:
+        m = str(r.get("mode") or "standard").lower().strip()
+        if m in ("native", "standard"):
+            normalized_mode = "standard"
+        elif m in ("casual", "natural"):
+            normalized_mode = "natural"
+        elif m in ("professional", "fluency", "business"):
+            normalized_mode = "fluency"
+        elif m in ("friendly", "creative"):
+            normalized_mode = "creative"
+        else:
+            normalized_mode = m
+
+        results.append({
+            "id": r["id"],
+            "original_text": r["original_text"],
+            "rewritten_text": r["rewritten_text"],
+            "mode": normalized_mode,
+            "level": r.get("level", 2),
+            "word_count": r.get("word_count", 0),
+            "created_at": str(r["created_at"])
+        })
+    return results

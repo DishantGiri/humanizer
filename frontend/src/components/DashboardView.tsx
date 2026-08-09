@@ -12,12 +12,15 @@ import {
   Copy,
   Check,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
-import { getUserHistory, type User, type HistoryItem } from '@/lib/api';
+import { getUserHistory, getCurrentUser, formatModeLabel, type User, type HistoryItem } from '@/lib/api';
 
 interface DashboardViewProps {
   user: User | null;
   token: string | null;
+  onUpdateUser?: (user: User) => void;
   onNavigateToHumanizer: () => void;
   onNavigateToPricing: () => void;
   onRequireAuth: () => void;
@@ -26,6 +29,7 @@ interface DashboardViewProps {
 export default function DashboardView({
   user,
   token,
+  onUpdateUser,
   onNavigateToHumanizer,
   onNavigateToPricing,
   onRequireAuth,
@@ -33,9 +37,26 @@ export default function DashboardView({
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PER_PAGE = 5;
+
+  const totalHistoryPages = Math.ceil(history.length / HISTORY_PER_PAGE) || 1;
+  const currentHistoryPage = Math.min(historyPage, totalHistoryPages);
+  const paginatedHistory = history.slice(
+    (currentHistoryPage - 1) * HISTORY_PER_PAGE,
+    currentHistoryPage * HISTORY_PER_PAGE
+  );
 
   useEffect(() => {
-    if (user && token) {
+    if (token) {
+      const fetchUserData = () => {
+        getCurrentUser(token)
+          .then((freshUser) => {
+            if (onUpdateUser) onUpdateUser(freshUser);
+          })
+          .catch(() => {});
+      };
+
       const fetchHistory = (silent = false) => {
         if (!silent) setLoadingHistory(true);
         getUserHistory(token)
@@ -46,14 +67,17 @@ export default function DashboardView({
           });
       };
 
+      fetchUserData();
       fetchHistory(false);
+
       const interval = setInterval(() => {
+        fetchUserData();
         fetchHistory(true);
-      }, 15000); // Background poll user history every 15s
+      }, 10000); // Live poll user & history every 10s
 
       return () => clearInterval(interval);
     }
-  }, [user, token]);
+  }, [token, onUpdateUser]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -61,7 +85,7 @@ export default function DashboardView({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const plan = user ? user.plan : 'free';
+  const plan = (user?.plan || 'free').toLowerCase().trim();
   const PLAN_DAILY_LIMITS: Record<string, number> = {
     free: 10,
     starter: 30,
@@ -134,10 +158,10 @@ export default function DashboardView({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span style={{ fontSize: '1.6rem', fontWeight: 800, textTransform: 'capitalize' }}>
-              {plan === 'enterprise' ? 'Enterprise' : plan === 'pro' ? 'Pro Member' : plan === 'plus' ? 'Plus Member' : 'Free Tier'}
+              {plan === 'enterprise' ? 'Enterprise' : plan === 'pro' ? 'Pro Member' : (plan === 'plus' || plan === 'starter') ? 'Plus Member' : 'Free Tier'}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
-              {plan === 'enterprise' ? '$5/month' : plan === 'pro' ? '$2/month' : plan === 'plus' ? '$1/month' : '$0/month'}
+              {plan === 'enterprise' ? '$5/month' : plan === 'pro' ? '$2/month' : (plan === 'plus' || plan === 'starter') ? '$1/month' : '$0/month'}
             </span>
           </div>
           {plan === 'free' && (
@@ -290,7 +314,7 @@ export default function DashboardView({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {history.map((item) => (
+            {paginatedHistory.map((item) => (
               <div
                 key={item.id}
                 style={{
@@ -305,8 +329,8 @@ export default function DashboardView({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className="chip" style={{ textTransform: 'capitalize' }}>
-                      Mode: {item.mode}
+                    <span className="chip">
+                      Mode: {formatModeLabel(item.mode)}
                     </span>
                     <span className="chip">Level {item.level}</span>
                     <span className="chip">{item.word_count} words</span>
@@ -330,6 +354,109 @@ export default function DashboardView({
                 </span>
               </div>
             ))}
+
+            {/* Pagination Controls */}
+            {totalHistoryPages > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: '12px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                  Showing {(currentHistoryPage - 1) * HISTORY_PER_PAGE + 1} - {Math.min(currentHistoryPage * HISTORY_PER_PAGE, history.length)} of {history.length} humanizations
+                </span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={currentHistoryPage === 1}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-secondary)',
+                      color: currentHistoryPage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: currentHistoryPage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: currentHistoryPage === 1 ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <ChevronLeft size={14} /> Previous
+                  </button>
+
+                  {Array.from({ length: totalHistoryPages }, (_, idx) => idx + 1).map((pg) => {
+                    if (
+                      pg === 1 ||
+                      pg === totalHistoryPages ||
+                      Math.abs(pg - currentHistoryPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pg}
+                          type="button"
+                          onClick={() => setHistoryPage(pg)}
+                          style={{
+                            minWidth: '32px',
+                            height: '32px',
+                            padding: '0 6px',
+                            borderRadius: '8px',
+                            border: pg === currentHistoryPage ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
+                            background: pg === currentHistoryPage ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg-secondary)',
+                            color: pg === currentHistoryPage ? '#38bdf8' : 'var(--text-secondary)',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {pg}
+                        </button>
+                      );
+                    }
+                    if (pg === 2 && currentHistoryPage > 3) {
+                      return <span key="ellipsis-start" style={{ color: 'var(--text-tertiary)', padding: '0 2px' }}>...</span>;
+                    }
+                    if (pg === totalHistoryPages - 1 && currentHistoryPage < totalHistoryPages - 2) {
+                      return <span key="ellipsis-end" style={{ color: 'var(--text-tertiary)', padding: '0 2px' }}>...</span>;
+                    }
+                    return null;
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    disabled={currentHistoryPage === totalHistoryPages}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-secondary)',
+                      color: currentHistoryPage === totalHistoryPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: currentHistoryPage === totalHistoryPages ? 'not-allowed' : 'pointer',
+                      opacity: currentHistoryPage === totalHistoryPages ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -43,6 +43,8 @@ import {
   generateAdminCoupons,
   revokeAdminCoupon,
   updateAdminCredentials,
+  formatModeLabel,
+  formatPlanLabel,
   type AdminAnalyticsResponse,
   type AdminUser,
   type AdminCoupon,
@@ -539,9 +541,10 @@ export default function AdminView({ user, token }: AdminViewProps) {
                   { name: 'Pro Plan ($2/mo)', key: 'pro', color: '#10b981' },
                   { name: 'Enterprise Plan ($5/mo)', key: 'enterprise', color: '#ec4899' },
                 ].map((item) => {
-                  const count = (analytics.plan_breakdown[item.key] || 0) + (item.altKey ? (analytics.plan_breakdown[item.altKey] || 0) : 0);
-                  const total = analytics.stats.total_users || 1;
-                  const pct = Math.round((count / total) * 100);
+                  const breakdown = analytics.plan_breakdown || {};
+                  const count = (breakdown[item.key] || 0) + (item.altKey ? (breakdown[item.altKey] || 0) : 0);
+                  const total = analytics.stats?.total_users || 1;
+                  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
 
                   return (
                     <div key={item.key} style={{ background: 'rgba(255,255,255,0.02)', padding: '14px 18px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
@@ -598,7 +601,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                       </td>
                       <td>
                         <span className="admin-pill-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                          {item.mode}
+                          {formatModeLabel(item.mode)}
                         </span>
                       </td>
                       <td style={{ fontWeight: 800, color: '#10b981' }}>{item.word_count}</td>
@@ -726,7 +729,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                                 border: `1px solid ${u.plan === 'enterprise' ? 'rgba(236, 72, 153, 0.35)' : u.plan === 'pro' ? 'rgba(16, 185, 129, 0.35)' : (u.plan === 'plus' || u.plan === 'starter') ? 'rgba(56, 189, 248, 0.35)' : 'rgba(148, 163, 184, 0.35)'}`,
                               }}
                             >
-                              {u.plan.toUpperCase()}
+                              {formatPlanLabel(u.plan).toUpperCase()}
                             </span>
                           </td>
                           <td>
@@ -964,7 +967,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                           </td>
                           <td>
                             <span className="admin-pill-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                              {c.plan.toUpperCase()}
+                              {formatPlanLabel(c.plan).toUpperCase()}
                             </span>
                           </td>
                           <td style={{ fontWeight: 700 }}>
@@ -1047,10 +1050,10 @@ export default function AdminView({ user, token }: AdminViewProps) {
                   fontSize: '0.9rem',
                 }}
               >
-                <option value="free" style={{ background: '#0f172a' }}>Free Plan ($0/mo - 250 words)</option>
-                <option value="plus" style={{ background: '#0f172a' }}>Plus Plan ($1/mo - 600 words)</option>
-                <option value="pro" style={{ background: '#0f172a' }}>Pro Plan ($2/mo - 1,200 words)</option>
-                <option value="enterprise" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo - 2,500 words)</option>
+                <option value="free" style={{ background: '#0f172a' }}>Free Plan ($0/mo - 400 words)</option>
+                <option value="plus" style={{ background: '#0f172a' }}>Plus Plan ($1/mo - 1,000 words)</option>
+                <option value="pro" style={{ background: '#0f172a' }}>Pro Plan ($2/mo - 2,500 words)</option>
+                <option value="enterprise" style={{ background: '#0f172a' }}>Enterprise Plan ($5/mo - 5,000 words)</option>
               </select>
             </div>
 

@@ -60,6 +60,42 @@ class ModeProfile:
 # ── Mode Profiles Configuration ──────────────────────────────────────────────
 
 MODE_PROFILES: dict[str, ModeProfile] = {
+    "standard": ModeProfile(
+        name="standard",
+        target_len_range=(10.0, 15.0),
+        target_stdev_range=(4.5, 8.5),
+        contraction_target=(0.06, 0.14),
+        ttr_target=(0.58, 0.70),
+        discourse_markers=["Noticeably,", "As it turns out,", "That said,", "Well,"],
+        hedges=["seems to be", "in a way", "for the most part"],
+        max_disfluencies=1,
+        allow_fragments=True,
+        formality_score=0.4,
+    ),
+    "fluency": ModeProfile(
+        name="fluency",
+        target_len_range=(11.0, 16.0),
+        target_stdev_range=(4.0, 7.0),
+        contraction_target=(0.03, 0.07),
+        ttr_target=(0.60, 0.72),
+        discourse_markers=["However,", "That said,", "Plus,", "In practice,"],
+        hedges=["expected to", "tends to", "generally"],
+        max_disfluencies=0,
+        allow_fragments=False,
+        formality_score=0.7,
+    ),
+    "natural": ModeProfile(
+        name="natural",
+        target_len_range=(9.0, 14.0),
+        target_stdev_range=(5.0, 9.0),
+        contraction_target=(0.08, 0.16),
+        ttr_target=(0.55, 0.68),
+        discourse_markers=["Honestly,", "I mean,", "Anyway,", "Look,", "Actually,"],
+        hedges=["I think", "probably", "pretty much", "sort of"],
+        max_disfluencies=2,
+        allow_fragments=True,
+        formality_score=0.2,
+    ),
     "academic": ModeProfile(
         name="academic",
         target_len_range=(14.0, 19.0),
@@ -71,6 +107,18 @@ MODE_PROFILES: dict[str, ModeProfile] = {
         max_disfluencies=0,
         allow_fragments=False,
         formality_score=0.9,
+    ),
+    "creative": ModeProfile(
+        name="creative",
+        target_len_range=(9.0, 15.0),
+        target_stdev_range=(5.0, 9.0),
+        contraction_target=(0.06, 0.14),
+        ttr_target=(0.60, 0.75),
+        discourse_markers=["Interestingly,", "Honestly,", "Picture this:", "As it happens,"],
+        hedges=["in many ways", "arguably", "to some extent"],
+        max_disfluencies=1,
+        allow_fragments=True,
+        formality_score=0.35,
     ),
     "casual": ModeProfile(
         name="casual",
@@ -122,7 +170,7 @@ MODE_PROFILES: dict[str, ModeProfile] = {
     ),
 }
 
-DEFAULT_PROFILE = MODE_PROFILES["native"]
+DEFAULT_PROFILE = MODE_PROFILES["standard"]
 
 
 # ── AI Vocabulary & Transition Knowledge Bases ───────────────────────────────
@@ -367,32 +415,21 @@ def analyze_text(text: str) -> TextStats:
 def engineer_rhythm_and_cadence(sentences: list[str], profile: ModeProfile, rng: random.Random) -> list[str]:
     """
     Creates natural human sentence waves (pulsing rhythm of alternating short/long sentences)
-    and inserts discourse markers at natural breakpoints.
+    and inserts discourse markers at natural breakpoints without adding artificial sentences.
     """
     if len(sentences) < 3:
         return sentences
 
     result = []
-    i = 0
-    while i < len(sentences):
-        sent = sentences[i]
+    for sent in sentences:
         words = sent.split()
-        
         # Insert dynamic discourse marker on long flat sentences (if allowed by profile)
-        if len(words) > 16 and profile.discourse_markers and rng.random() < 0.25:
+        if len(words) > 16 and profile.discourse_markers and rng.random() < 0.20:
             marker = rng.choice(profile.discourse_markers)
             if not any(sent.startswith(m) for m in profile.discourse_markers):
                 sent = f"{marker} {sent[0].lower() + sent[1:]}"
 
         result.append(sent)
-
-        # Pulse check: if two consecutive long sentences occur, force a punchy short fragment/idea
-        if i + 1 < len(sentences) and len(words) > 15 and len(sentences[i + 1].split()) > 15:
-            if profile.allow_fragments and rng.random() < 0.35:
-                punchy = rng.choice(["That matters.", "Clearly.", "Simple as that.", "No question about it."])
-                result.append(punchy)
-
-        i += 1
 
     return result
 
@@ -761,10 +798,70 @@ def strip_outer_quotes(text: str) -> str:
 
 
 def strip_formatting_artifacts(text: str) -> str:
-    """Clean up markdown emojis, bold markdown, and decorative dashes."""
+    """Clean up markdown emojis, bold markdown, and replace em-dashes with hyphens manually."""
     text = re.sub(r'\*{2,}', '', text)
-    text = text.replace("\u2014", ", ").replace("\u2013", ", ").replace(" - ", ", ").replace(" -- ", ", ")
+    # Manually replace em-dashes and en-dashes with standard hyphens
+    text = text.replace("\u2014", " - ").replace("\u2013", " - ").replace("&mdash;", " - ").replace("&ndash;", " - ").replace(" -- ", " - ")
+    text = re.sub(r'\s*—\s*', ' - ', text)
+    text = re.sub(r'\s*–\s*', ' - ', text)
     return text
+
+
+def clean_erroneous_punctuation(text: str) -> str:
+    """
+    Cleans up erroneous mid-sentence punctuation and period insertions to guarantee
+    grammatically valid sentence boundaries and fluent English.
+    """
+    if not text:
+        return text
+
+    # Manually replace em-dashes and en-dashes with hyphens
+    text = text.replace("\u2014", " - ").replace("\u2013", " - ").replace("&mdash;", " - ").replace("&ndash;", " - ")
+    text = re.sub(r'\s*—\s*', ' - ', text)
+    text = re.sub(r'\s*–\s*', ' - ', text)
+
+    # 1. Fix periods immediately before prepositions, articles, or connecting words/adverbs
+    # e.g., "insights into. Individual" -> "insights into individual", "easily. Digestible" -> "easily digestible"
+    bad_split_starters = (
+        r'into|of|for|with|to|in|on|at|by|from|about|against|between|through|during|before|after|'
+        r'above|below|upon|toward|towards|under|within|without|because|since|unless|until|'
+        r'although|though|while|whereas|despite|except|besides|individual|easily|digestible|'
+        r'unequal|learning|and|or|nor|but|yet|so'
+    )
+    
+    def _fix_mid_sentence_split(m):
+        before = m.group(1).rstrip('.')
+        word = m.group(2)
+        if word.lower() in ('and', 'but', 'so', 'or', 'nor', 'yet', 'while', 'because', 'since', 'although'):
+            return f"{before}, {word.lower()}"
+        return f"{before} {word.lower()}"
+
+    text = re.sub(
+        rf'(\b\w+)\.\s+({bad_split_starters})\b',
+        _fix_mid_sentence_split,
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # 2. Fix periods immediately followed by lowercase words: "word. lowercase" -> "word lowercase"
+    text = re.sub(r'(\b\w{2,})\.\s+([a-z])', r'\1 \2', text)
+
+    # 3. Clean consecutive periods, duplicate commas, or spaces before punctuation
+    text = re.sub(r'\.{2,}', '.', text)
+    text = re.sub(r',,+', ',', text)
+    text = re.sub(r'\s+([,.;:!?])', r'\1', text)
+    text = re.sub(r'([,;:])\s*([.!?])', r'\2', text)
+
+    # 4. Fix dangling prepositions with trailing period: "into." -> "into"
+    text = re.sub(r'\b(into|with|from|about|through|under|over|upon|at|by|to|for|of)\.\s+', r'\1 ', text, flags=re.IGNORECASE)
+
+    # 5. Fix double spaces
+    text = re.sub(r' +', ' ', text)
+
+    # 6. Ensure true sentences start with a capital letter
+    text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+
+    return text.strip()
 
 
 def add_burstiness(text: str) -> str:
@@ -774,25 +871,37 @@ def add_burstiness(text: str) -> str:
     rng = random.Random(hash(text))
     if stats.std_sentence_length < 4.0:
         sentences = engineer_rhythm_and_cadence(sentences, DEFAULT_PROFILE, rng)
-    return _join_sentences(sentences)
+    return clean_erroneous_punctuation(_join_sentences(sentences))
 
 
-def enforce_short_sentences(text: str, max_words: int = 22) -> str:
-    """Helper function exposed for routes compatibility."""
+def enforce_short_sentences(text: str, max_words: int = 24) -> str:
+    """
+    Safely breaks very long sentences ONLY at grammatically valid compound clause boundaries.
+    Never splits words arbitrarily or creates sentence fragments.
+    """
     sentences = _split_sentences(text)
     res = []
     for s in sentences:
         words = s.split()
         if len(words) > max_words:
-            mid = len(words) // 2
-            first = " ".join(words[:mid]).rstrip(',') + "."
-            second = " ".join(words[mid:])
-            if second:
-                second = second[0].upper() + second[1:]
-            res.extend([first, second])
-        else:
-            res.append(s)
-    return _join_sentences(res)
+            # Look for compound sentence boundary: comma + coordinating conjunction + subject pronoun
+            split_match = re.search(
+                r'(,\s*(?:and|but|so|while)\s+(?:it|this|they|these|we|you|he|she)\s+)',
+                s,
+                flags=re.IGNORECASE
+            )
+            if split_match:
+                part1 = s[:split_match.start()].strip().rstrip(',') + "."
+                part2_raw = s[split_match.start() + 1:].strip()
+                part2_cleaned = re.sub(r'^(?:and|but|so|while)\s+', '', part2_raw, flags=re.IGNORECASE).strip()
+                if part2_cleaned:
+                    part2 = part2_cleaned[0].upper() + part2_cleaned[1:]
+                    if part1 and part2:
+                        res.extend([part1, part2])
+                        continue
+        res.append(s)
+    joined = _join_sentences(res)
+    return clean_erroneous_punctuation(joined)
 
 
 # ── Main Entry Point ─────────────────────────────────────────────────────────
@@ -873,9 +982,8 @@ def humanize(
     # Step 5: Apply paragraph intelligence & strict parity
     text = apply_paragraph_intelligence(text, original_text, rng)
 
-    # Step 6: Final Punctuation, Article Polish & Proper Noun Capitalization
-    text = re.sub(r'\.{2,}', '.', text)
-    text = re.sub(r',,+', ',', text)
+    # Step 6: Final Punctuation, Grammar Sanitation & Proper Noun Capitalization
+    text = clean_erroneous_punctuation(text)
     text = re.sub(r'\b(an)\s+([b-df-hj-np-tv-z])', r'a \2', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:So,?\s+|So\s+this\s+way,?\s+)', '', text, flags=re.IGNORECASE | re.MULTILINE)
 
@@ -898,5 +1006,5 @@ def humanize(
     text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
     text = re.sub(r'  +', ' ', text)
 
-    final_text = text.strip()
+    final_text = clean_erroneous_punctuation(text.strip())
     return final_text if final_text else (original_text or text)

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Crown, Sparkles, Zap, Shield, Loader2, ArrowRight, X, Ticket } from 'lucide-react';
+import { Check, Loader2, ArrowRight, Ticket, AlertCircle } from 'lucide-react';
 import { createRazorpayOrder, verifyRazorpayPayment, redeemCoupon, type User } from '@/lib/api';
 import { toast } from '@/components/Toast';
 
@@ -19,10 +19,9 @@ export default function PricingView({
   onRequireAuth,
 }: PricingViewProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [paymentModalPlan, setPaymentModalPlan] = useState<string | null>(null);
-  const [couponCode, setCouponCode] = useState('');
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState<string | null>(null);
+  const [pageCouponCode, setPageCouponCode] = useState('');
+  const [pageCouponLoading, setPageCouponLoading] = useState(false);
+  const [pageCouponError, setPageCouponError] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annually'>('monthly');
 
   const PLAN_RANKS: Record<string, number> = {
@@ -33,15 +32,17 @@ export default function PricingView({
     enterprise: 3,
   };
 
-  const currentPlan = user?.plan || 'free';
+  const currentPlan = (user?.plan || 'free').toLowerCase();
   const currentRank = PLAN_RANKS[currentPlan] ?? 0;
 
-  const openPaymentModal = (planName: string) => {
+  // Direct upgrade flow via Payment Gateway
+  const handleDirectUpgrade = async (planName: string) => {
     if (!user || !token) {
-      toast.info('Please log in or register to select a plan.');
+      toast.info('Please log in or register to choose a plan.');
       onRequireAuth();
       return;
     }
+
     const targetRank = PLAN_RANKS[planName] ?? 0;
     if (targetRank === currentRank) {
       toast.info(`You are already on the ${planName.toUpperCase()} plan.`);
@@ -51,54 +52,34 @@ export default function PricingView({
       toast.warning('Downgrading plans is not available. You can only upgrade to higher tier plans.');
       return;
     }
-    setCouponCode('');
-    setCouponError(null);
-    setPaymentModalPlan(planName);
-  };
 
-  const closePaymentModal = () => {
-    setPaymentModalPlan(null);
-    setCouponCode('');
-    setCouponError(null);
-  };
-
-  const handleCouponRedeem = async () => {
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a coupon code.');
-      return;
-    }
-    if (!token || !paymentModalPlan) return;
-
-    setCouponLoading(true);
-    setCouponError(null);
+    setLoadingPlan(planName);
 
     try {
-      const updatedUser = await redeemCoupon(token, couponCode.trim());
-      onUpdateUser({ ...updatedUser, plan: updatedUser.plan || paymentModalPlan });
-      toast.success(`Coupon redeemed! ${updatedUser.plan.toUpperCase()} plan activated.`);
-      closePaymentModal();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Coupon redemption failed.';
-      setCouponError(msg);
-    } finally {
-      setCouponLoading(false);
-    }
-  };
+      // Ensure Razorpay SDK script is dynamically available
+      if (typeof (window as unknown as { Razorpay: unknown }).Razorpay === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        document.head.appendChild(script);
+        await new Promise((resolve) => {
+          script.onload = resolve;
+          script.onerror = resolve;
+        });
+      }
 
-  const handleRazorpayPayment = async () => {
-    if (!user || !token || !paymentModalPlan) return;
+      if (typeof (window as unknown as { Razorpay: unknown }).Razorpay === 'undefined') {
+        throw new Error('Payment gateway could not be loaded. Please check your internet connection or use a promo voucher code.');
+      }
 
-    setLoadingPlan(paymentModalPlan);
-
-    try {
-      const order = await createRazorpayOrder(token, paymentModalPlan);
+      const order = await createRazorpayOrder(token, planName);
 
       const options = {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
         name: 'CloakWriter',
-        description: `${paymentModalPlan.charAt(0).toUpperCase() + paymentModalPlan.slice(1)} Plan Subscription`,
+        description: `${planName.charAt(0).toUpperCase() + planName.slice(1)} Plan Subscription`,
         order_id: order.order_id,
         handler: async (response: {
           razorpay_order_id: string;
@@ -110,11 +91,10 @@ export default function PricingView({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              plan: paymentModalPlan,
+              plan: planName,
             });
-            onUpdateUser({ ...updatedUser, plan: paymentModalPlan });
-            toast.success(`Successfully activated ${paymentModalPlan.toUpperCase()} Plan!`);
-            closePaymentModal();
+            onUpdateUser({ ...updatedUser, plan: planName });
+            toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Payment verification failed.';
             toast.danger(msg);
@@ -129,7 +109,7 @@ export default function PricingView({
         theme: { color: '#38bdf8' },
         modal: {
           ondismiss: () => {
-            toast.info('Payment cancelled.');
+            toast.info('Payment checkout dismissed.');
             setLoadingPlan(null);
           },
         },
@@ -139,217 +119,42 @@ export default function PricingView({
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to initiate payment.';
+      const msg = err instanceof Error ? err.message : 'Payment gateway currently unavailable. You can enter a promo voucher code below for instant activation.';
       toast.danger(msg);
       setLoadingPlan(null);
     }
   };
 
-  const planDisplayName = paymentModalPlan
-    ? paymentModalPlan.charAt(0).toUpperCase() + paymentModalPlan.slice(1)
-    : '';
+  // Promo code direct redemption
+  const handlePageCouponRedeem = async () => {
+    if (!pageCouponCode.trim()) {
+      setPageCouponError('Please enter a promo coupon code.');
+      return;
+    }
+    if (!token || !user) {
+      toast.info('Please log in or register to redeem a promo code.');
+      onRequireAuth();
+      return;
+    }
+
+    setPageCouponLoading(true);
+    setPageCouponError(null);
+
+    try {
+      const updatedUser = await redeemCoupon(token, pageCouponCode.trim());
+      onUpdateUser(updatedUser);
+      toast.success(`Promo code applied! ${updatedUser.plan.toUpperCase()} Plan activated.`);
+      setPageCouponCode('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Invalid or expired coupon code.';
+      setPageCouponError(msg);
+    } finally {
+      setPageCouponLoading(false);
+    }
+  };
 
   return (
     <div className="pricing-section-container">
-
-      {/* ── Payment Modal ──────────────────────────────────────────────── */}
-      {paymentModalPlan && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(6px)',
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) closePaymentModal(); }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '440px',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '16px',
-              padding: '32px 28px',
-              position: 'relative',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={closePaymentModal}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-tertiary)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <X size={20} />
-            </button>
-
-            {/* Modal Header */}
-            <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' }}>
-                Activate {planDisplayName} Plan
-              </h3>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                Choose how you&apos;d like to subscribe
-              </p>
-            </div>
-
-            {/* ── Coupon Section ── */}
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  marginBottom: '10px',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <Ticket size={16} color="#38bdf8" />
-                Have a coupon code?
-              </label>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => { setCouponCode(e.target.value); setCouponError(null); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleCouponRedeem(); }}
-                  placeholder="e.g. HUMYN-a7f3e9c1b2d04815"
-                  style={{
-                    flex: 1,
-                    padding: '11px 14px',
-                    borderRadius: '10px',
-                    border: couponError
-                      ? '1px solid rgba(239, 68, 68, 0.6)'
-                      : '1px solid var(--border-subtle)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    fontFamily: 'monospace',
-                    letterSpacing: '0.02em',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleCouponRedeem}
-                  disabled={couponLoading || !couponCode.trim()}
-                  style={{
-                    padding: '11px 18px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: '#38bdf8',
-                    color: '#0f172a',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    cursor: couponLoading || !couponCode.trim() ? 'not-allowed' : 'pointer',
-                    opacity: couponLoading || !couponCode.trim() ? 0.6 : 1,
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'opacity 0.2s',
-                  }}
-                >
-                  {couponLoading ? (
-                    <Loader2 size={15} className="spinner-animate" />
-                  ) : (
-                    'Redeem'
-                  )}
-                </button>
-              </div>
-
-              {/* Coupon Error */}
-              {couponError && (
-                <p style={{
-                  color: '#f87171',
-                  fontSize: '0.8rem',
-                  marginTop: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}>
-                  {couponError}
-                </p>
-              )}
-            </div>
-
-            {/* ── OR Divider ── */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                margin: '24px 0',
-              }}
-            >
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                or
-              </span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-            </div>
-
-            {/* ── Razorpay Section ── */}
-            <button
-              type="button"
-              onClick={handleRazorpayPayment}
-              disabled={loadingPlan === paymentModalPlan}
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 50%, #2563EB 100%)',
-                color: '#FFFFFF',
-                fontWeight: 700,
-                fontSize: '0.92rem',
-                cursor: loadingPlan === paymentModalPlan ? 'not-allowed' : 'pointer',
-                opacity: loadingPlan === paymentModalPlan ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 18px rgba(59, 130, 246, 0.35)',
-                transition: 'all 0.2s',
-              }}
-            >
-              {loadingPlan === paymentModalPlan ? (
-                <Loader2 size={16} className="spinner-animate" />
-              ) : (
-                <>
-                  Pay with Razorpay <ArrowRight size={15} />
-                </>
-              )}
-            </button>
-
-            <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '16px' }}>
-              Secure payment powered by Razorpay. Cancel anytime.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Header & Billing Cycle Toggle */}
       <div className="pricing-header">
         <h2 className="pricing-header-title">Flexible Plans for Every Writer</h2>
@@ -447,9 +252,10 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-white"
-                  onClick={() => openPaymentModal('plus')}
+                  disabled={loadingPlan === 'plus'}
+                  onClick={() => handleDirectUpgrade('plus')}
                 >
-                  Upgrade to Plus
+                  {loadingPlan === 'plus' ? <Loader2 size={16} className="spinner-animate" /> : 'Upgrade to Plus'}
                 </button>
               ) : (
                 <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -498,9 +304,10 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-dark"
-                  onClick={() => openPaymentModal('pro')}
+                  disabled={loadingPlan === 'pro'}
+                  onClick={() => handleDirectUpgrade('pro')}
                 >
-                  Upgrade to Pro
+                  {loadingPlan === 'pro' ? <Loader2 size={16} className="spinner-animate" /> : 'Upgrade to Pro'}
                 </button>
               ) : (
                 <div style={{ opacity: 0.45, cursor: 'not-allowed', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -552,9 +359,10 @@ export default function PricingView({
                 <button
                   type="button"
                   className="pricing-btn-dark"
-                  onClick={() => openPaymentModal('enterprise')}
+                  disabled={loadingPlan === 'enterprise'}
+                  onClick={() => handleDirectUpgrade('enterprise')}
                 >
-                  Upgrade to Enterprise
+                  {loadingPlan === 'enterprise' ? <Loader2 size={16} className="spinner-animate" /> : 'Upgrade to Enterprise'}
                 </button>
               )}
             </div>
@@ -579,6 +387,55 @@ export default function PricingView({
           </div>
         </div>
 
+      </div>
+
+      {/* Promo Code Quick Redeem Banner (Placed Below Pricing Cards) */}
+      <div className="pricing-redeem-card">
+        <div className="pricing-redeem-header">
+          <div className="pricing-redeem-title">
+            <Ticket size={18} />
+            <span>Promo or Referral Code</span>
+          </div>
+          <span className="pricing-redeem-badge">
+            Instant Free Access
+          </span>
+        </div>
+
+        <p className="pricing-redeem-desc">
+          Have a voucher or coupon code? Enter it below to unlock instant subscription tier upgrades without payment.
+        </p>
+
+        <div className="pricing-redeem-form">
+          <input
+            type="text"
+            className={`pricing-redeem-input ${pageCouponError ? 'pricing-redeem-input--error' : ''}`}
+            value={pageCouponCode}
+            onChange={(e) => { setPageCouponCode(e.target.value); setPageCouponError(null); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handlePageCouponRedeem(); }}
+            placeholder="e.g. HUMYN-4a2b9c1d or CLOAK-PRO-..."
+          />
+          <button
+            type="button"
+            className="pricing-redeem-btn"
+            onClick={handlePageCouponRedeem}
+            disabled={pageCouponLoading || !pageCouponCode.trim()}
+          >
+            {pageCouponLoading ? (
+              <Loader2 size={15} className="spinner-animate" />
+            ) : (
+              <>
+                Apply Code <ArrowRight size={14} />
+              </>
+            )}
+          </button>
+        </div>
+
+        {pageCouponError && (
+          <div className="pricing-redeem-error">
+            <AlertCircle size={14} />
+            <span>{pageCouponError}</span>
+          </div>
+        )}
       </div>
     </div>
   );

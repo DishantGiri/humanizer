@@ -55,32 +55,37 @@ class PerplexityOptimizer:
         Runs the perplexity and persona pass combined into a single fast call
         using a temperature of 1.3 to maximize sentence variety.
         """
-        mode_val = mode.value if hasattr(mode, 'value') else str(mode)
-        if mode_val in (RewriteMode.CASUAL, RewriteMode.FRIENDLY, RewriteMode.SIMPLE):
+        mode_val = (mode.value if hasattr(mode, 'value') else str(mode)).lower()
+        if mode_val in (RewriteMode.NATURAL.value, RewriteMode.CREATIVE.value, RewriteMode.CASUAL.value, RewriteMode.FRIENDLY.value, RewriteMode.SIMPLE.value):
             persona = "college student writing an organic, personal essay"
-        elif mode_val in (RewriteMode.ACADEMIC, RewriteMode.FORMAL):
+        elif mode_val in (RewriteMode.ACADEMIC.value, RewriteMode.FORMAL.value):
             persona = "scholarly subject matter expert writing a peer-reviewed paper"
-        elif mode_val in (RewriteMode.PROFESSIONAL, RewriteMode.BUSINESS, RewriteMode.CONCISE):
+        elif mode_val in (RewriteMode.FLUENCY.value, RewriteMode.PROFESSIONAL.value, RewriteMode.BUSINESS.value, RewriteMode.CONCISE.value):
             persona = "seasoned industry executive and expert"
         else:
             persona = "highly educated native English speaker"
+
+        orig_words = len(text.split())
+        min_words = max(5, int(orig_words * 0.90))
+        max_words = max(8, int(orig_words * 1.10))
 
         # Combined instruction: paraphrase to increase perplexity, vary sentence rhythm, and apply persona
         system_prompt = (
             f"You are a {persona}. "
             "Paraphrase the following text so it reads naturally, preserves core meaning, intent, and emphasis, and sounds like it was written by a skilled human author.\n"
             "CORE PRINCIPLES:\n"
-            "1. NATURAL SENTENCE VARIATION: Mix short, punchy lines with medium and occasional longer sentences naturally. Avoid repetitive rhythm.\n"
-            "2. STRUCTURAL PARAPHRASING: Rephrase sentence structure and wording naturally where possible. Preserve any phrases that must remain unchanged (names, quotes, technical terms, code).\n"
-            "3. RANDOM UNPREDICTABLE SYNTAX: Never repeat consecutive sentence openings or clause patterns. Alternate between prepositional openers ('In practice...'), clause inversions ('Because of this...'), micro-sentences (3-5 words), and action starters to eliminate predictable structures.\n"
-            "4. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
-            "5. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure.\n"
-            "6. NO OVERLY POLISHED PROSE: Write unpretentiously and directly. Avoid pristine, immaculate, hyper-polished corporate language.\n"
-            "7. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
+            f"1. STRICT WORD COUNT: The input is {orig_words} words. Your rewrite MUST be between {min_words} and {max_words} words. Do NOT add extra explanations, padding, or commentary.\n"
+            "2. NATURAL SENTENCE VARIATION: Mix short, punchy lines with medium and occasional longer sentences naturally. Avoid repetitive rhythm.\n"
+            "3. NO EM-DASHES: Replace any em-dashes (—) with standard hyphens (-) or commas.\n"
+            "4. STRUCTURAL PARAPHRASING: Rephrase sentence structure and wording naturally where possible. Preserve any phrases that must remain unchanged (names, quotes, technical terms, code).\n"
+            "5. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
+            "6. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure.\n"
+            "7. NO OVERLY POLISHED PROSE: Write unpretentiously and directly. Avoid pristine, immaculate, hyper-polished corporate language.\n"
+            "8. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
         )
 
         logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)
-        optimized = self._call_groq(system_prompt, text, temp=1.3)
+        optimized = self._call_groq(system_prompt, text, temp=1.1)
         optimized = optimized.strip()
         if not optimized:
             return text

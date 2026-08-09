@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
-  const [mode, setMode] = useState<RewriteMode>('native');
+  const [mode, setMode] = useState<RewriteMode>('standard');
   const [level, setLevel] = useState<RewriteLevel>(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +229,50 @@ export default function DashboardPage() {
       sessionStorage.removeItem('humyn_auth_error');
     }
   }, [router]);
+
+  // Fresh user profile fetcher
+  const refreshUserData = useCallback(async (tokenOverride?: string | null) => {
+    const activeToken = tokenOverride || token || localStorage.getItem('humanizer_token');
+    if (!activeToken) return;
+    try {
+      const freshUser = await getCurrentUser(activeToken);
+      setUser(freshUser);
+      localStorage.setItem('humanizer_user', JSON.stringify(freshUser));
+    } catch {
+      // Background silent refresh failure can be safely ignored
+    }
+  }, [token]);
+
+  // Sync fresh user whenever activeMenu tab changes
+  useEffect(() => {
+    if (token) {
+      refreshUserData(token);
+    }
+  }, [activeMenu, token, refreshUserData]);
+
+  // Periodic user sync & focus re-sync (every 10s or when tab regains focus)
+  useEffect(() => {
+    if (!token) return;
+
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUserData(token);
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+
+    const interval = setInterval(() => {
+      refreshUserData(token);
+    }, 10000); // 10s live sync
+
+    return () => {
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      clearInterval(interval);
+    };
+  }, [token, refreshUserData]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -433,7 +477,7 @@ export default function DashboardPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{user.plan === 'pro' ? 'PRO PLAN' : user.plan === 'starter' ? 'STARTER' : 'FREE TIER'}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{user.plan === 'enterprise' ? 'ENTERPRISE' : user.plan === 'pro' ? 'PRO PLAN' : (user.plan === 'plus' || user.plan === 'starter') ? 'PLUS PLAN' : 'FREE TIER'}</span>
               </div>
             </div>
           )}
@@ -589,7 +633,7 @@ export default function DashboardPage() {
                 <div className="sidebar__user-details">
                   <span className="sidebar__user-name">{user.name}</span>
                   <span className="sidebar__user-plan">
-                    {user.plan === 'pro' ? 'PRO PLAN' : user.plan === 'plus' ? 'PLUS PLAN' : user.plan === 'starter' ? 'STARTER PLAN' : 'FREE TIER'}
+                    {user.plan === 'enterprise' ? 'ENTERPRISE PLAN' : user.plan === 'pro' ? 'PRO PLAN' : (user.plan === 'plus' || user.plan === 'starter') ? 'PLUS PLAN' : 'FREE TIER'}
                   </span>
                 </div>
                 <MoreVertical size={16} className="sidebar__user-more-icon" />
@@ -639,6 +683,10 @@ export default function DashboardPage() {
             <DashboardView
               user={user}
               token={token}
+              onUpdateUser={(updated) => {
+                setUser(updated);
+                localStorage.setItem('humanizer_user', JSON.stringify(updated));
+              }}
               onNavigateToHumanizer={() => setActiveMenu('humanizer')}
               onNavigateToPricing={() => setActiveMenu('plans')}
               onRequireAuth={() => router.push('/login')}

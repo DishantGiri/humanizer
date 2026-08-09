@@ -7,15 +7,48 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type RewriteMode =
+  | 'standard'
+  | 'fluency'
+  | 'natural'
   | 'academic'
+  | 'creative'
+  | 'native'
   | 'professional'
   | 'casual'
   | 'business'
   | 'friendly'
   | 'simple'
-  | 'native'
   | 'formal'
   | 'concise';
+
+export function formatModeLabel(mode?: string | null): string {
+  if (!mode) return 'Standard';
+  const m = mode.toLowerCase().trim();
+  const map: Record<string, string> = {
+    standard: 'Standard',
+    native: 'Standard',
+    fluency: 'Fluency',
+    professional: 'Fluency',
+    natural: 'Natural',
+    casual: 'Natural',
+    academic: 'Academic',
+    creative: 'Creative',
+    friendly: 'Creative',
+    business: 'Business',
+    formal: 'Formal',
+    simple: 'Simple',
+    concise: 'Concise',
+  };
+  return map[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Standard');
+}
+
+export function formatPlanLabel(planStr?: string | null): string {
+  const p = (planStr || 'free').toLowerCase().trim();
+  if (p === 'enterprise') return 'Enterprise';
+  if (p === 'pro') return 'Pro';
+  if (p === 'plus' || p === 'starter') return 'Plus';
+  return 'Free';
+}
 
 export type RewriteLevel = 1 | 2 | 3;
 
@@ -279,7 +312,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  plan: 'free' | 'starter' | 'plus' | 'pro' | string;
+  plan: 'free' | 'plus' | 'pro' | 'enterprise' | 'starter' | string;
   role?: 'user' | 'admin' | string;
   usage_count: number;
   is_first_login?: number;
@@ -807,12 +840,16 @@ export type ModeIcon =
   | 'zap';
 
 export const MODES: { value: RewriteMode; label: string; icon: ModeIcon; description: string }[] = [
-  { value: 'native',       label: 'Native Speaker',  icon: 'speech',     description: 'Natural, idiomatic English' },
+  { value: 'standard',     label: 'Standard',        icon: 'speech',     description: 'Natural, idiomatic English' },
+  { value: 'fluency',      label: 'Fluency',         icon: 'briefcase',  description: 'Clean, polished, workplace-ready' },
+  { value: 'natural',      label: 'Natural',         icon: 'coffee',     description: 'Relaxed, conversational' },
   { value: 'academic',     label: 'Academic',        icon: 'graduation', description: 'Scholarly, precise tone' },
-  { value: 'professional', label: 'Professional',    icon: 'briefcase',  description: 'Clean, workplace-ready' },
-  { value: 'casual',       label: 'Casual',          icon: 'coffee',     description: 'Relaxed, conversational' },
+  { value: 'creative',     label: 'Creative',        icon: 'smile',      description: 'Warm, engaging, approachable' },
+  { value: 'native',       label: 'Standard',        icon: 'speech',     description: 'Natural, idiomatic English' },
+  { value: 'professional', label: 'Fluency',         icon: 'briefcase',  description: 'Clean, workplace-ready' },
+  { value: 'casual',       label: 'Natural',         icon: 'coffee',     description: 'Relaxed, conversational' },
   { value: 'business',     label: 'Business',        icon: 'chart',      description: 'Action-oriented, executive' },
-  { value: 'friendly',     label: 'Friendly',        icon: 'smile',      description: 'Warm and approachable' },
+  { value: 'friendly',     label: 'Creative',        icon: 'smile',      description: 'Warm and approachable' },
   { value: 'simple',       label: 'Simple English',  icon: 'sparkles',   description: 'Plain, easy to understand' },
   { value: 'formal',       label: 'Formal',          icon: 'crown',      description: 'Polished, official tone' },
   { value: 'concise',      label: 'Concise',         icon: 'zap',        description: 'Tight, minimal wording' },
