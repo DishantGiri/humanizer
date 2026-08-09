@@ -902,6 +902,75 @@ def clean_erroneous_punctuation(text: str) -> str:
     return text.strip()
 
 
+def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
+    """
+    Eliminates repetitive stock filler phrases and provides dynamic linguistic diversity.
+    Guarantees no stock filler phrase appears more than 1 time in the entire document.
+    Completely eliminates casual/conversational canned phrases in formal/academic modes.
+    """
+    if not text:
+        return text
+
+    is_academic_or_formal = str(mode).lower() in ('academic', 'formal', 'business', 'fluency')
+
+    # 1. Casual canned fillers to completely eliminate in formal/academic modes
+    casual_fillers = [
+        r'\bAs it turns out,?\s*',
+        r'\bSimple as that\.?\s*',
+        r'\bClearly\.?\s*',
+        r'\bThat matters\.?\s*',
+        r'\bLook,?\s*',
+        r'\bHonestly,?\s*',
+        r'\bWell,?\s*',
+        r'\bWhen you think about it,?\s*',
+        r'\bPicture this:?\s*',
+    ]
+
+    if is_academic_or_formal:
+        for pat in casual_fillers:
+            text = re.sub(pat, '', text, flags=re.IGNORECASE)
+
+    # 2. General stock transition phrases to deduplicate across any document (max 1 occurrence)
+    stock_phrases = {
+        'as it turns out': ['notably,', 'in fact,', 'interestingly,'],
+        'that said': ['however,', 'still,', 'yet,'],
+        'on top of that': ['furthermore,', 'in addition,', 'moreover,'],
+        'in practice': ['operationally,', 'in applied settings,', 'concretely,'],
+        'what matters is that': ['crucially,', 'notably,', 'of primary importance,'],
+        'looking closely': ['upon closer examination,', 'analyzing this further,'],
+        'as a result': ['consequently,', 'therefore,', 'thus,'],
+        'for instance': ['for example,', 'specifically,'],
+        'clearly': ['evidently,', 'without doubt,'],
+        'simple as that': [''],
+        'that matters': [''],
+    }
+
+    for phrase, alts in stock_phrases.items():
+        pattern = re.compile(r'\b' + re.escape(phrase) + r'[,.]?\s*', re.IGNORECASE)
+        matches = list(pattern.finditer(text))
+        if len(matches) > 1:
+            new_text = []
+            last_idx = 0
+            for i, m in enumerate(matches):
+                new_text.append(text[last_idx:m.start()])
+                if i == 0:
+                    new_text.append(text[m.start():m.end()])
+                else:
+                    alt = alts[(i - 1) % len(alts)]
+                    if alt:
+                        if text[m.start()].isupper():
+                            alt = alt.capitalize()
+                        new_text.append(alt + ' ')
+                last_idx = m.end()
+            new_text.append(text[last_idx:])
+            text = ''.join(new_text)
+
+    text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+    text = re.sub(r'^(?:,\s*|\.\s*)', '', text, flags=re.MULTILINE)
+    text = re.sub(r' +', ' ', text)
+    return text.strip()
+
+
 def add_burstiness(text: str) -> str:
     """Helper function exposed for routes compatibility."""
     sentences = _split_sentences(text)
@@ -1020,8 +1089,9 @@ def humanize(
     # Step 5: Apply paragraph intelligence & strict parity
     text = apply_paragraph_intelligence(text, original_text, rng)
 
-    # Step 6: Final Punctuation, Grammar Sanitation & Proper Noun Capitalization
+    # Step 6: Final Punctuation, Grammar Sanitation, Filler Deduplication & Proper Noun Capitalization
     text = clean_erroneous_punctuation(text)
+    text = deduplicate_and_diversify_fillers(text, mode_key)
     text = re.sub(r'\b(an)\s+([b-df-hj-np-tv-z])', r'a \2', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:So,?\s+|So\s+this\s+way,?\s+)', '', text, flags=re.IGNORECASE | re.MULTILINE)
 
