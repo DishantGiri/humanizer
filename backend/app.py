@@ -7,13 +7,14 @@ import re
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.exceptions import HTTPException, RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from routes.rewrite import router as rewrite_router
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
+from db import fetch_one, fetch_all
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 
@@ -177,3 +178,44 @@ app.include_router(admin_router)
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "CloakWriter API"}
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def get_dynamic_robots_txt():
+    """
+    Serves dynamic robots.txt configured from the Admin SEO dashboard.
+    """
+    global_seo = fetch_one("SELECT robots_txt FROM seo_settings WHERE page_slug = 'global'")
+    if global_seo and global_seo.get("robots_txt") and global_seo["robots_txt"].strip():
+        return global_seo["robots_txt"]
+    return "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: https://cloakwriter.app/sitemap.xml"
+
+
+@app.get("/sitemap.xml")
+async def get_dynamic_sitemap_xml():
+    """
+    Generates dynamic XML sitemap based on SEO settings.
+    """
+    pages = fetch_all("SELECT page_slug, canonical_url, updated_at FROM seo_settings WHERE sitemap_enabled = 1")
+    xml_items = []
+    base_url = "https://cloakwriter.app"
+
+    for p in (pages or []):
+        slug = p.get("page_slug", "")
+        if slug == "global":
+            continue
+        loc = p.get("canonical_url") or (base_url if slug == "home" else f"{base_url}/{slug}")
+        priority = "1.0" if slug == "home" else ("0.9" if slug == "dashboard" else "0.7")
+        freq = "daily" if slug in ("home", "dashboard") else "monthly"
+        xml_items.append(f"""  <url>
+    <loc>{loc}</loc>
+    <changefreq>{freq}</changefreq>
+    <priority>{priority}</priority>
+  </url>""")
+
+    xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{chr(10).join(xml_items)}
+</urlset>"""
+    return Response(content=xml_content, media_type="application/xml")
+

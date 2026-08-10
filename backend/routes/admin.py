@@ -3,6 +3,7 @@ Admin Portal API routes for analytics, user management, and coupon generation.
 """
 
 import uuid
+import json
 import secrets
 import logging
 from typing import Optional, List, Dict, Any
@@ -57,6 +58,31 @@ class CouponItem(BaseModel):
     redeemed_by: Optional[str] = None
     redeemed_at: Optional[str] = None
     created_at: str
+
+class SeoSettingsUpdateRequest(BaseModel):
+    page_name: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    keywords: Optional[str] = None
+    h1_title: Optional[str] = None
+    h2_subtitle: Optional[str] = None
+    canonical_url: Optional[str] = None
+    robots_index: Optional[str] = None
+    og_title: Optional[str] = None
+    og_description: Optional[str] = None
+    og_image: Optional[str] = None
+    og_type: Optional[str] = None
+    twitter_card: Optional[str] = None
+    twitter_site: Optional[str] = None
+    schema_type: Optional[str] = None
+    schema_json: Optional[str] = None
+    custom_head_tags: Optional[str] = None
+    google_verification: Optional[str] = None
+    bing_verification: Optional[str] = None
+    robots_txt: Optional[str] = None
+    sitemap_enabled: Optional[int] = None
+    custom_header_scripts: Optional[str] = None
+    custom_footer_scripts: Optional[str] = None
 
 
 def format_mode_label(mode_raw: Optional[str]) -> str:
@@ -410,3 +436,139 @@ async def update_admin_credentials(
         "user": updated_user,
         "token": new_token
     }
+
+
+# ── SEO Management Endpoints (Technical & Non-Technical) ───────────────────
+
+@router.get("/seo")
+async def get_all_seo_settings(admin: UserResponse = Depends(require_admin_user)):
+    """
+    Returns all SEO configurations across all pages.
+    """
+    query = """
+        SELECT page_slug, page_name, meta_title, meta_description, keywords,
+               h1_title, h2_subtitle, canonical_url, robots_index,
+               og_title, og_description, og_image, og_type,
+               twitter_card, twitter_site, schema_type, schema_json,
+               custom_head_tags, google_verification, bing_verification,
+               robots_txt, sitemap_enabled, custom_header_scripts, custom_footer_scripts,
+               updated_at
+        FROM seo_settings
+        ORDER BY CASE WHEN page_slug = 'global' THEN 0 WHEN page_slug = 'home' THEN 1 ELSE 2 END, page_slug ASC
+    """
+    rows = fetch_all(query)
+    return {"pages": rows or []}
+
+
+@router.get("/seo/{page_slug}")
+async def get_single_page_seo(page_slug: str, admin: UserResponse = Depends(require_admin_user)):
+    """
+    Returns SEO settings for a specific page.
+    """
+    row = fetch_one("SELECT * FROM seo_settings WHERE page_slug = ?", (page_slug,))
+    if not row:
+        raise HTTPException(status_code=404, detail=f"SEO settings not found for page: {page_slug}")
+    return row
+
+
+@router.put("/seo/{page_slug}")
+async def update_page_seo(
+    page_slug: str,
+    request: SeoSettingsUpdateRequest,
+    admin: UserResponse = Depends(require_admin_user)
+):
+    """
+    Updates technical and non-technical SEO parameters for a specific page.
+    """
+    existing = fetch_one("SELECT page_slug FROM seo_settings WHERE page_slug = ?", (page_slug,))
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"SEO settings not found for page: {page_slug}")
+
+    # Validate Schema JSON syntax if provided
+    if request.schema_json and request.schema_json.strip():
+        try:
+            json.loads(request.schema_json)
+        except json.JSONDecodeError as json_err:
+            raise HTTPException(status_code=400, detail=f"Invalid Schema JSON format: {str(json_err)}")
+
+    fields_map = {
+        "page_name": request.page_name,
+        "meta_title": request.meta_title,
+        "meta_description": request.meta_description,
+        "keywords": request.keywords,
+        "h1_title": request.h1_title,
+        "h2_subtitle": request.h2_subtitle,
+        "canonical_url": request.canonical_url,
+        "robots_index": request.robots_index,
+        "og_title": request.og_title,
+        "og_description": request.og_description,
+        "og_image": request.og_image,
+        "og_type": request.og_type,
+        "twitter_card": request.twitter_card,
+        "twitter_site": request.twitter_site,
+        "schema_type": request.schema_type,
+        "schema_json": request.schema_json,
+        "custom_head_tags": request.custom_head_tags,
+        "google_verification": request.google_verification,
+        "bing_verification": request.bing_verification,
+        "robots_txt": request.robots_txt,
+        "sitemap_enabled": request.sitemap_enabled,
+        "custom_header_scripts": request.custom_header_scripts,
+        "custom_footer_scripts": request.custom_footer_scripts,
+    }
+
+    updates = []
+    params = []
+    for col, val in fields_map.items():
+        if val is not None:
+            updates.append(f"{col} = ?")
+            params.append(val)
+
+    if updates:
+        sql = f"UPDATE seo_settings SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP WHERE page_slug = ?"
+        params.append(page_slug)
+        execute_query(sql, tuple(params))
+
+    updated = fetch_one("SELECT * FROM seo_settings WHERE page_slug = ?", (page_slug,))
+    return {
+        "message": f"SEO settings for '{page_slug}' successfully saved.",
+        "seo": updated
+    }
+
+
+@router.post("/seo/reset/{page_slug}")
+async def reset_page_seo(
+    page_slug: str,
+    admin: UserResponse = Depends(require_admin_user)
+):
+    """
+    Resets a page's SEO settings to default optimal configuration.
+    """
+    from db import _seed_default_seo
+    execute_query("DELETE FROM seo_settings WHERE page_slug = ?", (page_slug,))
+    _seed_default_seo()
+    updated = fetch_one("SELECT * FROM seo_settings WHERE page_slug = ?", (page_slug,))
+    return {
+        "message": f"SEO settings for '{page_slug}' reset to optimal defaults.",
+        "seo": updated
+    }
+
+
+# ── Public SEO Route (Used by Frontend for Dynamic Meta Injection) ─────────
+
+@router.get("/public/seo/{page_slug}")
+async def get_public_seo(page_slug: str):
+    """
+    Publicly accessible endpoint for frontend pages to fetch live SEO tags and schema JSON-LD.
+    Merges page-specific SEO with global defaults.
+    """
+    global_seo = fetch_one("SELECT * FROM seo_settings WHERE page_slug = 'global'") or {}
+    page_seo = fetch_one("SELECT * FROM seo_settings WHERE page_slug = ?", (page_slug,)) or {}
+
+    merged = dict(global_seo)
+    for k, v in page_seo.items():
+        if v is not None and str(v).strip():
+            merged[k] = v
+
+    return merged
+

@@ -524,37 +524,47 @@ def _seed_default_seo():
         },
     ]
 
-    for p in default_pages:
-        try:
-            existing = fetch_one("SELECT page_slug FROM seo_settings WHERE page_slug = %s", (p["page_slug"],))
-            if not existing:
-                execute_query(
-                    """
-                    INSERT INTO seo_settings (
-                        page_slug, page_name, meta_title, meta_description, keywords,
-                        h1_title, h2_subtitle, canonical_url, robots_index,
-                        og_title, og_description, og_image, og_type,
-                        twitter_card, twitter_site, schema_type, schema_json,
-                        custom_head_tags, google_verification, bing_verification,
-                        robots_txt, sitemap_enabled, custom_header_scripts, custom_footer_scripts
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        p["page_slug"], p["page_name"], p["meta_title"], p["meta_description"], p["keywords"],
-                        p["h1_title"], p["h2_subtitle"], p["canonical_url"], p["robots_index"],
-                        p["og_title"], p["og_description"], p["og_image"], p["og_type"],
-                        p["twitter_card"], p["twitter_site"], p["schema_type"], p["schema_json"],
-                        p["custom_head_tags"], p["google_verification"], p["bing_verification"],
-                        p["robots_txt"], p["sitemap_enabled"], p["custom_header_scripts"], p["custom_footer_scripts"]
+    conn, engine = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        for p in default_pages:
+            try:
+                check_q = _prepare_query("SELECT page_slug FROM seo_settings WHERE page_slug = %s", engine)
+                cursor.execute(check_q, (p["page_slug"],))
+                row = cursor.fetchone()
+                if not row:
+                    ins_q = _prepare_query(
+                        """
+                        INSERT INTO seo_settings (
+                            page_slug, page_name, meta_title, meta_description, keywords,
+                            h1_title, h2_subtitle, canonical_url, robots_index,
+                            og_title, og_description, og_image, og_type,
+                            twitter_card, twitter_site, schema_type, schema_json,
+                            custom_head_tags, google_verification, bing_verification,
+                            robots_txt, sitemap_enabled, custom_header_scripts, custom_footer_scripts
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        engine
                     )
-                )
-        except Exception as seed_err:
-            logger.warning("SEO seed note for %s: %s", p["page_slug"], seed_err)
+                    cursor.execute(
+                        ins_q,
+                        (
+                            p["page_slug"], p["page_name"], p["meta_title"], p["meta_description"], p["keywords"],
+                            p["h1_title"], p["h2_subtitle"], p["canonical_url"], p["robots_index"],
+                            p["og_title"], p["og_description"], p["og_image"], p["og_type"],
+                            p["twitter_card"], p["twitter_site"], p["schema_type"], p["schema_json"],
+                            p["custom_head_tags"], p["google_verification"], p["bing_verification"],
+                            p["robots_txt"], p["sitemap_enabled"], p["custom_header_scripts"], p["custom_footer_scripts"]
+                        )
+                    )
+            except Exception as seed_err:
+                logger.warning("SEO seed note for %s: %s", p["page_slug"], seed_err)
+        if hasattr(conn, 'commit'):
+            conn.commit()
+    finally:
+        conn.close()
 
 
-
-# Initialize DB on module load
-init_db()
 
 # ── Helper Query Wrappers ───────────────────────────────────────────────────
 
@@ -563,6 +573,10 @@ def _prepare_query(query: str, engine: str) -> str:
         return query.replace("?", "%s")
     else:
         return query.replace("%s", "?")
+
+
+# Initialize DB on module load
+init_db()
 
 
 def execute_query(query: str, params: tuple = ()):
