@@ -45,6 +45,7 @@ import {
   Heading,
   CheckCircle,
   HelpCircle,
+  FileCode,
 } from 'lucide-react';
 import {
   fetchAdminAnalytics,
