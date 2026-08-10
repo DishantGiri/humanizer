@@ -888,6 +888,107 @@ export async function updateAdminCredentials(
   return response.json();
 }
 
+// ── SEO Management Types & API Functions ───────────────────────────────────
+
+export interface PageSeoSettings {
+  page_slug: string;
+  page_name: string;
+  meta_title: string;
+  meta_description: string;
+  keywords: string;
+  h1_title: string;
+  h2_subtitle: string;
+  canonical_url: string;
+  robots_index: string;
+  og_title: string;
+  og_description: string;
+  og_image: string;
+  og_type: string;
+  twitter_card: string;
+  twitter_site: string;
+  schema_type: string;
+  schema_json: string;
+  custom_head_tags: string;
+  google_verification: string;
+  bing_verification: string;
+  robots_txt: string;
+  sitemap_enabled: number;
+  custom_header_scripts: string;
+  custom_footer_scripts: string;
+  updated_at?: string;
+}
+
+export async function fetchAdminSeo(token: string): Promise<{ pages: PageSeoSettings[] }> {
+  const response = await fetch(`${API_BASE}/api/admin/seo`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to load SEO settings.'));
+  }
+
+  return response.json();
+}
+
+export async function updateAdminPageSeo(
+  pageSlug: string,
+  data: Partial<PageSeoSettings>,
+  token: string
+): Promise<{ message: string; seo: PageSeoSettings }> {
+  const response = await fetch(`${API_BASE}/api/admin/seo/${pageSlug}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to save SEO settings.'));
+  }
+
+  return response.json();
+}
+
+export async function resetAdminPageSeo(
+  pageSlug: string,
+  token: string
+): Promise<{ message: string; seo: PageSeoSettings }> {
+  const response = await fetch(`${API_BASE}/api/admin/seo/reset/${pageSlug}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to reset SEO settings.'));
+  }
+
+  return response.json();
+}
+
+export async function fetchPublicSeo(pageSlug: string): Promise<PageSeoSettings> {
+  const response = await fetch(`${API_BASE}/api/admin/public/seo/${pageSlug}`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, 'Failed to fetch SEO metadata.'));
+  }
+
+  return response.json();
+}
+
+
 // ── Mode metadata ──────────────────────────────────────────────────────────
 
 export type ModeIcon =

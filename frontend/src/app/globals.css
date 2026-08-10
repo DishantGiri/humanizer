@@ -7567,9 +7567,7 @@ html {
   border-color: rgba(244, 63, 94, 0.4);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Dashboard Skeleton & Performance Utilities (Zero Layout Shift)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* Dashboard Skeleton & Performance Utilities  */
 
 .skeleton-shimmer {
   background: linear-gradient(
@@ -7592,9 +7590,7 @@ html {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   File Upload Button & Dropzone Styling (TC_HUM_014)
-   ═══════════════════════════════════════════════════════════════════════════ */
+
 
 .card-header-upload-btn {
   display: inline-flex;
@@ -7674,4 +7670,214 @@ html {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Admin SEO Management Suite Styling (Technical & Non-Technical)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.seo-page-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.seo-page-pill {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.seo-page-pill:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.seo-page-pill--active {
+  background: rgba(56, 189, 248, 0.14) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  color: #38bdf8 !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.2);
+}
+
+.seo-section-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.seo-section-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.seo-section-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.seo-section-btn--active {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  color: #38bdf8 !important;
+  font-weight: 700;
+}
+
+.seo-serp-preview {
+  background: #202124;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.seo-serp-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.seo-serp-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #38bdf8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #090d16;
+  font-weight: bold;
+}
+
+.seo-serp-domain {
+  font-size: 0.76rem;
+  color: #dadce0;
+  font-weight: 500;
+}
+
+.seo-serp-path {
+  font-size: 0.72rem;
+  color: #bdc1c6;
+}
+
+.seo-serp-title {
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: #8ab4f8;
+  font-weight: 400;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.seo-serp-title:hover {
+  text-decoration: underline;
+}
+
+.seo-serp-desc {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #bdc1c6;
+}
+
+.seo-meter-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.seo-meter-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.seo-meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.seo-code-editor {
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace, Consolas, Courier;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  background: #090d16;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #38bdf8;
+  padding: 14px;
+  resize: vertical;
+  min-height: 160px;
+  outline: none;
+}
+
+.seo-code-editor:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.seo-badge-valid {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.seo-badge-invalid {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #f43f5e;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 

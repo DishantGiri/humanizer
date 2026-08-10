@@ -43,6 +43,7 @@ import LevelSelector from '@/components/LevelSelector';
 import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
+import DynamicSeo from '@/components/DynamicSeo';
 import LottieLoader from '@/components/LottieLoader';
 import TypewriterText from '@/components/TypewriterText';
 import { getAvatarInitial } from '@/lib/utils';
@@ -555,6 +556,7 @@ export default function DashboardPage() {
 
   return (
     <div suppressHydrationWarning className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`}>
+      <DynamicSeo pageSlug="dashboard" />
       {/* ── Auth Modal ───────────────────────────────────────────────────── */}
       <AuthModal
         isOpen={authModalOpen}

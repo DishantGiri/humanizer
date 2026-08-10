@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import LandingHero from '@/components/LandingHero';
 import AuthModal from '@/components/AuthModal';
+import DynamicSeo from '@/components/DynamicSeo';
 import { type User as UserType } from '@/lib/api';
 
 export default function Home() {
@@ -84,6 +85,7 @@ export default function Home() {
 
   return (
     <>
+      <DynamicSeo pageSlug="home" />
       <AuthModal
         isOpen={authModalOpen}
         initialMode={authModalMode}

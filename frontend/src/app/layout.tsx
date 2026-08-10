@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/toast";
+import DynamicSeo from "@/components/DynamicSeo";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -59,6 +60,7 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
       <body suppressHydrationWarning>
+        <DynamicSeo pageSlug="global" />
         <Providers>{children}</Providers>
         <Toaster />
         {/* Razorpay Checkout loaded lazily when browser is idle */}

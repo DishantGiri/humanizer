@@ -9,7 +9,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from db import execute_query, fetch_one, fetch_all
 from routes.auth import get_current_user_from_token, UserResponse
@@ -60,6 +60,8 @@ class CouponItem(BaseModel):
     created_at: str
 
 class SeoSettingsUpdateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     page_name: Optional[str] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
@@ -75,7 +77,7 @@ class SeoSettingsUpdateRequest(BaseModel):
     twitter_card: Optional[str] = None
     twitter_site: Optional[str] = None
     schema_type: Optional[str] = None
-    schema_json: Optional[str] = None
+    schema_markup: Optional[str] = Field(default=None, alias="schema_json")
     custom_head_tags: Optional[str] = None
     google_verification: Optional[str] = None
     bing_verification: Optional[str] = None
@@ -485,9 +487,9 @@ async def update_page_seo(
         raise HTTPException(status_code=404, detail=f"SEO settings not found for page: {page_slug}")
 
     # Validate Schema JSON syntax if provided
-    if request.schema_json and request.schema_json.strip():
+    if request.schema_markup and request.schema_markup.strip():
         try:
-            json.loads(request.schema_json)
+            json.loads(request.schema_markup)
         except json.JSONDecodeError as json_err:
             raise HTTPException(status_code=400, detail=f"Invalid Schema JSON format: {str(json_err)}")
 
@@ -507,7 +509,7 @@ async def update_page_seo(
         "twitter_card": request.twitter_card,
         "twitter_site": request.twitter_site,
         "schema_type": request.schema_type,
-        "schema_json": request.schema_json,
+        "schema_json": request.schema_markup,
         "custom_head_tags": request.custom_head_tags,
         "google_verification": request.google_verification,
         "bing_verification": request.bing_verification,
