@@ -6,8 +6,9 @@ import os
 import uuid
 import logging
 from typing import Optional, List
+import io
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, UploadFile, File
 from pydantic import BaseModel, Field
 
 from config import RewriteMode, RewriteLevel, MAX_INPUT_LENGTH
@@ -93,6 +94,13 @@ class StatsResponse(BaseModel):
     reading_time_seconds: int
 
 
+class FileParseResponse(BaseModel):
+    filename: str
+    text: str
+    word_count: int
+    character_count: int
+
+
 class RewriteResponse(BaseModel):
     rewritten: str
     original_stats: dict
@@ -108,6 +116,88 @@ class RewriteResponse(BaseModel):
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.post("/parse-file", response_model=FileParseResponse)
+async def parse_uploaded_file(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Extracts plain text from uploaded .docx, .pdf, .txt, or .md files.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file was uploaded.")
+
+    filename_lower = file.filename.lower()
+    content = await file.read()
+
+    if not content:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds the 15MB maximum limit.")
+
+    extracted_text = ""
+
+    if filename_lower.endswith(('.txt', '.md', '.rtf', '.csv', '.json')):
+        try:
+            extracted_text = content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                extracted_text = content.decode('latin-1')
+            except Exception:
+                raise HTTPException(status_code=400, detail="Unable to decode text file. Please ensure it is saved in UTF-8 format.")
+
+    elif filename_lower.endswith('.docx'):
+        try:
+            import docx
+            doc = docx.Document(io.BytesIO(content))
+            paras = [p.text for p in doc.paragraphs if p.text.strip()]
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                    if row_text:
+                        paras.append(row_text)
+            extracted_text = "\n\n".join(paras)
+        except Exception as e:
+            logger.error("Failed to parse docx: %s", e)
+            raise HTTPException(status_code=400, detail="Could not read Word document (.docx). The file may be password protected or corrupted.")
+
+    elif filename_lower.endswith('.pdf'):
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            pages_text = []
+            for page in reader.pages:
+                page_t = page.extract_text()
+                if page_t and page_t.strip():
+                    pages_text.append(page_t.strip())
+            extracted_text = "\n\n".join(pages_text)
+        except Exception as e:
+            logger.error("Failed to parse pdf: %s", e)
+            raise HTTPException(status_code=400, detail="Could not read PDF document. The file may be scanned images, password protected, or corrupted.")
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload a .docx, .pdf, .txt, or .md file."
+        )
+
+    clean_extracted = extracted_text.strip()
+    if not clean_extracted:
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text could be extracted from the uploaded document."
+        )
+
+    words = len(clean_extracted.split())
+    return FileParseResponse(
+        filename=file.filename,
+        text=clean_extracted,
+        word_count=words,
+        character_count=len(clean_extracted)
+    )
+
 
 @router.post("/rewrite", response_model=RewriteResponse)
 async def rewrite_text(

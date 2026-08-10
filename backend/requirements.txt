@@ -11,3 +11,6 @@ email-validator
 PyJWT
 pymysql
 deep-translator
+pypdf
+python-docx
+python-multipart

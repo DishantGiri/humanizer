@@ -21,7 +21,7 @@ from config import (
     RewriteMode,
     RewriteLevel,
 )
-from prompts import build_rewrite_prompt, build_grammar_prompt
+from prompts import build_rewrite_prompt, build_grammar_prompt, is_question_text
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +254,30 @@ class TextRewriter:
         """
         system_prompt, user_prompt = build_rewrite_prompt(text, mode, level)
         pass1_result = self._call_llm(system_prompt, user_prompt)
+
+        # Question guardrail: Ensure conversational questions are rewritten as questions, never answered
+        if is_question_text(text):
+            cleaned_res = pass1_result.strip().strip('"\'')
+            ans_indicators = ["i'm ", "i am ", "as an ai", "currently,", "currently i", "i work", "i help", "sure,", "certainly,", "i do ", "i don't ", "my name "]
+            is_answering = (not cleaned_res.endswith('?')) or any(cleaned_res.lower().startswith(ind) for ind in ans_indicators)
+            if is_answering:
+                logger.warning("Detected conversational answer to question '%s': '%s'. Retrying with strict question paraphrase prompt.", text, pass1_result)
+                correction_system = (
+                    "You are a professional text paraphrasing tool. "
+                    "The user text is a question. You must REWRITE/PARAPHRASE the question into natural human phrasing ending with a question mark ('?'). "
+                    "You must NEVER answer, reply to, or converse with the question."
+                )
+                correction_user = (
+                    f"Original Question: \"{text}\"\n\n"
+                    f"Task: Paraphrase the question above into natural human phrasing. "
+                    f"Output ONLY the rewritten question ending with '?'."
+                )
+                try:
+                    corrected_res = self._call_llm(correction_system, correction_user)
+                    if corrected_res and corrected_res.strip():
+                        pass1_result = corrected_res.strip().strip('"\'')
+                except Exception as corr_err:
+                    logger.warning("Question paraphrase correction call failed: %s", corr_err)
 
         level_val = level.value if hasattr(level, 'value') else int(level)
         if level_val >= 3:

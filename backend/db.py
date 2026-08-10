@@ -158,6 +158,35 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_history_user (user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS seo_settings (
+                    page_slug VARCHAR(64) PRIMARY KEY,
+                    page_name VARCHAR(128) NOT NULL,
+                    meta_title VARCHAR(255),
+                    meta_description TEXT,
+                    keywords TEXT,
+                    h1_title VARCHAR(255),
+                    h2_subtitle TEXT,
+                    canonical_url VARCHAR(255),
+                    robots_index VARCHAR(64) DEFAULT 'index, follow',
+                    og_title VARCHAR(255),
+                    og_description TEXT,
+                    og_image TEXT,
+                    og_type VARCHAR(32) DEFAULT 'website',
+                    twitter_card VARCHAR(32) DEFAULT 'summary_large_image',
+                    twitter_site VARCHAR(64) DEFAULT '@cloakwriter',
+                    schema_type VARCHAR(64) DEFAULT 'SoftwareApplication',
+                    schema_json TEXT,
+                    custom_head_tags TEXT,
+                    google_verification VARCHAR(128),
+                    bing_verification VARCHAR(128),
+                    robots_txt TEXT,
+                    sitemap_enabled INT DEFAULT 1,
+                    custom_header_scripts TEXT,
+                    custom_footer_scripts TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             ]
             for stmt in statements:
@@ -255,6 +284,35 @@ def init_db():
                         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                     )
                 """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS seo_settings (
+                        page_slug TEXT PRIMARY KEY,
+                        page_name TEXT NOT NULL,
+                        meta_title TEXT,
+                        meta_description TEXT,
+                        keywords TEXT,
+                        h1_title TEXT,
+                        h2_subtitle TEXT,
+                        canonical_url TEXT,
+                        robots_index TEXT DEFAULT 'index, follow',
+                        og_title TEXT,
+                        og_description TEXT,
+                        og_image TEXT,
+                        og_type TEXT DEFAULT 'website',
+                        twitter_card TEXT DEFAULT 'summary_large_image',
+                        twitter_site TEXT DEFAULT '@cloakwriter',
+                        schema_type TEXT DEFAULT 'SoftwareApplication',
+                        schema_json TEXT,
+                        custom_head_tags TEXT,
+                        google_verification TEXT,
+                        bing_verification TEXT,
+                        robots_txt TEXT,
+                        sitemap_enabled INTEGER DEFAULT 1,
+                        custom_header_scripts TEXT,
+                        custom_footer_scripts TEXT,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
                 try:
                     cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
                 except Exception:
@@ -282,6 +340,217 @@ def init_db():
     finally:
         if engine == "sqlite":
             conn.close()
+
+    _seed_default_seo()
+
+
+def _seed_default_seo():
+    """Seeds rich default SEO configurations across all key pages if not present."""
+    default_pages = [
+        {
+            "page_slug": "home",
+            "page_name": "Landing Page (/)",
+            "meta_title": "CloakWriter — #1 AI Humanizer & Bypass AI Detection Engine",
+            "meta_description": "Transform ChatGPT, Claude, and Gemini text into 100% natural, undetectable human-written content. Bypass Turnitin, GPTZero, CopyLeaks, and Originality.ai effortlessly.",
+            "keywords": "AI humanizer, bypass AI detection, humanize AI text, undetectable AI, bypass Turnitin, GPTZero bypass, AI to human text",
+            "h1_title": "Transform AI Text into Undetectable Human Prose",
+            "h2_subtitle": "Bypass every major AI detector with natural cadence, rich vocabulary, and 100% human authenticity.",
+            "canonical_url": "https://cloakwriter.app",
+            "robots_index": "index, follow, max-image-preview:large, max-snippet:-1",
+            "og_title": "CloakWriter — The Most Advanced AI Humanizer",
+            "og_description": "Effortlessly convert AI-generated writing into natural human text that passes every AI detector.",
+            "og_image": "https://cloakwriter.app/og-image.png",
+            "og_type": "website",
+            "twitter_card": "summary_large_image",
+            "twitter_site": "@cloakwriter",
+            "schema_type": "SoftwareApplication",
+            "schema_json": """{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CloakWriter",
+  "operatingSystem": "All",
+  "applicationCategory": "UtilitiesApplication",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "ratingCount": "1420"
+  },
+  "description": "Convert AI text from ChatGPT, Claude, and Gemini into natural human writing that passes every AI detector."
+}""",
+            "custom_head_tags": "",
+            "google_verification": "",
+            "bing_verification": "",
+            "robots_txt": "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: https://cloakwriter.app/sitemap.xml",
+            "sitemap_enabled": 1,
+            "custom_header_scripts": "",
+            "custom_footer_scripts": "",
+        },
+        {
+            "page_slug": "dashboard",
+            "page_name": "Humanizer Dashboard (/dashboard)",
+            "meta_title": "AI Content Humanizer Dashboard — CloakWriter",
+            "meta_description": "Paste and humanize your content in real-time. Choose from Standard, Fluency, Academic, and Creative modes with granular intensity controls.",
+            "keywords": "humanizer dashboard, rewrite AI text, humanize content, AI detector bypass tool",
+            "h1_title": "AI Content Humanizer",
+            "h2_subtitle": "Paste your text below and convert it to natural, human-sounding prose in one click.",
+            "canonical_url": "https://cloakwriter.app/dashboard",
+            "robots_index": "index, follow",
+            "og_title": "AI Content Humanizer — CloakWriter",
+            "og_description": "Paste your AI text and convert it to natural, human-sounding prose in seconds.",
+            "og_image": "https://cloakwriter.app/og-dashboard.png",
+            "og_type": "website",
+            "twitter_card": "summary_large_image",
+            "twitter_site": "@cloakwriter",
+            "schema_type": "WebApplication",
+            "schema_json": """{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "CloakWriter Humanizer Dashboard",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "All",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}""",
+            "custom_head_tags": "",
+            "google_verification": "",
+            "bing_verification": "",
+            "robots_txt": "",
+            "sitemap_enabled": 1,
+            "custom_header_scripts": "",
+            "custom_footer_scripts": "",
+        },
+        {
+            "page_slug": "login",
+            "page_name": "Login Page (/login)",
+            "meta_title": "Sign In to Your Account — CloakWriter",
+            "meta_description": "Access your CloakWriter account to humanize documents, manage your subscription, and view rewriting history.",
+            "keywords": "cloakwriter login, sign in, AI humanizer account",
+            "h1_title": "Welcome Back to CloakWriter",
+            "h2_subtitle": "Sign in to continue humanizing your AI text.",
+            "canonical_url": "https://cloakwriter.app/login",
+            "robots_index": "index, follow",
+            "og_title": "Sign In — CloakWriter",
+            "og_description": "Access your CloakWriter account and humanize documents.",
+            "og_image": "https://cloakwriter.app/og-image.png",
+            "og_type": "website",
+            "twitter_card": "summary",
+            "twitter_site": "@cloakwriter",
+            "schema_type": "WebPage",
+            "schema_json": """{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "CloakWriter Login"
+}""",
+            "custom_head_tags": "",
+            "google_verification": "",
+            "bing_verification": "",
+            "robots_txt": "",
+            "sitemap_enabled": 1,
+            "custom_header_scripts": "",
+            "custom_footer_scripts": "",
+        },
+        {
+            "page_slug": "register",
+            "page_name": "Sign Up Page (/register)",
+            "meta_title": "Create Free Account — CloakWriter",
+            "meta_description": "Get started with CloakWriter for free. Start transforming AI text into undetectable human writing in seconds.",
+            "keywords": "cloakwriter sign up, create account, free AI humanizer",
+            "h1_title": "Get Started with CloakWriter",
+            "h2_subtitle": "Create an account to unlock advanced humanization modes.",
+            "canonical_url": "https://cloakwriter.app/register",
+            "robots_index": "index, follow",
+            "og_title": "Create Free Account — CloakWriter",
+            "og_description": "Get started with CloakWriter for free.",
+            "og_image": "https://cloakwriter.app/og-image.png",
+            "og_type": "website",
+            "twitter_card": "summary",
+            "twitter_site": "@cloakwriter",
+            "schema_type": "WebPage",
+            "schema_json": """{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "CloakWriter Sign Up"
+}""",
+            "custom_head_tags": "",
+            "google_verification": "",
+            "bing_verification": "",
+            "robots_txt": "",
+            "sitemap_enabled": 1,
+            "custom_header_scripts": "",
+            "custom_footer_scripts": "",
+        },
+        {
+            "page_slug": "global",
+            "page_name": "Global Site Defaults (All Pages)",
+            "meta_title": "CloakWriter — Undetectable AI Writing Platform",
+            "meta_description": "The leading platform for humanizing AI text and bypassing AI content detectors.",
+            "keywords": "AI humanizer, bypass AI, undetectable text",
+            "h1_title": "CloakWriter",
+            "h2_subtitle": "Undetectable AI Text Humanizer",
+            "canonical_url": "https://cloakwriter.app",
+            "robots_index": "index, follow",
+            "og_title": "CloakWriter",
+            "og_description": "Undetectable AI Text Humanizer",
+            "og_image": "https://cloakwriter.app/og-image.png",
+            "og_type": "website",
+            "twitter_card": "summary_large_image",
+            "twitter_site": "@cloakwriter",
+            "schema_type": "Organization",
+            "schema_json": """{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "CloakWriter",
+  "url": "https://cloakwriter.app",
+  "logo": "https://cloakwriter.app/logo.png",
+  "sameAs": [
+    "https://twitter.com/cloakwriter"
+  ]
+}""",
+            "custom_head_tags": "",
+            "google_verification": "",
+            "bing_verification": "",
+            "robots_txt": "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\n\nSitemap: https://cloakwriter.app/sitemap.xml",
+            "sitemap_enabled": 1,
+            "custom_header_scripts": "",
+            "custom_footer_scripts": "",
+        },
+    ]
+
+    for p in default_pages:
+        try:
+            existing = fetch_one("SELECT page_slug FROM seo_settings WHERE page_slug = %s", (p["page_slug"],))
+            if not existing:
+                execute_query(
+                    """
+                    INSERT INTO seo_settings (
+                        page_slug, page_name, meta_title, meta_description, keywords,
+                        h1_title, h2_subtitle, canonical_url, robots_index,
+                        og_title, og_description, og_image, og_type,
+                        twitter_card, twitter_site, schema_type, schema_json,
+                        custom_head_tags, google_verification, bing_verification,
+                        robots_txt, sitemap_enabled, custom_header_scripts, custom_footer_scripts
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        p["page_slug"], p["page_name"], p["meta_title"], p["meta_description"], p["keywords"],
+                        p["h1_title"], p["h2_subtitle"], p["canonical_url"], p["robots_index"],
+                        p["og_title"], p["og_description"], p["og_image"], p["og_type"],
+                        p["twitter_card"], p["twitter_site"], p["schema_type"], p["schema_json"],
+                        p["custom_head_tags"], p["google_verification"], p["bing_verification"],
+                        p["robots_txt"], p["sitemap_enabled"], p["custom_header_scripts"], p["custom_footer_scripts"]
+                    )
+                )
+        except Exception as seed_err:
+            logger.warning("SEO seed note for %s: %s", p["page_slug"], seed_err)
+
 
 
 # Initialize DB on module load

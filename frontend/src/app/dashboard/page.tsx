@@ -32,17 +32,14 @@ import {
   Gauge,
   Sun,
   Moon,
+  UploadCloud,
+  FileText,
+  FileUp,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import TextInput from '@/components/TextInput';
 import ModeSelector from '@/components/ModeSelector';
 import LevelSelector from '@/components/LevelSelector';
-import DiffView from '@/components/DiffView';
-import PipelineLoader, { getPipelineStages } from '@/components/PipelineLoader';
-import AuthModal from '@/components/AuthModal';
-import DashboardView from '@/components/DashboardView';
-import PricingView from '@/components/PricingView';
-import AccountView from '@/components/AccountView';
-import AdminView from '@/components/AdminView';
 import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
@@ -51,6 +48,7 @@ import TypewriterText from '@/components/TypewriterText';
 import { getAvatarInitial } from '@/lib/utils';
 import {
   rewriteText,
+  parseUploadedFile,
   getCurrentUser,
   getUserFromToken,
   logoutUser,
@@ -59,6 +57,59 @@ import {
   type RewriteResponse,
   type User as UserType,
 } from '@/lib/api';
+
+// ── Dynamically Loaded Views (Code Splitting for Fast Initial Load) ────────
+
+const ViewSkeleton = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '10px 0' }}>
+    <div className="skeleton-shimmer" style={{ width: '240px', height: '32px', borderRadius: '8px' }} />
+    <div className="skeleton-shimmer" style={{ width: '100%', height: '280px', borderRadius: '16px' }} />
+    <div className="skeleton-shimmer" style={{ width: '100%', height: '200px', borderRadius: '16px' }} />
+  </div>
+);
+
+const DashboardView = dynamic(() => import('@/components/DashboardView'), {
+  loading: ViewSkeleton,
+});
+const PricingView = dynamic(() => import('@/components/PricingView'), {
+  loading: ViewSkeleton,
+});
+const AccountView = dynamic(() => import('@/components/AccountView'), {
+  loading: ViewSkeleton,
+});
+const AdminView = dynamic(() => import('@/components/AdminView'), {
+  loading: ViewSkeleton,
+});
+const AuthModal = dynamic(() => import('@/components/AuthModal'));
+const DiffView = dynamic(() => import('@/components/DiffView'));
+
+function DashboardSkeleton({ sidebarCollapsed = false }: { sidebarCollapsed?: boolean }) {
+  return (
+    <div className={`dashboard-layout ${sidebarCollapsed ? 'dashboard-layout--collapsed' : ''}`} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      <aside className="sidebar" style={{ pointerEvents: 'none' }}>
+        <div className="sidebar__brand">
+          <div className="skeleton-shimmer" style={{ width: 140, height: 36, borderRadius: 8 }} />
+        </div>
+        <nav className="sidebar__menu" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton-shimmer" style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ))}
+        </nav>
+      </aside>
+      <main className="main-panel">
+        <header className="navbar" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="skeleton-shimmer" style={{ width: 120, height: 24, borderRadius: 6 }} />
+        </header>
+        <div className="content-container" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="skeleton-shimmer" style={{ width: '280px', height: 32, borderRadius: 8 }} />
+            <div className="skeleton-shimmer" style={{ width: '100%', height: 320, borderRadius: 16 }} />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -77,6 +128,11 @@ export default function DashboardPage() {
   const [activeMenu, setActiveMenu] = useState('humanizer');
   const [copied, setCopied] = useState(false);
   const [showHighlight, setShowHighlight] = useState(true);
+
+  // File upload state
+  const [fileParsing, setFileParsing] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auth state
   const [user, setUser] = useState<UserType | null>(null);
@@ -280,6 +336,84 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
+  const handleProcessFile = async (file: File) => {
+    if (!file) return;
+
+    const allowedExtensions = ['.docx', '.pdf', '.txt', '.md', '.rtf', '.csv'];
+    const fileName = file.name.toLowerCase();
+    const isAllowed = allowedExtensions.some((ext) => fileName.endsWith(ext));
+
+    if (!isAllowed) {
+      toast.danger('Please upload a valid document (.docx, .pdf, .txt, or .md).');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.danger('File size exceeds the 15MB limit.');
+      return;
+    }
+
+    setFileParsing(true);
+    try {
+      if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
+        const text = await file.text();
+        const clean = text.trim();
+        if (!clean) {
+          toast.danger('The selected text file is empty.');
+          return;
+        }
+        setInputText(clean);
+        const words = clean.split(/\s+/).filter(Boolean).length;
+        toast.success(`Loaded "${file.name}" (${words.toLocaleString()} words)`);
+      } else {
+        const res = await parseUploadedFile(file, token);
+        if (!res.text || !res.text.trim()) {
+          toast.danger('No readable text could be extracted from this document.');
+          return;
+        }
+        setInputText(res.text);
+        toast.success(`Loaded "${res.filename}" (${res.word_count.toLocaleString()} words)`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to parse uploaded document.';
+      toast.danger(msg);
+    } finally {
+      setFileParsing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleProcessFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingFile) setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleProcessFile(file);
+    }
+  };
+
   const handleRewrite = async () => {
     if (!inputText.trim()) {
       toast.danger('Please enter some text to rewrite.');
@@ -405,13 +539,13 @@ export default function DashboardPage() {
   const humanScore = result ? getDynamicHumanScore(result) : 0;
   const aiRisk = result ? Math.max(1, 100 - humanScore) : 0;
 
-  // Render seamless dark loader while verifying auth on refresh
+  // Render seamless skeleton matching layout while verifying auth on refresh
   if (authChecking) {
-    return <LottieLoader message="Verifying authentication..." size={160} />;
+    return <DashboardSkeleton sidebarCollapsed={sidebarCollapsed} />;
   }
 
   if (!user) {
-    return null;
+    return <DashboardSkeleton sidebarCollapsed={sidebarCollapsed} />;
   }
 
   const handleMobileNavClick = (menu: string) => {
@@ -440,31 +574,31 @@ export default function DashboardPage() {
           <div onClick={() => { setActiveMenu('humanizer'); closeMobileMenu(); }} style={{ cursor: 'pointer' }}>
             <Logo variant="full" size="md" theme={theme} />
           </div>
-          <button type="button" className="mobile-sidebar__close" onClick={closeMobileMenu}>
+          <button type="button" className="mobile-sidebar__close" onClick={closeMobileMenu} aria-label="Close navigation menu">
             <X size={20} />
           </button>
         </div>
         <nav className="sidebar__menu">
-          <button type="button" className={`sidebar__menu-item ${activeMenu === 'dashboard' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('dashboard')}>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'dashboard' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('dashboard')} aria-label="Dashboard view">
             <LayoutDashboard size={18} /><span className="sidebar__menu-text">Dashboard</span>
           </button>
-          <button type="button" className={`sidebar__menu-item ${activeMenu === 'humanizer' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('humanizer')}>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'humanizer' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('humanizer')} aria-label="Humanizer editor">
             <Wand2 size={18} /><span className="sidebar__menu-text">Humanizer</span>
           </button>
-          <button type="button" className={`sidebar__menu-item ${activeMenu === 'account' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('account')}>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'account' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('account')} aria-label="Account settings">
             <User size={18} /><span className="sidebar__menu-text">Account</span>
           </button>
-          <button type="button" className={`sidebar__menu-item ${activeMenu === 'plans' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('plans')}>
+          <button type="button" className={`sidebar__menu-item ${activeMenu === 'plans' ? 'sidebar__menu-item--active' : ''}`} onClick={() => handleMobileNavClick('plans')} aria-label="Plans and pricing">
             <CreditCard size={18} /><span className="sidebar__menu-text">Plans &amp; Pricing</span>
           </button>
           {user?.role === 'admin' && (
-            <button type="button" className="sidebar__menu-item" onClick={() => { router.push('/admin/dashboard'); closeMobileMenu(); }} style={{ color: '#38bdf8' }}>
+            <button type="button" className="sidebar__menu-item" onClick={() => { router.push('/admin/dashboard'); closeMobileMenu(); }} style={{ color: '#38bdf8' }} aria-label="Admin Portal">
               <ShieldAlert size={18} /><span className="sidebar__menu-text">Admin Portal</span>
             </button>
           )}
         </nav>
         <div className="sidebar__footer">
-          <button type="button" className="sidebar__menu-item" onClick={handleLogout}>
+          <button type="button" className="sidebar__menu-item" onClick={handleLogout} aria-label="Log Out">
             <LogOut size={18} /><span className="sidebar__menu-text">Log Out</span>
           </button>
           {user && (
@@ -492,6 +626,7 @@ export default function DashboardPage() {
             type="button"
             className={`sidebar__menu-item ${activeMenu === 'dashboard' ? 'sidebar__menu-item--active' : ''}`}
             onClick={() => setActiveMenu('dashboard')}
+            aria-label="Dashboard view"
           >
             <LayoutDashboard size={18} />
             <span className="sidebar__menu-text">Dashboard</span>
@@ -500,6 +635,7 @@ export default function DashboardPage() {
             type="button"
             className={`sidebar__menu-item ${activeMenu === 'humanizer' ? 'sidebar__menu-item--active' : ''}`}
             onClick={() => setActiveMenu('humanizer')}
+            aria-label="Humanizer editor"
           >
             <Wand2 size={18} />
             <span className="sidebar__menu-text">Humanizer</span>
@@ -508,6 +644,7 @@ export default function DashboardPage() {
             type="button"
             className={`sidebar__menu-item ${activeMenu === 'account' ? 'sidebar__menu-item--active' : ''}`}
             onClick={() => setActiveMenu('account')}
+            aria-label="Account settings"
           >
             <User size={18} />
             <span className="sidebar__menu-text">Account</span>
@@ -516,6 +653,7 @@ export default function DashboardPage() {
             type="button"
             className={`sidebar__menu-item ${activeMenu === 'plans' ? 'sidebar__menu-item--active' : ''}`}
             onClick={() => setActiveMenu('plans')}
+            aria-label="Plans and pricing"
           >
             <CreditCard size={18} />
             <span className="sidebar__menu-text">Plans & Pricing</span>
@@ -527,6 +665,7 @@ export default function DashboardPage() {
               className="sidebar__menu-item"
               onClick={() => router.push('/admin/dashboard')}
               style={{ color: '#38bdf8' }}
+              aria-label="Admin Portal"
             >
               <ShieldAlert size={18} />
               <span className="sidebar__menu-text">Admin Portal</span>
@@ -535,7 +674,7 @@ export default function DashboardPage() {
         </nav>
 
         <div className="sidebar__footer">
-          <button type="button" className="sidebar__menu-item">
+          <button type="button" className="sidebar__menu-item" aria-label="Frequently Asked Questions">
             <HelpCircle size={18} />
             <span className="sidebar__menu-text">FAQ</span>
           </button>
@@ -543,6 +682,7 @@ export default function DashboardPage() {
             type="button"
             className="sidebar__menu-item"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Expand sidebar menu" : "Collapse sidebar menu"}
           >
             <ChevronLeft className="sidebar__collapse-chevron" size={18} />
             <span className="sidebar__menu-text">Collapse Menu</span>
@@ -730,28 +870,68 @@ export default function DashboardPage() {
                 <div className="content-column-left">
 
                 {/* Input Area */}
-                <div className="card text-panel-box">
+                <div
+                  className={`card text-panel-box ${isDraggingFile ? 'text-panel-box--dragover' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  {isDraggingFile && (
+                    <div className="dropzone-overlay">
+                      <div className="dropzone-overlay__icon">
+                        <UploadCloud size={28} />
+                      </div>
+                      <div className="dropzone-overlay__title">Drop document here</div>
+                      <div className="dropzone-overlay__subtitle">Supports .docx, .pdf, .txt, .md (up to 5,000 words on Enterprise)</div>
+                    </div>
+                  )}
+
                   <div className="card-header-bar">
                     <span className="card-header-bar__title">
                       <CircleDot size={10} color="var(--accent-blue)" />
                       Original Text
                     </span>
-                    {inputText && (
+                    <div className="card-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <button
                         type="button"
-                        className="card-header-action-btn"
-                        onClick={handleClear}
-                        title="Clear text"
+                        className="card-header-upload-btn"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={fileParsing}
+                        title="Upload document (.docx, .pdf, .txt, .md)"
+                        aria-label="Upload document file"
                       >
-                        <Trash2 size={16} />
+                        {fileParsing ? (
+                          <Loader2 size={13} className="spinner-animate" />
+                        ) : (
+                          <UploadCloud size={14} />
+                        )}
+                        <span>{fileParsing ? 'Reading...' : 'Upload File'}</span>
                       </button>
-                    )}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileInputChange}
+                        accept=".docx,.pdf,.txt,.md,.rtf,.csv"
+                        style={{ display: 'none' }}
+                      />
+                      {inputText && (
+                        <button
+                          type="button"
+                          className="card-header-action-btn"
+                          onClick={handleClear}
+                          title="Clear text"
+                          aria-label="Clear input text"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <TextInput
                     value={inputText}
                     onChange={setInputText}
-                    placeholder="Paste your AI-generated text here (ChatGPT, Claude, Jasper, etc.)..."
+                    placeholder="Paste or upload your AI-generated text here (.docx, .pdf, .txt, .md supported)..."
                   />
 
                   {hasMarkdown(inputText) && (
@@ -764,6 +944,7 @@ export default function DashboardPage() {
                         type="button"
                         className="remove-markdown-btn"
                         onClick={handleRemoveMarkdown}
+                        aria-label="Remove markdown formatting"
                       >
                         <Type size={13} />
                         <span>Remove Markdown</span>
@@ -784,6 +965,7 @@ export default function DashboardPage() {
                         className="action-btn-solid"
                         disabled={loading || !inputText.trim()}
                         onClick={handleRewrite}
+                        aria-label="Humanize text"
                       >
                         {loading ? (
                           <Loader2 size={15} className="spinner-animate" />
@@ -826,6 +1008,7 @@ export default function DashboardPage() {
                           className="card-header-action-btn"
                           onClick={() => handleCopy(outputText)}
                           title={copied ? "Copied!" : "Copy text"}
+                          aria-label={copied ? "Text copied" : "Copy humanized text"}
                         >
                           {copied ? (
                             <Check size={16} className="text-emerald" />
@@ -838,6 +1021,7 @@ export default function DashboardPage() {
                           className="card-header-action-btn"
                           onClick={() => handleDownload(outputText)}
                           title="Download text"
+                          aria-label="Download humanized text"
                         >
                           <Download size={16} />
                         </button>

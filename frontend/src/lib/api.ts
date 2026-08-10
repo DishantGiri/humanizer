@@ -338,7 +338,37 @@ export interface HistoryItem {
   created_at: string;
 }
 
+export interface FileParseResponse {
+  filename: string;
+  text: string;
+  word_count: number;
+  character_count: number;
+}
+
 // ── API Functions ──────────────────────────────────────────────────────────
+
+export async function parseUploadedFile(file: File, token?: string | null): Promise<FileParseResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/api/parse-file`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Failed to parse document (${response.status})`));
+  }
+
+  return await response.json();
+}
 
 export async function rewriteText(request: RewriteRequest, token?: string | null): Promise<RewriteResponse> {
   const controller = new AbortController();

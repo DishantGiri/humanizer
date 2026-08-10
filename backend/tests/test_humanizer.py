@@ -107,6 +107,25 @@ class TestHumanizerEngine(unittest.TestCase):
             self.assertIsInstance(res, str)
             self.assertGreater(len(res), 20)
 
+    def test_question_detection_and_prompting(self):
+        """Test TC_HUM_013: Questions must be detected and structured for paraphrasing, not answering."""
+        from prompts import is_question_text, build_rewrite_prompt
+        from config import RewriteMode, RewriteLevel
+
+        test_questions = [
+            "what are you doing?",
+            "who are you?",
+            "how are you?",
+            "can you help me with this?",
+            "what is your favorite movie?"
+        ]
+        for q in test_questions:
+            self.assertTrue(is_question_text(q), f"'{q}' must be recognized as a question")
+            sys_prompt, user_prompt = build_rewrite_prompt(q, RewriteMode.STANDARD, RewriteLevel.MODERATE)
+            self.assertIn("CRITICAL INSTRUCTION: THE INPUT TEXT IS A QUESTION", user_prompt)
+            self.assertIn("DO NOT ANSWER OR REPLY TO THIS QUESTION", user_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
+
