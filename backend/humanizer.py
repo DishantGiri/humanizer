@@ -184,7 +184,7 @@ AI_VOCAB_WEIGHTS: dict[str, int] = {
     "paradigm": 4, "cutting-edge": 4, "game-changer": 4, "nestled": 3,
     "crucial": 3, "robust": 3, "utilize": 3, "commence": 3, "facilitate": 3,
     "unlock": 4, "revolutionize": 4, "intricate": 3, "showcasing": 3, "surpass": 3,
-    "meticulously": 4, "unparalleled": 4, "innovative": 3, "commendable": 3,
+    "meticulously": 4, "unparalleled": 4, "commendable": 3,
     "groundbreaking": 4, "align": 2, "enhance": 3, "holistic": 4, "garner": 3,
     "accentuate": 4, "pioneering": 4, "trailblazing": 4, "unleash": 4, "versatile": 3,
     "redefine": 3, "seamless": 4, "optimize": 3, "scalable": 3, "breakthrough": 3,
@@ -230,7 +230,6 @@ AI_REPLACEMENTS: dict[str, list[str]] = {
     "leverage": ["use", "take advantage of", "tap into"],
     "synergy": ["collaboration", "teamwork"],
     "synergize": ["collaborate", "work together"],
-    "innovative": ["new", "creative", "fresh"],
     "game-changer": ["major shift", "big deal"],
     "testament to": ["proof of", "sign of"],
     "testament": ["proof", "evidence"],
@@ -526,42 +525,10 @@ def apply_context_aware_contractions(text: str, profile: ModeProfile, rng: rando
 
 def inject_natural_disfluencies(sentences: list[str], profile: ModeProfile, rng: random.Random) -> list[str]:
     """
-    Adds subtle, realistic human disfluencies (self-corrections, rephrasing, parenthetical asides)
-    governed strictly by mode constraints (max_disfluencies).
+    Maintains clean human text flow without injecting artificial phrases or hallucinated asides.
+    Never alters factual content or injects unsupported commentary.
     """
-    if profile.max_disfluencies <= 0 or len(sentences) < 2:
-        return sentences
-
-    disfluency_count = 0
-    result = []
-
-    for idx, sent in enumerate(sentences):
-        words = sent.split()
-
-        if disfluency_count < profile.max_disfluencies and len(words) > 10 and rng.random() < 0.20:
-            choice = rng.choice(["self_correction", "aside", "rephrase"])
-            
-            if choice == "self_correction":
-                # "The project - well, actually the entire initiative..."
-                mid = len(words) // 2
-                first = " ".join(words[:mid])
-                second = " ".join(words[mid:])
-                sent = f"{first} - well, actually {second[0].lower() + second[1:]}"
-                disfluency_count += 1
-            elif choice == "aside":
-                # " (and this is important) "
-                mid = len(words) // 2
-                aside = rng.choice([" (and this matters) ", " - at least for now - ", " (which is key) "])
-                sent = " ".join(words[:mid]) + aside + " ".join(words[mid:])
-                disfluency_count += 1
-            elif choice == "rephrase":
-                # "We need to, I mean, we should..."
-                sent = f"I mean, {sent[0].lower() + sent[1:]}"
-                disfluency_count += 1
-
-        result.append(sent)
-
-    return result
+    return sentences
 
 
 # ── Feature 4: Intelligent Transitions ───────────────────────────────────────
@@ -597,21 +564,8 @@ def apply_intelligent_transitions(sentences: list[str], profile: ModeProfile, rn
 
 def apply_emotional_intelligence(text: str, profile: ModeProfile, rng: random.Random) -> str:
     """
-    Maps text to emotional dimensions and applies tone-appropriate markers:
-    - Uncertainty: strategic hedges ("I think", "suggests that").
-    - Urgency / Action: direct active phrasing.
+    Preserves text tonal consistency without injecting arbitrary lexical hedges into clauses.
     """
-    if profile.hedges and rng.random() < 0.30:
-        sentences = _split_sentences(text)
-        if sentences:
-            idx = rng.randint(0, len(sentences) - 1)
-            sent = sentences[idx]
-            hedge = rng.choice(profile.hedges)
-            if not any(h in sent for h in profile.hedges):
-                words = sent.split()
-                if len(words) > 5:
-                    sentences[idx] = f"{words[0]} {hedge} {' '.join(words[1:])}"
-                    text = _join_sentences(sentences)
     return text
 
 
@@ -657,20 +611,8 @@ def adjust_lexical_sophistication(text: str, profile: ModeProfile, rng: random.R
 
 def package_information(sentences: list[str], profile: ModeProfile, rng: random.Random) -> list[str]:
     """
-    Varies subject positioning through natural fronting, clefting ("What's key is..."),
-    and existential constructions ("There are...").
+    Maintains clean information packaging without injecting unprompted filler phrases.
     """
-    if len(sentences) < 3 or profile.formality_score > 0.8:
-        return sentences
-
-    if rng.random() < 0.20:
-        idx = rng.randint(0, len(sentences) - 1)
-        sent = sentences[idx]
-        words = sent.split()
-        if len(words) > 8 and sent.endswith('.'):
-            # Apply cleft construction: "What matters is..."
-            sentences[idx] = f"What matters is that {sent[0].lower() + sent[1:]}"
-
     return sentences
 
 
@@ -730,22 +672,28 @@ def run_self_correction_loop(text: str, profile: ModeProfile, original_text: Opt
 
         needs_fix = False
 
-        # Target 1: Sentence length average too high (only split on natural clause boundaries)
+        # Target 1: Sentence length average too high (only split on compound clause boundaries with explicit subject)
         if stats.avg_sentence_length > max_len:
             sentences = _split_sentences(current_text)
             res = []
             for s in sentences:
                 w = s.split()
                 if len(w) > 22:
-                    # Look for natural clause separator
-                    split_match = re.search(r'(,\s*(?:and|but|so|which|where|while)\s+)', s, flags=re.IGNORECASE)
+                    # Look for compound sentence boundary: comma + conjunction + explicit subject pronoun
+                    split_match = re.search(
+                        r'(,\s*(?:and|but|so|while)\s+(?:it|this|they|these|we|you|he|she)\s+)',
+                        s,
+                        flags=re.IGNORECASE
+                    )
                     if split_match:
-                        part1 = s[:split_match.start()].strip() + "."
-                        part2_raw = s[split_match.end():].strip()
-                        part2 = part2_raw[0].upper() + part2_raw[1:] if part2_raw else ""
-                        if part1 and part2:
-                            res.extend([part1, part2])
-                            continue
+                        part1 = s[:split_match.start()].strip().rstrip(',') + "."
+                        part2_raw = s[split_match.start() + 1:].strip()
+                        part2_cleaned = re.sub(r'^(?:and|but|so|while)\s+', '', part2_raw, flags=re.IGNORECASE).strip()
+                        if part2_cleaned:
+                            part2 = part2_cleaned[0].upper() + part2_cleaned[1:]
+                            if part1 and part2:
+                                res.extend([part1, part2])
+                                continue
                 res.append(s)
             current_text = _join_sentences(res)
             needs_fix = True
@@ -880,6 +828,13 @@ def clean_erroneous_punctuation(text: str) -> str:
         text
     )
 
+    # 5b. Fix predicate verb fragment splits: "information. Supports cloud..." -> "information, supporting cloud..."
+    text = re.sub(
+        r'(\b\w{2,})\.\s+(Supports|Supporting|Drives|Driving|Will play|Plays|Playing|Shapes|Shaping|Enables|Enabling)\b',
+        lambda m: f"{m.group(1)}, {m.group(2).lower()}",
+        text
+    )
+
     # 6. Fix periods immediately followed by lowercase words: "word. lowercase" -> "word lowercase"
     text = re.sub(r'(\b\w{2,})\.\s+([a-z])', r'\1 \2', text)
 
@@ -890,8 +845,9 @@ def clean_erroneous_punctuation(text: str) -> str:
     text = re.sub(r'([,;:])\s*([.!?])', r'\2', text)
     text = re.sub(r'\.\s*,', ',', text)
 
-    # 8. Remove stray standalone canned fragments
+    # 8. Remove stray standalone canned fragments or hallucinated parentheticals
     text = re.sub(r'\s*\b(Simple as that|Clearly|That matters|No question about it)\.\s*', ' ', text)
+    text = re.sub(r'\s*\(\s*(?:which is key|and this matters|and this is key|at least for now)\s*\)\s*', ' ', text, flags=re.IGNORECASE)
 
     # 9. Fix double spaces
     text = re.sub(r' +', ' ', text)
@@ -916,14 +872,14 @@ def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
     # 1. Casual canned fillers to completely eliminate in formal/academic modes
     casual_fillers = [
         r'\bAs it turns out,?\s*',
-        r'\bSimple as that\.?\s*',
-        r'\bClearly\.?\s*',
-        r'\bThat matters\.?\s*',
-        r'\bLook,?\s*',
-        r'\bHonestly,?\s*',
-        r'\bWell,?\s*',
-        r'\bWhen you think about it,?\s*',
-        r'\bPicture this:?\s*',
+        r'\bSimple as that\.\s*',
+        r'\bClearly,\s*',
+        r'\bThat matters\.\s*',
+        r'\bLook,\s*',
+        r'\bHonestly,\s*',
+        r'\bWell,\s*',
+        r'\bWhen you think about it,\s*',
+        r'\bPicture this:\s*',
     ]
 
     if is_academic_or_formal:

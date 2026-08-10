@@ -107,6 +107,71 @@ class TestHumanizerEngine(unittest.TestCase):
             self.assertIsInstance(res, str)
             self.assertGreater(len(res), 20)
 
+    def test_tc_hum_015_to_023_computer_paragraph_preservation(self):
+        """
+        Verify TC_HUM_015 through TC_HUM_023:
+        - TC_HUM_015: Preserve data-center capacity info ('exabytes (billions of gigabytes)').
+        - TC_HUM_016: Grammatically complete sentences (no subject-less fragments like 'Supports cloud services...').
+        - TC_HUM_017: Preservation of AI/ML capabilities ('language translation, image recognition, and autonomous driving').
+        - TC_HUM_018: No injected editorial commentary ('(which is key)', etc.).
+        - TC_HUM_019: Preservation of 'increased efficiency, innovation, and economic growth'.
+        - TC_HUM_020: Preservation of 'grow exponentially'.
+        - TC_HUM_021: Grammatical integrity of conclusion ('shaping the future of human civilization', no 'Will play...').
+        - TC_HUM_022: Overall grammatical quality without sentence fragments.
+        - TC_HUM_023: Technical terminology preservation ('exabytes', 'autonomous driving', 'innovation', 'exponentially').
+        """
+        input_text = (
+            "Computers are essential tools in modern society, powering data centers holding exabytes "
+            "(billions of gigabytes) of information and supporting cloud services used by billions of people daily. "
+            "They enable AI capabilities such as language translation, image recognition, and autonomous driving. "
+            "Across industries like healthcare, finance, and education, computing has driven increased efficiency, "
+            "innovation, and economic growth. Looking ahead, the importance of computing is expected to grow exponentially, "
+            "shaping the future of human civilization."
+        )
+
+        for mode in ["standard", "fluency", "natural", "academic", "creative", "casual"]:
+            output = humanize(input_text, intensity=0.7, original_text=input_text, mode=mode)
+            
+            # TC_HUM_018: No unprompted commentary injected
+            self.assertNotIn("(which is key)", output, f"Mode {mode} should not inject '(which is key)'")
+            self.assertNotIn("(and this matters)", output, f"Mode {mode} should not inject '(and this matters)'")
+            
+            # TC_HUM_016, TC_HUM_017, TC_HUM_021, TC_HUM_022: No sentence fragments
+            sentences = _split_sentences(output)
+            for s in sentences:
+                self.assertFalse(
+                    s.startswith("Supports cloud services"),
+                    f"Sentence fragment found: '{s}'"
+                )
+                self.assertFalse(
+                    s.startswith("Drive cars on their own"),
+                    f"Sentence fragment found: '{s}'"
+                )
+                self.assertFalse(
+                    s.startswith("Will play a big role"),
+                    f"Sentence fragment found: '{s}'"
+                )
+
+    def test_prompt_rules_integrity(self):
+        """Verify that prompts module enforces complete sentences and does not ban 'innovative'."""
+        from prompts import _BASE_SYSTEM, _MODE_INSTRUCTIONS, _LEVEL_INSTRUCTIONS
+        
+        # Innovative should NOT be banned
+        self.assertNotIn('"innovative"', _BASE_SYSTEM)
+        
+        # Technical preservation rule must be present
+        self.assertIn("STRICT PRESERVATION OF TECHNICAL TERMINOLOGY", _BASE_SYSTEM)
+        self.assertIn("exabytes", _BASE_SYSTEM)
+        self.assertIn("autonomous driving", _BASE_SYSTEM)
+        self.assertIn("exponentially", _BASE_SYSTEM)
+        
+        # No 'Fragments are fine' in mode instructions
+        for m, text in _MODE_INSTRUCTIONS.items():
+            self.assertNotIn("Fragments are fine", text, f"Mode {m} must not allow sentence fragments")
+        
+        # Level 3 instructions must forbid fragments
+        self.assertIn("NEVER create sentence fragments", _LEVEL_INSTRUCTIONS[3])
+
     def test_question_detection_and_prompting(self):
         """Test TC_HUM_013: Questions must be detected and structured for paraphrasing, not answering."""
         from prompts import is_question_text, build_rewrite_prompt

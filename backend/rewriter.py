@@ -284,10 +284,10 @@ class TextRewriter:
             logger.info("Running Pass 2 (Double Cook) naturalization pass for Level %d rewrite", level_val)
             pass2_system = (
                 "You are an expert human copyeditor. Take the provided text draft and make it sound "
-                "even more like a real person typed it quickly in one take. "
-                "Break any smooth, robotic sentence transitions. Use short sentences (8-14 words). "
-                "Start 40%+ of sentences with personal pronouns (I, We, You, They, It). "
-                "Keep all facts, numbers, dates, and paragraph counts identical. "
+                "even more like a real person typed it naturally in one take. "
+                "Break any smooth, robotic sentence transitions. Use concise sentences. "
+                "Ensure all sentences are grammatically complete with clear subjects and verbs. Never create sentence fragments. "
+                "Keep all facts, numbers, dates, technical terms ('exabytes', 'autonomous driving'), rate qualifiers ('exponentially'), core concepts ('innovation', 'human civilization'), and paragraph counts identical. "
                 "Return ONLY the rewritten text without preambles or notes."
             )
             pass2_user = f'Draft text to naturalize:\n"{pass1_result}"'
