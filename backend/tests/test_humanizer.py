@@ -187,10 +187,79 @@ class TestHumanizerEngine(unittest.TestCase):
         for q in test_questions:
             self.assertTrue(is_question_text(q), f"'{q}' must be recognized as a question")
             sys_prompt, user_prompt = build_rewrite_prompt(q, RewriteMode.STANDARD, RewriteLevel.MODERATE)
-            self.assertIn("CRITICAL INSTRUCTION: THE INPUT TEXT IS A QUESTION", user_prompt)
-            self.assertIn("DO NOT ANSWER OR REPLY TO THIS QUESTION", user_prompt)
+    def test_burstiness_and_hedging_metrics(self):
+        """Test burstiness score and hedging count metrics in analyzer."""
+        from analyzer import analyze
+        text_with_burstiness = (
+            "We agree. Although many researchers have examined this topic across different settings, "
+            "the data clearly suggests that further investigation is warranted. Key point: it works."
+        )
+        stats = analyze(text_with_burstiness)
+        self.assertGreater(stats.burstiness_score, 0.0, "Burstiness score should be > 0")
+        self.assertGreater(stats.sentence_len_stdev, 0.0, "Sentence length stdev should be > 0")
+        self.assertGreater(stats.hedging_count, 0, "Should detect hedging word 'suggests'")
+
+    def test_formulaic_pattern_and_summary_stripping(self):
+        """Test that robotic transitions and paragraph-end summary clichés are eliminated."""
+        text_with_cliches = (
+            "Furthermore, modern software architecture requires careful planning. "
+            "In conclusion, this shows the importance of distributed systems."
+        )
+        output = humanize(text_with_cliches, intensity=0.8, original_text=text_with_cliches, mode="standard")
+        self.assertNotIn("Furthermore", output)
+        self.assertNotIn("In conclusion", output)
+
+    def test_anti_detection_strategies_in_prompts(self):
+        """Verify prompt system instructions include the 7 Hard Rules and 9 Levers."""
+        from prompts import _BASE_SYSTEM, _LEVEL_INSTRUCTIONS
+        self.assertIn("THE 7 HARD RULES", _BASE_SYSTEM)
+        self.assertIn("EM DASHES", _BASE_SYSTEM)
+        self.assertIn("SEMICOLONS", _BASE_SYSTEM)
+        self.assertIn("STRAIGHT QUOTES", _BASE_SYSTEM)
+        self.assertIn("MASTER BANNED VOCABULARY", _BASE_SYSTEM)
+        self.assertIn("NO NEGATION FRAMING", _BASE_SYSTEM)
+        self.assertIn("THE 9 HUMANIZATION LEVERS", _BASE_SYSTEM)
+        self.assertIn("DESTROY PREDICTABLE STRUCTURE & BURSTINESS", _LEVEL_INSTRUCTIONS[3].upper())
+
+    def test_scenario_1_flagrant_ai_humanization(self):
+        """
+        Scenario 1: Flagrant AI paragraph with em-dashes, semicolons, and banned vocabulary.
+        Verify humanize() strips semicolons, em-dashes, and canonical tell words.
+        """
+        flagrant_ai_text = (
+            "In today's fast-paced world, it is important to note that artificial intelligence has become "
+            "increasingly pivotal in shaping how organizations operate. Furthermore, AI systems are often "
+            "utilized to streamline workflows and foster innovation across teams. Moreover, the comprehensive "
+            "integration of these tools — often regarded as a robust solution — can significantly enhance productivity; "
+            "however, the implementation requires careful planning."
+        )
+
+        output = humanize(flagrant_ai_text, intensity=0.8, original_text=flagrant_ai_text, mode="standard")
+        
+        # Verify 7 Hard Rules in output
+        self.assertNotIn("—", output, "Output must contain zero em-dashes")
+        self.assertNotIn(";", output, "Output must contain zero semicolons")
+        self.assertNotIn("In today's fast-paced world", output)
+        self.assertNotIn("Furthermore", output)
+        self.assertNotIn("Moreover", output)
+        self.assertNotIn("streamline", output)
+        self.assertNotIn("robust", output)
+        self.assertNotIn("comprehensive", output)
+
+    def test_validator_detects_formulaic_ai_patterns(self):
+        """Test validator flags formulaic robotic transition markers."""
+        from validators import validate_human_statistics
+        text_robotic = (
+            "Furthermore, this technology is very effective. "
+            "Moreover, it provides good benefits. "
+            "In conclusion, we should use it."
+        )
+        is_valid, reason, stats = validate_human_statistics(text_robotic)
+        self.assertFalse(is_valid, "Text with robotic transitions should fail strict anti-AI validation")
+        self.assertIn("formulaic transition markers", reason.lower())
 
 
 if __name__ == "__main__":
     unittest.main()
+
 

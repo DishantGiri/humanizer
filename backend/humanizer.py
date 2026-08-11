@@ -63,14 +63,14 @@ MODE_PROFILES: dict[str, ModeProfile] = {
     "standard": ModeProfile(
         name="standard",
         target_len_range=(10.0, 15.0),
-        target_stdev_range=(4.5, 8.5),
-        contraction_target=(0.06, 0.14),
+        target_stdev_range=(5.0, 9.5),
+        contraction_target=(0.08, 0.18),
         ttr_target=(0.58, 0.70),
-        discourse_markers=["Noticeably,", "As it turns out,", "That said,", "Well,"],
-        hedges=["seems to be", "in a way", "for the most part"],
+        discourse_markers=["That said,", "Plus,", "At the same time,", "In fact,"],
+        hedges=["seems to be", "in a way", "for the most part", "tends to"],
         max_disfluencies=1,
         allow_fragments=True,
-        formality_score=0.4,
+        formality_score=0.25,
     ),
     "fluency": ModeProfile(
         name="fluency",
@@ -293,10 +293,18 @@ AI_REPLACEMENTS: dict[str, list[str]] = {
     "machine-first": ["automated"],
     "paradigm-shifting": ["major", "transformative"],
     "utilize": ["use", "apply"],
+    "utilized": ["used", "applied"],
     "facilitate": ["help", "ease"],
     "commence": ["start", "begin"],
+    "comprehensive": ["complete", "thorough", "broad"],
     "ever-evolving": ["changing", "shifting"],
+    "in today's fast-paced world": ["today", "these days", "nowadays"],
     "in today's world": ["today", "right now"],
+    "in today's": ["today's", "current"],
+    "it is important to note that": ["notably", "also", "in fact"],
+    "it is important to note": ["notably", "also"],
+    "it is worth noting that": ["notably", "also"],
+    "it is worth noting": ["notably", "also"],
     "serves as a": ["is a", "functions as a"],
     "serves as": ["is", "acts as"],
     "stands as a": ["is a", "remains a"],
@@ -314,6 +322,13 @@ AI_REPLACEMENTS: dict[str, list[str]] = {
     "fundamentally": ["at its core", "truly"],
     "remarkably": ["notably", "surprisingly"],
     "arguably": ["perhaps", "likely"],
+    "is concerned with": ["focuses on", "deals with", "examines"],
+    "is divided into two main areas:": ["breaks down into two main areas:", "has two primary parts:"],
+    "provides valuable insights across countless disciplines": ["helps solve problems across dozens of fields", "proves useful everywhere"],
+    "plays a vital role in": ["is key to", "matters for", "drives"],
+    "plays a vital role": ["matters significantly", "is essential"],
+    "is deeply connected": ["works hand in hand", "is closely linked"],
+    "it is widely used in": ["engineers and scientists rely on it in", "it is common in"],
 }
 
 INTELLIGENT_TRANSITIONS: dict[str, list[str]] = {
@@ -415,13 +430,37 @@ def engineer_rhythm_and_cadence(sentences: list[str], profile: ModeProfile, rng:
     """
     Creates natural human sentence waves (pulsing rhythm of alternating short/long sentences)
     and inserts discourse markers at natural breakpoints without adding artificial sentences.
+    Actively breaks homogeneous sentence pacing to maximize statistical burstiness.
     """
-    if len(sentences) < 3:
+    if len(sentences) < 2:
         return sentences
 
+    # Calculate sentence length variance
+    sent_lens = [len(s.split()) for s in sentences]
+    stdev = statistics.stdev(sent_lens) if len(sent_lens) > 1 else 0.0
+
     result = []
-    for sent in sentences:
+    # If rhythm is too uniform (stdev < 7.0 matching empirical human data), actively introduce short/long oscillations
+    for idx, sent in enumerate(sentences):
         words = sent.split()
+
+        # If flat rhythm and sentence is long compound, attempt safe split at clause boundary
+        if stdev < 7.0 and len(words) > 16:
+            split_match = re.search(
+                r'(,\s*(?:and|but|so|while)\s+(?:it|this|they|these|we|you|he|she)\s+)',
+                sent,
+                flags=re.IGNORECASE
+            )
+            if split_match:
+                part1 = sent[:split_match.start()].strip().rstrip(',') + "."
+                part2_raw = sent[split_match.start() + 1:].strip()
+                part2_cleaned = re.sub(r'^(?:and|but|so|while)\s+', '', part2_raw, flags=re.IGNORECASE).strip()
+                if part2_cleaned:
+                    part2 = part2_cleaned[0].upper() + part2_cleaned[1:]
+                    if part1 and part2:
+                        result.extend([part1, part2])
+                        continue
+
         # Insert dynamic discourse marker on long flat sentences (if allowed by profile)
         if len(words) > 16 and profile.discourse_markers and rng.random() < 0.20:
             marker = rng.choice(profile.discourse_markers)
@@ -662,57 +701,13 @@ def run_self_correction_loop(text: str, profile: ModeProfile, original_text: Opt
     current_text = text
 
     for iteration in range(max_iters):
-        # Time cap safety check (must complete under 500ms)
         if (time.time() - start_time) * 1000 > 450:
             break
 
         stats = analyze_text(current_text)
-        min_len, max_len = profile.target_len_range
-        min_std, max_std = profile.target_stdev_range
-
         needs_fix = False
 
-        # Target 1: Sentence length average too high (only split on compound clause boundaries with explicit subject)
-        if stats.avg_sentence_length > max_len:
-            sentences = _split_sentences(current_text)
-            res = []
-            for s in sentences:
-                w = s.split()
-                if len(w) > 22:
-                    # Look for compound sentence boundary: comma + conjunction + explicit subject pronoun
-                    split_match = re.search(
-                        r'(,\s*(?:and|but|so|while)\s+(?:it|this|they|these|we|you|he|she)\s+)',
-                        s,
-                        flags=re.IGNORECASE
-                    )
-                    if split_match:
-                        part1 = s[:split_match.start()].strip().rstrip(',') + "."
-                        part2_raw = s[split_match.start() + 1:].strip()
-                        part2_cleaned = re.sub(r'^(?:and|but|so|while)\s+', '', part2_raw, flags=re.IGNORECASE).strip()
-                        if part2_cleaned:
-                            part2 = part2_cleaned[0].upper() + part2_cleaned[1:]
-                            if part1 and part2:
-                                res.extend([part1, part2])
-                                continue
-                res.append(s)
-            current_text = _join_sentences(res)
-            needs_fix = True
-
-        # Target 2: Sentence stdev too low (uniformity) - only merge if paragraph has 4+ sentences
-        if stats.std_sentence_length < min_std and stats.total_sentences >= 4:
-            sentences = _split_sentences(current_text)
-            if len(sentences) >= 4:
-                # Merge two short sentences
-                for i in range(len(sentences) - 1):
-                    if len(sentences[i].split()) < 8 and len(sentences[i + 1].split()) < 8:
-                        merged = sentences[i].rstrip('.!?') + ", and " + sentences[i + 1][0].lower() + sentences[i + 1][1:]
-                        sentences = sentences[:i] + [merged] + sentences[i + 2:]
-                        current_text = _join_sentences(sentences)
-                        needs_fix = True
-                        break
-
-        # Target 3: Weighted AI score too high
-        if stats.ai_score > 3:
+        if stats.ai_score > 2:
             rng = random.Random(iteration)
             current_text = adjust_lexical_sophistication(current_text, profile, rng)
             needs_fix = True
@@ -729,7 +724,7 @@ def extract_final_output(text: str) -> str:
     """Strip internal thinking tags <think>...</think> from models like Qwen3."""
     if not text:
         return text
-    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
     return text.strip()
 
@@ -751,12 +746,30 @@ def strip_outer_quotes(text: str) -> str:
 
 
 def strip_formatting_artifacts(text: str) -> str:
-    """Clean up markdown emojis, bold markdown, and replace em-dashes with hyphens manually."""
-    text = re.sub(r'\*{2,}', '', text)
-    # Manually replace em-dashes and en-dashes with standard hyphens
+    """
+    Clean up markdown artifacts and enforce the 7 Hard Rules on typography:
+    1. Curly quotes/apostrophes (“ ” ‘ ’) -> Straight quotes/apostrophes (" ')
+    2. Em dashes and en dashes (—, –) -> Standard hyphens (-) or commas
+    3. Semicolons (;) -> Commas or periods
+    4. Strip excessive asterisks and markdown bolding
+    """
+    if not text:
+        return text
+
+    # Hard Rule 3: Straight quotes and apostrophes only
+    text = text.replace("“", '"').replace("”", '"').replace("&ldquo;", '"').replace("&rdquo;", '"')
+    text = text.replace("‘", "'").replace("’", "'").replace("&lsquo;", "'").replace("&rsquo;", "'")
+
+    # Hard Rule 1: No em dashes or en dashes
     text = text.replace("\u2014", " - ").replace("\u2013", " - ").replace("&mdash;", " - ").replace("&ndash;", " - ").replace(" -- ", " - ")
     text = re.sub(r'\s*—\s*', ' - ', text)
     text = re.sub(r'\s*–\s*', ' - ', text)
+
+    # Hard Rule 2: Zero semicolons
+    text = re.sub(r';\s*', ', ', text)
+
+    # Clean markdown bold/italics markers
+    text = re.sub(r'\*{2,}', '', text)
     return text
 
 
@@ -858,11 +871,46 @@ def clean_erroneous_punctuation(text: str) -> str:
     return text.strip()
 
 
+def strip_formulaic_patterns_and_summaries(text: str) -> str:
+    """
+    Disrupts predictable AI patterns:
+    1. Removes paragraph-ending mini-summary formulas.
+    2. Strips announcement-colon openers.
+    3. Transforms negation framing pivots.
+    """
+    if not text:
+        return text
+
+    summary_end_patterns = [
+        r'\s*\b(?:In summary|To sum up|In conclusion|All in all),?\s+(?:this|these findings|it)\s+(?:shows|demonstrates|highlights|underscores|illustrates)[^.!?]*[.!?]$',
+    ]
+    for pat in summary_end_patterns:
+        text = re.sub(pat, '', text, flags=re.IGNORECASE)
+
+    robotic_openers = {
+        r'^\s*Furthermore,?\s+': '',
+        r'^\s*Moreover,?\s+': '',
+        r'^\s*In conclusion,?\s+': '',
+        r'^\s*To sum up,?\s+': '',
+        r'^\s*Additionally,?\s+': 'Also, ',
+        r'^\s*The\s+(?:rule|standard|key|common)\s+(?:fix|insight|approach|pattern|problem)\s*:\s*': '',
+    }
+    for pat, rep in robotic_openers.items():
+        text = re.sub(pat, rep, text, flags=re.IGNORECASE | re.MULTILINE)
+
+    text = re.sub(
+        r'\bit[\'’]?s not about\s+([^,;.]+),\s*it[\'’]?s about\s+([^,;.]+)',
+        r'It is about \2',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    return text.strip()
+
+
 def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
     """
     Eliminates repetitive stock filler phrases and provides dynamic linguistic diversity.
-    Guarantees no stock filler phrase appears more than 1 time in the entire document.
-    Completely eliminates casual/conversational canned phrases in formal/academic modes.
     """
     if not text:
         return text
@@ -888,15 +936,15 @@ def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
 
     # 2. General stock transition phrases to deduplicate across any document (max 1 occurrence)
     stock_phrases = {
-        'as it turns out': ['notably,', 'in fact,', 'interestingly,'],
-        'that said': ['however,', 'still,', 'yet,'],
-        'on top of that': ['furthermore,', 'in addition,', 'moreover,'],
-        'in practice': ['operationally,', 'in applied settings,', 'concretely,'],
-        'what matters is that': ['crucially,', 'notably,', 'of primary importance,'],
-        'looking closely': ['upon closer examination,', 'analyzing this further,'],
-        'as a result': ['consequently,', 'therefore,', 'thus,'],
-        'for instance': ['for example,', 'specifically,'],
-        'clearly': ['evidently,', 'without doubt,'],
+        'as it turns out': ['in practice,', 'in fact,', 'actually,'],
+        'that said': ['still,', 'at the same time,', 'even so,'],
+        'on top of that': ['also,', 'plus,', 'and'],
+        'in practice': ['in real-world use,', 'in applied settings,', 'concretely,'],
+        'what matters is that': ['the key is that', 'in short,', 'mainly,'],
+        'looking closely': ['on closer examination,', 'analyzing this further,'],
+        'as a result': ['because of this,', 'so', 'which means'],
+        'for instance': ['for example,', 'take this:'],
+        'clearly': ['without doubt,', 'plainly,'],
         'simple as that': [''],
         'that matters': [''],
     }
@@ -1045,7 +1093,8 @@ def humanize(
     # Step 5: Apply paragraph intelligence & strict parity
     text = apply_paragraph_intelligence(text, original_text, rng)
 
-    # Step 6: Final Punctuation, Grammar Sanitation, Filler Deduplication & Proper Noun Capitalization
+    # Step 6: Final Punctuation, Formulaic Pattern Stripping, Filler Deduplication & Proper Noun Capitalization
+    text = strip_formulaic_patterns_and_summaries(text)
     text = clean_erroneous_punctuation(text)
     text = deduplicate_and_diversify_fillers(text, mode_key)
     text = re.sub(r'\b(an)\s+([b-df-hj-np-tv-z])', r'a \2', text, flags=re.IGNORECASE)

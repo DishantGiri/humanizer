@@ -20,9 +20,9 @@ class PerplexityOptimizer:
         self.model = GROQ_MODEL
         self.fallback_model = GROQ_FALLBACK_MODEL
 
-    def _call_groq(self, system_prompt: str, user_prompt: str, temp: float = 1.2) -> str:
-        """Call Groq using key rotation and fast model for maximum response speed."""
-        target_model = "llama-3.1-8b-instant" if self.fallback_model != "llama-3.1-8b-instant" else self.fallback_model
+    def _call_groq(self, system_prompt: str, user_prompt: str, temp: float = 1.02) -> str:
+        """Call Groq using key rotation with optimal entropy sampling."""
+        target_model = self.model or "llama-3.3-70b-versatile"
         
         if GROQ_API_KEYS:
             key_num, api_key = get_next_groq_key()
@@ -40,20 +40,39 @@ class PerplexityOptimizer:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=temp,
-                max_tokens=2048,
-                top_p=0.92,
+                max_tokens=3000,
+                top_p=0.96,
+                frequency_penalty=0.55,
+                presence_penalty=0.35,
             )
             content = response.choices[0].message.content
             return content.strip() if content else user_prompt
         except Exception as e:
-            logger.warning("Groq call in PerplexityOptimizer with model %s failed: %s", target_model, e)
-            return user_prompt
+            logger.warning("Groq call in PerplexityOptimizer with model %s failed (%s), falling back to instant model", target_model, e)
+            try:
+                # Fast fallback
+                fallback = "llama-3.1-8b-instant"
+                response = client.chat.completions.create(
+                    model=fallback,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=temp,
+                    max_tokens=2048,
+                    top_p=0.95,
+                )
+                content = response.choices[0].message.content
+                return content.strip() if content else user_prompt
+            except Exception as f_err:
+                logger.warning("Fallback in PerplexityOptimizer failed: %s", f_err)
+                return user_prompt
 
 
     def optimize(self, text: str, mode: str) -> str:
         """
-        Runs the perplexity and persona pass combined into a single fast call
-        using a temperature of 1.3 to maximize sentence variety.
+        Runs the perplexity and persona pass combined into a single call
+        using high-entropy sampling (temp ~1.0) to break local probability maximums.
         """
         mode_val = (mode.value if hasattr(mode, 'value') else str(mode)).lower()
         if mode_val in (RewriteMode.NATURAL.value, RewriteMode.CREATIVE.value, RewriteMode.CASUAL.value, RewriteMode.FRIENDLY.value, RewriteMode.SIMPLE.value):
@@ -73,19 +92,22 @@ class PerplexityOptimizer:
         system_prompt = (
             f"You are a {persona}. "
             "Paraphrase the following text so it reads naturally, preserves core meaning, intent, and emphasis, and sounds like it was written by a skilled human author.\n"
-            "CORE PRINCIPLES:\n"
+            "CORE EDITING & ANTI-DETECTION PRINCIPLES:\n"
             f"1. STRICT WORD COUNT: The input is {orig_words} words. Your rewrite MUST be between {min_words} and {max_words} words. Do NOT add extra explanations, padding, or commentary.\n"
-            "2. NATURAL SENTENCE VARIATION & GRAMMATICAL INTEGRITY: Mix concise, punchy lines with medium and occasional longer sentences naturally. Ensure every sentence has a complete subject and verb (NO sentence fragments).\n"
-            "3. NO EM-DASHES: Replace any em-dashes (—) with standard hyphens (-) or commas.\n"
-            "4. STRUCTURAL PARAPHRASING: Rephrase sentence structure and wording naturally where possible. Strictly preserve technical terms (e.g., 'exabytes', 'autonomous driving'), rate qualifiers (e.g., 'exponentially'), and concepts ('innovation', 'human civilization').\n"
-            "5. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape'). Use simple, clear vocabulary.\n"
-            "6. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure. Never invent parenthetical commentary or asides.\n"
-            "7. NO OVERLY POLISHED PROSE: Write unpretentiously and directly. Avoid pristine, immaculate, hyper-polished corporate language.\n"
-            "8. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
+            "2. MIX SENTENCE LENGTHS (BURSTINESS): Combine short punchy phrases (3–7 words) with complex, multi-clause sentences (20–35 words) instead of keeping a steady, homogeneous rhythm. Ensure every sentence has a complete subject and verb (NO sentence fragments).\n"
+            "3. INTRODUCE NATURAL HEDGING & HESITATION: Use measured hedges ('suggests', 'appears', 'seems', 'tends to', 'it is believed') rather than rigid, dogmatic declarations.\n"
+            "4. DISRUPT PREDICTABLE PATTERNS: Never use neat lists of three (tricolons), never use formulaic transitions ('Furthermore', 'In conclusion', 'Moreover', 'Additionally'), and never end a paragraph with a summarizing mini-wrapup sentence.\n"
+            "5. STRUCTURAL PARAPHRASING OVER SYNONYM SWAPPING: Do NOT simply swap words with synonyms. Rebuild the clause architecture, shift voice, and invert conditions so the mechanical cadence is broken.\n"
+            "6. NO EM-DASHES: Replace any em-dashes (—) with standard hyphens (-) or commas.\n"
+            "7. STRICT TECHNICAL PRESERVATION: Strictly preserve technical terms (e.g., 'exabytes', 'autonomous driving'), rate qualifiers (e.g., 'exponentially'), and concepts ('innovation', 'human civilization').\n"
+            "8. AVOID CLICHÉ AI VOCABULARY: Avoid cliché AI phrases ('delve into', 'tapestry of', 'testament to', 'ever-evolving landscape', 'pivotal', 'leverage'). Use clear everyday human words.\n"
+            "9. PRESERVE FACTUAL ACCURACY & TONE: Strictly preserve all facts, numbers, names, author's intent, emphasis, and paragraph structure. Never invent parenthetical commentary or asides.\n"
+            "10. NO OVERLY POLISHED PROSE: Write unpretentiously and directly. Avoid pristine, immaculate, hyper-polished corporate language.\n"
+            "11. NO SELF-TALK OR WORD COUNTS: Output ONLY the final paraphrased text. No preamble, no notes."
         )
 
         logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)
-        optimized = self._call_groq(system_prompt, text, temp=1.1)
+        optimized = self._call_groq(system_prompt, text, temp=1.02)
         optimized = optimized.strip()
         if not optimized:
             return text

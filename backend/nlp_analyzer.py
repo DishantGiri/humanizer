@@ -51,8 +51,21 @@ def analyze_text_nlp(text: str) -> Dict[str, Any]:
             "active_voice_count": 0,
             "entities": [],
             "avg_dependency_depth": 0.0,
+            "hedging_markers_count": 0,
+            "sentence_length_variance": 0.0,
             "has_spacy": False
         }
+
+    import re
+    import statistics
+
+    # Hedging pattern detection
+    hedging_count = len(re.findall(r'\b(?:suggests?|appears?|seems?|tends? to|it is believed|arguably|points? to|indicates?|perhaps|might)\b', text, re.IGNORECASE))
+    
+    # Sentence length variance
+    raw_sents = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+    sent_lens = [len(s.split()) for s in raw_sents]
+    stdev = round(statistics.stdev(sent_lens), 1) if len(sent_lens) > 1 else 0.0
 
     nlp = _get_spacy_nlp()
     if nlp is None:
@@ -64,6 +77,8 @@ def analyze_text_nlp(text: str) -> Dict[str, Any]:
             "active_voice_count": max(1, text.count('.') + text.count('!')),
             "entities": [],
             "avg_dependency_depth": 3.0,
+            "hedging_markers_count": hedging_count,
+            "sentence_length_variance": stdev,
             "has_spacy": False
         }
 
@@ -100,5 +115,7 @@ def analyze_text_nlp(text: str) -> Dict[str, Any]:
         "active_voice_count": active_count,
         "entities": entities,
         "avg_dependency_depth": avg_depth,
+        "hedging_markers_count": hedging_count,
+        "sentence_length_variance": stdev,
         "has_spacy": True
     }

@@ -112,7 +112,7 @@ class TextRewriter:
             key_num, api_key = get_next_gemini_key()
 
         full_prompt = f"{system_prompt}\n\nTask Instructions & User Text:\n{user_prompt}"
-        temp = round(random.uniform(0.85, 1.05), 2)
+        temp = round(random.uniform(0.96, 1.05), 2)
 
         # Attempt call via official google.genai or fallback REST API
         try:
@@ -120,7 +120,7 @@ class TextRewriter:
             from google.genai import types
             client = genai.Client(api_key=api_key)
             try:
-                config = types.GenerateContentConfig(temperature=temp, top_p=0.92)
+                config = types.GenerateContentConfig(temperature=temp, top_p=0.96)
                 response = client.models.generate_content(
                     model=GEMINI_MODEL,
                     contents=full_prompt,
@@ -179,7 +179,7 @@ class TextRewriter:
             effective_system = '/no_think\n\n' + system_prompt
             extra_kwargs['extra_body'] = {'reasoning_format': 'hidden'}
 
-        temp = round(random.uniform(0.88, 1.02), 2)
+        temp = round(random.uniform(0.96, 1.05), 2)
 
         try:
             response = groq_client.chat.completions.create(
@@ -190,9 +190,9 @@ class TextRewriter:
                 ],
                 temperature=temp,
                 max_tokens=max_tok,
-                top_p=0.92,
-                frequency_penalty=0.6,
-                presence_penalty=0.4,
+                top_p=0.96,
+                frequency_penalty=0.65,
+                presence_penalty=0.45,
                 timeout=API_TIMEOUT,
                 **extra_kwargs
             )
@@ -213,7 +213,7 @@ class TextRewriter:
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
         Main LLM dispatcher:
-        1. Tries Groq API (Qwen 3.6 -> Llama 3.3 70B) across all Groq keys.
+        1. Tries Groq API (Llama 3.3 70B -> Qwen fallback) across all Groq keys.
         2. Fallback to Gemini API key pool rotation if all Groq models/keys fail.
         """
         # Step 1: Primary - Try Groq API with instant key rotation and model fallback
@@ -250,7 +250,7 @@ class TextRewriter:
     def rewrite(self, text: str, mode: RewriteMode, level: RewriteLevel) -> str:
         """
         Rewrite the text using the specified mode and level.
-        Applies a multi-pass ("double cook") strategy for Heavy level rewrites.
+        Applies a multi-pass ("double cook") strategy for Moderate (Level 2) and Heavy (Level 3) rewrites.
         """
         system_prompt, user_prompt = build_rewrite_prompt(text, mode, level)
         pass1_result = self._call_llm(system_prompt, user_prompt)
@@ -280,17 +280,20 @@ class TextRewriter:
                     logger.warning("Question paraphrase correction call failed: %s", corr_err)
 
         level_val = level.value if hasattr(level, 'value') else int(level)
-        if level_val >= 3:
+        if level_val >= 2 and len(text.split()) >= 15:
             logger.info("Running Pass 2 (Double Cook) naturalization pass for Level %d rewrite", level_val)
             pass2_system = (
-                "You are an expert human copyeditor. Take the provided text draft and make it sound "
-                "even more like a real person typed it naturally in one take. "
-                "Break any smooth, robotic sentence transitions. Use concise sentences. "
-                "Ensure all sentences are grammatically complete with clear subjects and verbs. Never create sentence fragments. "
-                "Keep all facts, numbers, dates, technical terms ('exabytes', 'autonomous driving'), rate qualifiers ('exponentially'), core concepts ('innovation', 'human civilization'), and paragraph counts identical. "
-                "Return ONLY the rewritten text without preambles or notes."
+                "You are a master human author and senior copyeditor. "
+                "Take the draft and polish it into fluent, beautifully structured human-written English with natural narrative cadence.\n"
+                "CRITICAL POLISHING RULES:\n"
+                "1. NATURAL CLAUSE FLOW & COMPOUND SENTENCES: Combine any chopped or staccato fragments into rich, flowing compound sentences (20–35 words) connected by natural subordinating conjunctions ('while', 'because', 'as', 'where', 'since', 'so that'). Never write telegraphic 3-word fragments.\n"
+                "2. RHYTHMIC DIVERSITY: Interleave deep compound sentences with clear declarative statements. Ensure sentences range naturally from 8 to 32 words with varied grammatical subjects.\n"
+                "3. ZERO EM DASHES & ZERO SEMICOLONS: Use standard commas, periods, or hyphens (-).\n"
+                "4. NO ROBOTIC BUZZWORDS OR FORMULAS: Delete 'Furthermore', 'Moreover', 'In conclusion', 'not just', and any paragraph-end wrapup summaries.\n"
+                "5. PRESERVE 100% ACCURACY: Keep all facts, numbers, dates, technical terms ('exabytes', 'autonomous driving'), rate qualifiers ('exponentially'), and core concepts ('innovation', 'human civilization') exactly intact.\n"
+                "6. OUTPUT SHAPE: Return ONLY the final polished text without preambles, notes, or changelogs."
             )
-            pass2_user = f'Draft text to naturalize:\n"{pass1_result}"'
+            pass2_user = f'Draft text to polish and humanize:\n"{pass1_result}"'
             try:
                 pass2_result = self._call_llm(pass2_system, pass2_user)
                 if pass2_result and len(pass2_result.split()) >= int(len(text.split()) * 0.7):

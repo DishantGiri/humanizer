@@ -64,11 +64,15 @@ export interface TextStats {
   sentence_count: number;
   paragraph_count: number;
   avg_sentence_length: number;
+  sentence_len_stdev?: number;
+  burstiness_score?: number;
   readability_score: number;
   readability_grade: string;
   grammar_score?: number;
   grammar_issues_count?: number;
   vocabulary_diversity: number;
+  hedging_count?: number;
+  predictable_patterns_count?: number;
   repeated_words: { word: string; count: number }[];
   repeated_phrases: { phrase: string; count: number }[];
   passive_voice_count: number;
@@ -91,6 +95,28 @@ export interface ReadingTime {
 export interface DiffWord {
   type: 'equal' | 'insert' | 'delete';
   value: string;
+}
+
+export interface SignalScore {
+  name: string;
+  code: string;
+  score: number;
+  weight_label: string;
+  evidence: string[];
+  notes: string;
+}
+
+export interface AICheckReport {
+  verdict: 'Human' | 'Mixed / Uncertain' | 'AI';
+  confidence: 'Low' | 'Medium' | 'High';
+  overall_score: number;
+  max_score: number;
+  ai_edited_fraction: string;
+  signals: Record<string, SignalScore>;
+  sentence_lengths: number[];
+  what_gave_it_away: string[];
+  recommended_fixes: string[];
+  raw_text_stats?: Record<string, any>;
 }
 
 export interface RewriteResponse {
@@ -117,6 +143,7 @@ export interface RewriteResponse {
     avg_dependency_depth?: number;
     has_spacy?: boolean;
   };
+  ai_check?: AICheckReport;
   word_diff: DiffWord[];
 }
 
@@ -416,6 +443,26 @@ export async function analyzeText(text: string): Promise<TextStats> {
   if (!response.ok) {
     const errorJson = await response.json().catch(() => null);
     throw new Error(parseErrorMessage(errorJson, `Server error (${response.status})`));
+  }
+
+  return await response.json();
+}
+
+export async function runAICheck(text: string, token?: string | null): Promise<AICheckReport> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/api/ai-check`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ text }),
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Failed to run AI check (${response.status})`));
   }
 
   return await response.json();

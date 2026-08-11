@@ -19,11 +19,15 @@ class TextStats:
     sentence_count: int = 0
     paragraph_count: int = 0
     avg_sentence_length: float = 0.0
+    sentence_len_stdev: float = 0.0
+    burstiness_score: float = 0.0
     readability_score: float = 0.0
     readability_grade: str = ""
     grammar_score: float = 100.0
     grammar_issues_count: int = 0
     vocabulary_diversity: float = 0.0
+    hedging_count: int = 0
+    predictable_patterns_count: int = 0
     repeated_words: list[dict] = None
     repeated_phrases: list[dict] = None
     passive_voice_count: int = 0
@@ -170,12 +174,28 @@ def calculate_grammar_score(text: str) -> tuple[float, int]:
     return round(score, 1), issues
 
 
+# ── Hedging & Predictable Pattern Detection ─────────────────────────────────
+
+HEDGING_PATTERN = re.compile(
+    r'\b(?:suggests?|appears?|seems?|tends? to|it is believed|arguably|points? to|indicates?|perhaps|might)\b',
+    re.IGNORECASE,
+)
+
+FORMULAIC_PATTERN_REGEXES = [
+    re.compile(r'\b(?:furthermore|in conclusion|moreover|additionally|to sum up|in summary|importantly|notably|consequently)\b', re.IGNORECASE),
+    re.compile(r'\b(?:ultimately,\s+this\s+(?:shows|highlights|demonstrates)|in\s+the\s+final\s+analysis|all\s+in\s+all,\s+it\s+is\s+clear)\b', re.IGNORECASE),
+    re.compile(r'\b[a-zA-Z\'-]+,\s+[a-zA-Z\'-]+,\s+and\s+[a-zA-Z\'-]+\b', re.IGNORECASE),
+]
+
+
 def analyze(text: str) -> TextStats:
     """
     Run full analysis on the provided text and return a TextStats object.
     """
     if not text or not text.strip():
         return TextStats()
+
+    import statistics
 
     words = _get_words(text)
     sentences = _split_sentences(text)
@@ -184,6 +204,12 @@ def analyze(text: str) -> TextStats:
     word_count = len(words)
     sentence_count = max(len(sentences), 1)
     avg_sentence_length = round(word_count / sentence_count, 1)
+
+    # Sentence length standard deviation & burstiness ratio
+    sentence_lens = [len(s.split()) for s in sentences]
+    sentence_len_stdev = round(statistics.stdev(sentence_lens), 1) if len(sentence_lens) > 1 else 0.0
+    short_sentences = sum(1 for l in sentence_lens if l <= 7)
+    burstiness_score = round(short_sentences / sentence_count, 2)
 
     # Readability via textstat
     readability = textstat.flesch_reading_ease(text)
@@ -195,6 +221,12 @@ def analyze(text: str) -> TextStats:
     # Vocabulary diversity
     unique_words = set(words)
     diversity = round(len(unique_words) / max(word_count, 1), 3)
+
+    # Hedging count (epistemic modesty vs overconfidence)
+    hedging_count = len(HEDGING_PATTERN.findall(text))
+
+    # Predictable pattern count (robotic transitions, tricolons, ending summaries)
+    predictable_count = sum(len(pat.findall(text)) for pat in FORMULAIC_PATTERN_REGEXES)
 
     # Passive voice
     passive_matches = PASSIVE_PATTERN.findall(text)
@@ -208,11 +240,15 @@ def analyze(text: str) -> TextStats:
         sentence_count=sentence_count,
         paragraph_count=len(paragraphs),
         avg_sentence_length=avg_sentence_length,
+        sentence_len_stdev=sentence_len_stdev,
+        burstiness_score=burstiness_score,
         readability_score=round(readability, 1),
         readability_grade=_readability_label(readability),
         grammar_score=grammar_score,
         grammar_issues_count=grammar_issues,
         vocabulary_diversity=diversity,
+        hedging_count=hedging_count,
+        predictable_patterns_count=predictable_count,
         repeated_words=_find_repeated_words(words),
         repeated_phrases=_find_repeated_phrases(text),
         passive_voice_count=len(passive_matches),

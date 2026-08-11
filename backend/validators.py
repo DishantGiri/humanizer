@@ -34,12 +34,15 @@ def evaluate_statistical_profile(text: str) -> Dict[str, Any]:
     if not text or not text.strip():
         return {
             "avg_sentence_length": 0.0,
+            "sentence_length_stdev": 0.0,
             "burstiness_ratio": 0.0,
             "function_word_ratio": 0.0,
             "mean_word_length": 0.0,
             "total_words": 0,
             "total_sentences": 0
         }
+
+    import statistics
 
     # Extract sentences and words
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
@@ -48,11 +51,13 @@ def evaluate_statistical_profile(text: str) -> Dict[str, Any]:
     total_words = len(words)
     total_sentences = max(1, len(sentences))
 
-    # 1. Avg sentence length
+    # 1. Avg sentence length & stdev
     avg_sent_len = round(total_words / total_sentences, 1)
+    sent_lens = [len(re.findall(r"[a-zA-Z']+", s)) for s in sentences]
+    sent_stdev = round(statistics.stdev(sent_lens), 1) if len(sent_lens) > 1 else 0.0
 
     # 2. Burstiness ratio (% of sentences with <= 7 words)
-    short_sentences = sum(1 for s in sentences if len(re.findall(r"[a-zA-Z']+", s)) <= 7)
+    short_sentences = sum(1 for l in sent_lens if l <= 7)
     burstiness_ratio = round(short_sentences / total_sentences, 2)
 
     # 3. Function word ratio
@@ -65,6 +70,7 @@ def evaluate_statistical_profile(text: str) -> Dict[str, Any]:
 
     return {
         "avg_sentence_length": avg_sent_len,
+        "sentence_length_stdev": sent_stdev,
         "burstiness_ratio": burstiness_ratio,
         "function_word_ratio": func_ratio,
         "mean_word_length": mean_word_len,
@@ -86,14 +92,22 @@ def validate_human_statistics(text: str) -> Tuple[bool, str, Dict[str, Any]]:
     if stats["avg_sentence_length"] > 22.0:
         issues.append(f"Avg sentence length too high ({stats['avg_sentence_length']} words, max target 22.0)")
 
-    if stats["burstiness_ratio"] < 0.15:
+    if stats["burstiness_ratio"] < 0.15 and stats["total_sentences"] >= 3:
         issues.append(f"Low burstiness ({int(stats['burstiness_ratio']*100)}% micro-sentences, target >= 15%)")
+
+    if stats["total_sentences"] >= 4 and stats["sentence_length_stdev"] < 2.5:
+        issues.append(f"Low sentence length variation (stdev {stats['sentence_length_stdev']}, target >= 2.5)")
 
     if stats["function_word_ratio"] < 0.35:
         issues.append(f"Low function word ratio ({int(stats['function_word_ratio']*100)}% function words, target >= 35%)")
 
     if stats["mean_word_length"] > 5.8:
         issues.append(f"High mean word length ({stats['mean_word_length']} chars, target <= 5.8)")
+
+    # Check for robotic formulaic transition markers
+    robotic_matches = re.findall(r'\b(?:furthermore|in conclusion|moreover|to sum up|in summary)\b', text, re.IGNORECASE)
+    if robotic_matches:
+        issues.append(f"Contains formulaic transition markers: {', '.join(set(robotic_matches))}")
 
     if issues:
         reason = "Statistical anti-AI boundaries notice: " + "; ".join(issues)

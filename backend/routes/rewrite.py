@@ -26,6 +26,7 @@ from routes.auth import get_optional_user_from_token, get_current_user_from_toke
 from cache_limiter import get_cached_rewrite, set_cached_rewrite, is_rate_limited
 from similarity import calculate_similarity_metrics
 from nlp_analyzer import analyze_text_nlp
+from ai_checker import AICheckEngine, AICheckReport
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,10 @@ class AnalyzeRequest(BaseModel):
     text: str = Field(..., min_length=1, description="The text to analyze")
 
 
+class AICheckRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="The text to analyze for AI forensic signals")
+
+
 class StatsResponse(BaseModel):
     word_count: int
     character_count: int
@@ -112,10 +117,19 @@ class RewriteResponse(BaseModel):
     meaning_preservation_score: float = 95.0
     similarity_metrics: Optional[dict] = None
     nlp_analysis: Optional[dict] = None
+    ai_check: Optional[dict] = None
     word_diff: list[dict]
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
+
+@router.post("/ai-check")
+async def run_ai_check(request: AICheckRequest):
+    """
+    Forensic AI detection endpoint implementing Signals A through I (0 to 27 points).
+    """
+    report = AICheckEngine.analyze(request.text)
+    return report.to_dict()
 
 @router.post("/parse-file", response_model=FileParseResponse)
 async def parse_uploaded_file(
@@ -335,12 +349,14 @@ async def rewrite_text(
                 rewritten = "\n".join(rewritten_lines)
             else:
                 orig_paras = [p.strip() for p in target_text.split('\n\n') if p.strip()]
-                if len(orig_paras) > 1:
+                # If short or medium multi-paragraph text (<= 500 words), rewrite as a single cohesive unit
+                # to maintain global narrative flow and avoid repetitive paragraph-level intro/conclusion traps.
+                if len(orig_paras) > 1 and len(target_text.split()) > 500:
                     rewritten_paras = []
                     for p_idx, para in enumerate(orig_paras):
                         p_rewritten = rewriter.rewrite(para, request.mode, request.level)
                         
-                        # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
+                        # Step 2.5: Perplexity Pass (HEAVY mode only)
                         if int(request.level) >= 3:
                             try:
                                 optimizer = get_perplexity_optimizer()
@@ -348,45 +364,28 @@ async def rewrite_text(
                             except Exception as opt_err:
                                 logger.warning("Perplexity pass skipped for para %d: %s", p_idx, opt_err)
 
-                            try:
-                                bouncer = get_bouncer()
-                                p_rewritten = bouncer.bounce(p_rewritten)
-                            except Exception as bounce_err:
-                                logger.warning("Translation bounce pass skipped for para %d: %s", p_idx, bounce_err)
-
                         p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para, mode=request.mode.value)
                         rewritten_paras.append(p_humanized)
                     rewritten = "\n\n".join(rewritten_paras)
 
                     # ── Paragraph parity enforcement ─────────────────────────────
-                    # If the LLM split or merged paragraphs, force the output to
-                    # have exactly len(orig_paras) paragraphs by collapsing any
-                    # extras into the last paragraph.
                     out_paras = [p.strip() for p in rewritten.split('\n\n') if p.strip()]
                     if len(out_paras) != len(orig_paras) and out_paras:
                         if len(out_paras) > len(orig_paras):
-                            # Collapse surplus paragraphs into the last slot
                             keep = out_paras[:len(orig_paras) - 1]
                             tail = " ".join(out_paras[len(orig_paras) - 1:])
                             out_paras = keep + [tail]
-                        # If fewer, just use what we have (merging can't split content)
                         rewritten = "\n\n".join(out_paras)
                 else:
                     rewritten = rewriter.rewrite(target_text, request.mode, request.level)
                     
-                    # Step 2.5: Perplexity & Translation Bounce Pass (HEAVY mode only)
+                    # Step 2.5: Perplexity Pass (HEAVY mode only)
                     if int(request.level) >= 3:
                         try:
                             optimizer = get_perplexity_optimizer()
                             rewritten = optimizer.optimize(rewritten, request.mode)
                         except Exception as opt_err:
                             logger.warning("Perplexity pass skipped: %s", opt_err)
-
-                        try:
-                            bouncer = get_bouncer()
-                            rewritten = bouncer.bounce(rewritten)
-                        except Exception as bounce_err:
-                            logger.warning("Translation bounce pass skipped: %s", bounce_err)
 
                     rewritten = humanize(rewritten, intensity=intensity, original_text=target_text, mode=request.mode.value)
 
@@ -421,12 +420,13 @@ async def rewrite_text(
     meaning_preserved = True
     meaning_reason = "Factual accuracy preserved."
 
-    # Step E: Textstat & word diff stats
+    # Step E: Textstat, word diff stats & forensic AI-check
     original_stats = analyze(clean_text)
     rewritten_stats = analyze(rewritten)
     changes = count_changes(clean_text, rewritten)
     reading_time = compute_reading_time(rewritten)
     word_diff = compute_word_diff(clean_text, rewritten)
+    ai_check_data = AICheckEngine.analyze(rewritten).to_dict()
 
     # Record usage count and history entry if user is logged in
     if user:
@@ -466,6 +466,7 @@ async def rewrite_text(
         meaning_preservation_score=sim_metrics.get("meaning_preservation_score", 95.0),
         similarity_metrics=sim_metrics,
         nlp_analysis=nlp_data,
+        ai_check=ai_check_data,
         word_diff=word_diff,
     )
 
