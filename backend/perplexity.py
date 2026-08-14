@@ -98,15 +98,15 @@ class PerplexityOptimizer:
             "6. PARAGRAPH PARITY: Output the exact same number of paragraphs as the input.\n"
             "7. RAW OUTPUT ONLY: Return ONLY the rewritten text with no preamble, markdown code blocks, or commentary.\n\n"
             "SENTENCE COMPLEXITY CONTROL (critical):\n"
-            "- HARD CAP: No sentence may exceed 25 words. If a sentence would exceed 25 words, split it into two.\n"
-            "- BANNED STRUCTURES: Do not stack relative clauses (', which ... , which ...'). Do not stack subordinate clauses ('because ... since ... while ...'). Do not use more than one comma-joined conjunction per sentence.\n"
-            "- FORBIDDEN RUN-ONS: Sentences with 4+ commas are run-ons. Break them.\n"
-            "- DIRECT SUBJECT-VERB-OBJECT: Prefer SVO order. 'The team built the tool' beats 'The tool, which was developed by the team after several months of iteration, ...'.\n\n"
+            "- HARD CAP: No sentence may exceed 20 words. If a sentence exceeds 20 words, break it into two simple sentences.\n"
+            "- MAXIMUM 2 COMMAS: Any sentence with 3 or more commas MUST be split into two.\n"
+            "- BANNED STRUCTURES: Do not stack relative clauses (', which ... , which ...') or subordinate clauses ('because ... since ... while ...').\n"
+            "- DIRECT SUBJECT-VERB-OBJECT: Prefer clean SVO order. Write with crisp, active directness.\n\n"
             "SPECIFICITY & CONCRETENESS (critical):\n"
-            "- BANNED GENERIC NOUNS: 'things', 'aspects', 'factors', 'elements', 'components', 'areas', 'issues', 'challenges', 'opportunities', 'solutions', 'approach', 'various', 'several', 'certain', 'multiple'. Replace with the exact specific noun from the context.\n"
-            "- BANNED WEAK VERBS: 'utilize', 'perform', 'conduct', 'implement', 'execute', 'leverage', 'facilitate', 'ensure', 'provide'. Use concrete action verbs: 'build', 'run', 'write', 'send', 'track', 'measure', 'cut', 'increase', 'reduce'.\n"
-            "- BANNED VAGUE QUANTIFIERS: 'various', 'several', 'many', 'numerous', 'a number of', 'a variety of'. Use the actual count or specific example from the source, or write 'two', 'three', 'five' if known.\n"
-            "- BE SPECIFIC: If the source says 'the system is fast', write what makes it fast. If it says 'costs were reduced', say by how much if the number is in the source."
+            "- BANNED GENERIC NOUNS: 'things', 'aspects', 'factors', 'elements', 'components', 'areas', 'issues', 'challenges', 'opportunities', 'solutions', 'approach', 'various', 'several', 'certain', 'multiple', 'mechanisms', 'dynamics'. Replace with the exact specific noun.\n"
+            "- BANNED WEAK VERBS: 'utilize', 'perform', 'conduct', 'implement', 'execute', 'leverage', 'facilitate', 'ensure', 'provide'. Use concrete action verbs: 'build', 'run', 'write', 'send', 'track', 'measure', 'cut', 'fix'.\n"
+            "- BANNED COURTESY & NARRATOR FILLER: 'she thanked', 'he thanked', 'expressed gratitude', 'conveyed appreciation', 'took the time to', 'was able to', 'proceeded to', 'went on to'. State facts directly without polite padding.\n"
+            "- BANNED VAGUE QUANTIFIERS: 'various', 'several', 'many', 'numerous', 'a number of', 'a variety of'. Use the actual count or specific example from the source."
         )
 
         logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)

@@ -393,7 +393,7 @@ async def rewrite_text(
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
             if not is_valid:
                 logger.info("Statistical validation notice: %s. Applying targeted burstiness LLM re-pass.", val_reason)
-                rewritten = enforce_short_sentences(rewritten, max_words=26)
+                rewritten = enforce_short_sentences(rewritten, max_words=20)
                 # Targeted LLM burstiness injection pass — replaces the shallow no-op fallback
                 try:
                     word_count_rw = len(rewritten.split())

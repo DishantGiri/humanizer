@@ -284,11 +284,13 @@ class TextRewriter:
                 "You are a master human author and senior copyeditor.\n"
                 "Review the draft rewrite and polish it into crisp, authentic, beautifully paced human writing.\n"
                 "POLISHING RULES:\n"
-                "1. NATURAL BURSTINESS: Ensure rhythmic variety by mixing short direct sentences (5-10 words) with clear medium and compound sentences (12-22 words). Avoid convoluted run-on sentences.\n"
-                "2. STRIP ALL AI TELLS: Remove copula avoidance ('serves as', 'stands as' -> 'is'), superficial -ing participle chains, and formulaic transitions ('Furthermore', 'Moreover', 'In conclusion').\n"
-                "3. ZERO EM DASHES & ZERO SEMICOLONS: Use standard commas, periods, or hyphens (-).\n"
-                "4. 100% FACTUAL FIDELITY: Strictly preserve all real facts, names, dates, numbers, and domain concepts. Never invent new claims or inject unrelated topics.\n"
-                "5. OUTPUT: Return ONLY the final polished text without preambles or notes."
+                "1. SENTENCE SIMPLICITY & BURSTINESS: Maximum 20 words per sentence. Never write convoluted run-ons. Mix short punchy sentences (4-9 words) with medium statements (10-18 words).\n"
+                "2. STRIP ALL AI TELLS: Remove copula avoidance ('serves as', 'stands as' -> 'is'), superficial -ing participle chains, and formulaic transitions ('Furthermore', 'Moreover', 'In conclusion', 'Notably', 'Importantly').\n"
+                "3. ZERO GENERIC LANGUAGE: Ban empty nouns ('aspects', 'factors', 'elements', 'components', 'solutions', 'things') and weak verbs ('utilize', 'facilitate', 'implement'). Use concrete words.\n"
+                "4. ZERO POLITE / NARRATOR BOILERPLATE: Strip 'she thanked', 'he thanked', 'expressed gratitude', 'took the time to', 'proceeded to', 'was able to'. State actions directly.\n"
+                "5. ZERO EM DASHES & ZERO SEMICOLONS: Use standard commas, periods, or hyphens (-).\n"
+                "6. 100% FACTUAL FIDELITY: Strictly preserve all real facts, names, dates, numbers, and domain concepts. Never invent new claims or inject unrelated topics.\n"
+                "7. OUTPUT: Return ONLY the final polished text without preambles or notes."
             )
             pass2_user = f'Draft text to polish:\n"{pass1_result}"'
             try:

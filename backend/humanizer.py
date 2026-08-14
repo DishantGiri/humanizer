@@ -330,6 +330,57 @@ AI_REPLACEMENTS: dict[str, list[str]] = {
     "plays a role in": ["affects", "shapes", "drives"],
     "plays a key role in": ["drives", "shapes", "affects"],
     "plays an important role in": ["drives", "affects", "shapes"],
+    "played a key role in": ["drove", "led", "shaped"],
+    "played an important role in": ["drove", "shaped", "influenced"],
+    "played a pivotal role in": ["drove", "led", "shaped"],
+    "played a crucial role in": ["drove", "led", "shaped"],
+    "vital component of": ["key part of", "core part of"],
+    "integral part of": ["core part of", "key part of"],
+    "sheds light on": ["shows", "explains"],
+    "shed light on": ["show", "explain"],
+    "paves the way for": ["enables", "leads to"],
+    "paved the way for": ["lead to", "enable"],
+    "at the forefront of": ["leading"],
+    # --- Polite courtesy & narrator boilerplate replacements ---
+    "expressed gratitude for": ["thanked them for", "acknowledged"],
+    "expressed gratitude to": ["thanked"],
+    "expressed gratitude": ["thanked them"],
+    "expressed appreciation for": ["thanked them for", "valued"],
+    "expressed appreciation": ["thanked them"],
+    "extended gratitude": ["thanked them"],
+    "extended appreciation": ["thanked them"],
+    "conveyed gratitude": ["thanked them"],
+    "took the time to thank": ["thanked"],
+    "took the time to": [""],
+    "was able to": ["managed to", "did"],
+    "were able to": ["managed to", "did"],
+    "is able to": ["can"],
+    "are able to": ["can"],
+    "went on to explain": ["explained", "added"],
+    "went on to state": ["stated", "said"],
+    "went on to say": ["said", "added"],
+    "proceeded to": ["then"],
+    "sought to": ["tried to", "worked to"],
+    "aimed to": ["planned to", "worked to"],
+    "served to": ["helped to"],
+    "in an effort to": ["to"],
+    "with the aim of": ["to"],
+    "with the goal of": ["to"],
+    "for the purpose of": ["to"],
+    "a wide array of": ["many", "several"],
+    "a broad array of": ["many", "various"],
+    "a wide range of": ["many", "different"],
+    "a broad range of": ["many", "different"],
+    "a vast majority of": ["most"],
+    "a significant number of": ["many", "several"],
+    "a substantial portion of": ["much of", "most of"],
+    "in the context of": ["for", "in", "with"],
+    "in the case of": ["for", "with"],
+    "with respect to": ["about", "for", "on"],
+    "in accordance with": ["under", "by"],
+    "pertaining to": ["about"],
+    "is characterized by": ["features", "has"],
+    "are characterized by": ["feature", "have"],
 }
 
 CONTRACT_EXPAND_MAP: dict[str, str] = {
@@ -647,7 +698,7 @@ def apply_paragraph_intelligence(text: str, original_text: Optional[str], rng: r
     return text
 
 
-def enforce_short_sentences(text: str, max_words: int = 24) -> str:
+def enforce_short_sentences(text: str, max_words: int = 20) -> str:
     """
     Breaks overly long sentences (>24 words) at natural clause boundaries.
     Uses multiple split strategies in priority order. Never creates fragments.
@@ -819,6 +870,9 @@ def humanize(
     # Step 3: Strip formulaic summary patterns & deduplicate canned fillers
     text = strip_formulaic_patterns_and_summaries(text)
     text = deduplicate_and_diversify_fillers(text, mode_key)
+
+    # Step 3.5: Enforce short sentences unconditionally (maximum 20 words per sentence)
+    text = enforce_short_sentences(text, max_words=20)
 
     # Step 4: Apply paragraph parity
     text = apply_paragraph_intelligence(text, original_text, rng)
