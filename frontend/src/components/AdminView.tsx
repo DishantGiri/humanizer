@@ -500,64 +500,28 @@ export default function AdminView({ user, token }: AdminViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Top Banner Header */}
-      <div
-        className="admin-glass-card"
-        style={{
-          padding: '28px 32px',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 10px 28px rgba(37, 99, 235, 0.4)',
-            }}
-          >
+      <div className="admin-hero-card">
+        <div className="admin-hero-left">
+          <div className="admin-hero-icon-box">
             <ShieldAlert size={28} color="#ffffff" />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>
+          <div className="admin-hero-text">
+            <div className="admin-hero-title-row">
+              <h1 className="admin-hero-title">
                 Admin Management Portal
               </h1>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '3px 10px',
-                  borderRadius: '20px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  color: '#10b981',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                }}
-              >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+              <span className="admin-status-badge">
+                <span className="admin-status-dot" />
                 SYSTEM ONLINE
               </span>
             </div>
-            <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: '4px 0 0 0' }}>
+            <p className="admin-hero-subtitle">
               Platform analytics, user accounts, promo coupons, and complete SEO command center
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="admin-hero-right">
           <button
             type="button"
             className="admin-btn-action"
@@ -568,39 +532,23 @@ export default function AdminView({ user, token }: AdminViewProps) {
               else if (activeTab === 'seo') loadSeoData();
             }}
           >
-            <RefreshCw size={15} /> Refresh
+            <RefreshCw size={15} /> <span>Refresh</span>
           </button>
 
           <button
             type="button"
-            className="admin-btn-action"
+            className="admin-btn-action admin-btn-security"
             onClick={() => {
               setNewAdminEmail(user?.email || '');
               setNewAdminName(user?.name || '');
               setShowCredModal(true);
             }}
-            style={{
-              background: 'rgba(56, 189, 248, 0.12)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              color: '#38bdf8',
-            }}
           >
-            <KeyRound size={15} /> Security Settings
+            <KeyRound size={15} /> <span>Security Settings</span>
           </button>
 
-          <span
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
-              color: '#38bdf8',
-              fontWeight: 800,
-              fontSize: '0.78rem',
-              letterSpacing: '0.05em',
-            }}
-          >
-            ROLE: ADMIN ({user?.email})
+          <span className="admin-role-badge">
+            ROLE: ADMIN <span className="admin-role-email">({user?.email})</span>
           </span>
         </div>
       </div>
@@ -818,41 +766,23 @@ export default function AdminView({ user, token }: AdminViewProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Controls Bar: Search & Filter */}
-          <div
-            className="admin-glass-card"
-            style={{
-              padding: '18px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '16px',
-            }}
-          >
+          <div className="admin-user-toolbar">
             {/* Search Input */}
-            <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
-              <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+            <div className="admin-user-search-box">
+              <Search size={18} className="admin-search-icon" />
               <input
                 type="text"
                 placeholder="Search users by name or email address..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 14px 11px 42px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  color: '#f8fafc',
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                }}
+                className="admin-search-input"
               />
               {userSearch && (
                 <button
                   type="button"
                   onClick={() => setUserSearch('')}
-                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                  className="admin-search-clear"
+                  aria-label="Clear user search"
                 >
                   <X size={16} />
                 </button>
@@ -860,24 +790,14 @@ export default function AdminView({ user, token }: AdminViewProps) {
             </div>
 
             {/* Filter Pills */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="admin-filter-group">
               <Filter size={16} color="#94a3b8" />
               {['all', 'free', 'plus', 'pro', 'enterprise'].map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => { setUserPlanFilter(p); setUserPage(1); }}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: '10px',
-                    border: userPlanFilter === p ? '1px solid #0284c7' : '1px solid rgba(255,255,255,0.08)',
-                    background: userPlanFilter === p ? 'rgba(2, 132, 199, 0.25)' : 'transparent',
-                    color: userPlanFilter === p ? '#38bdf8' : '#94a3b8',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
+                  className={`admin-filter-btn ${userPlanFilter === p ? 'admin-filter-btn--active' : ''}`}
                 >
                   {p.toUpperCase()}
                 </button>
@@ -1282,7 +1202,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
               <p style={{ marginTop: '12px', fontSize: '0.9rem' }}>Loading SEO parameters for {selectedPageSlug}...</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '24px', alignItems: 'start' }}>
+            <div className="seo-grid-layout">
               
               {/* Left Column: Interactive Sub-Section Form Tabs */}
               <div className="admin-glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -1643,7 +1563,7 @@ export default function AdminView({ user, token }: AdminViewProps) {
                     </div>
 
                     {/* Twitter Card Type & Handle */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div className="form-grid-2col">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <label style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0' }}>
                           Twitter Card Type (<code style={{ color: '#38bdf8' }}>twitter:card</code>)

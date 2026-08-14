@@ -415,6 +415,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleModeChange = (newMode: RewriteMode) => {
+    setMode(newMode);
+    setResult(null);
+    setOutputText('');
+  };
+
+  const handleLevelChange = (newLevel: RewriteLevel) => {
+    setLevel(newLevel);
+    setResult(null);
+    setOutputText('');
+  };
+
   const handleRewrite = async () => {
     if (!inputText.trim()) {
       toast.danger('Please enter some text to rewrite.');
@@ -422,10 +434,10 @@ export default function DashboardPage() {
     }
 
     setLoading(true);
+    setResult(null);
+    setOutputText('');
     setError(null);
     setIsLimitError(false);
-
-
 
     try {
       const response = await rewriteText({ text: inputText, mode, level }, token);
@@ -605,12 +617,23 @@ export default function DashboardPage() {
           </button>
           {user && (
             <div className="mobile-sidebar__user">
-              <div className="sidebar__user-avatar" style={{ width: 32, height: 32, fontSize: '0.9rem' }}>
-                {user.avatar_url ? <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : getAvatarInitial(user.name) ? getAvatarInitial(user.name) : <User size={16} />}
+              <div className="sidebar__user-avatar" style={{ width: 34, height: 34, fontSize: '0.95rem' }}>
+                {user.avatar_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={user.avatar_url} alt={user.name} referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : getAvatarInitial(user.name) ? (
+                  getAvatarInitial(user.name)
+                ) : (
+                  <User size={16} />
+                )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>{user.plan === 'enterprise' ? 'ENTERPRISE' : user.plan === 'pro' ? 'PRO PLAN' : (user.plan === 'plus' || user.plan === 'starter') ? 'PLUS PLAN' : 'FREE TIER'}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
+                <span className="mobile-sidebar__user-name" style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.name}
+                </span>
+                <span className="mobile-sidebar__user-plan" style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--accent-blue)', letterSpacing: '0.04em' }}>
+                  {user.plan === 'enterprise' ? 'ENTERPRISE PLAN' : user.plan === 'pro' ? 'PRO PLAN' : (user.plan === 'plus' || user.plan === 'starter') ? 'PLUS PLAN' : 'FREE TIER'}
+                </span>
               </div>
             </div>
           )}
@@ -863,8 +886,8 @@ export default function DashboardPage() {
 
               {/* Mode Bar Selector */}
               <div className="controls-bar-row">
-                <ModeSelector value={mode} onChange={setMode} />
-                <LevelSelector value={level} onChange={setLevel} />
+                <ModeSelector value={mode} onChange={handleModeChange} />
+                <LevelSelector value={level} onChange={handleLevelChange} />
               </div>
 
               <div className="content-grid">
@@ -1182,12 +1205,13 @@ export default function DashboardPage() {
                           cy="50"
                           r="40"
                           strokeWidth="7"
-                          stroke={result ? "#10b981" : "var(--border-subtle)"}
+                          stroke={loading ? "var(--accent-blue)" : result ? "#10b981" : "var(--border-subtle)"}
                           fill="transparent"
                           strokeDasharray={251.2}
-                          strokeDashoffset={251.2 - (251.2 * (result ? humanScore : 0)) / 100}
+                          strokeDashoffset={loading ? 100 : 251.2 - (251.2 * (result ? humanScore : 0)) / 100}
                           strokeLinecap="round"
-                          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                          className={loading ? "spinner-animate" : ""}
+                          style={{ transition: 'stroke-dashoffset 0.6s ease', transformOrigin: 'center' }}
                         />
                       </svg>
                       <div style={{
@@ -1198,10 +1222,10 @@ export default function DashboardPage() {
                         justifyContent: 'center'
                       }}>
                         <span style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                          {result ? `${humanScore}%` : '0%'}
+                          {loading ? '--%' : result ? `${humanScore}%` : '0%'}
                         </span>
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '1px', marginTop: '4px' }}>
-                          HUMAN
+                          {loading ? 'ANALYZING' : 'HUMAN'}
                         </span>
                       </div>
                     </div>
@@ -1212,13 +1236,25 @@ export default function DashboardPage() {
                       border: '1px solid var(--border-subtle)',
                       borderRadius: '20px',
                       padding: '6px 20px',
-                      color: result ? '#10b981' : 'var(--text-tertiary)',
+                      color: loading ? 'var(--accent-blue)' : result ? '#10b981' : 'var(--text-tertiary)',
                       fontWeight: 700,
                       fontSize: '0.75rem',
                       letterSpacing: '1px',
-                      textTransform: 'uppercase'
+                      textTransform: 'uppercase',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
                     }}>
-                      {result ? 'HUMANIZED' : 'READY TO ANALYZE'}
+                      {loading ? (
+                        <>
+                          <Loader2 size={12} className="spinner-animate" />
+                          ANALYZING...
+                        </>
+                      ) : result ? (
+                        'HUMANIZED'
+                      ) : (
+                        'READY TO ANALYZE'
+                      )}
                     </div>
                   </div>
 
@@ -1239,8 +1275,8 @@ export default function DashboardPage() {
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         AI Risk
                       </span>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: result ? '#f87171' : 'var(--text-primary)' }}>
-                        {result ? `${aiRisk}%` : '0%'}
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: loading ? 'var(--text-secondary)' : result ? '#f87171' : 'var(--text-primary)' }}>
+                        {loading ? '--%' : result ? `${aiRisk}%` : '0%'}
                       </span>
                     </div>
 
@@ -1280,7 +1316,9 @@ export default function DashboardPage() {
                         </span>
                       </span>
                       <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {result
+                        {loading
+                          ? '--'
+                          : result
                           ? `${Math.round(result.rewritten_stats.readability_score)}% (${result.rewritten_stats.readability_grade ?? 'Standard'})`
                           : '0%'}
                       </span>
@@ -1300,7 +1338,9 @@ export default function DashboardPage() {
                       <span style={{
                         fontSize: '0.95rem',
                         fontWeight: 700,
-                        color: !result
+                        color: loading
+                          ? 'var(--text-primary)'
+                          : !result
                           ? 'var(--text-primary)'
                           : (result.rewritten_stats.grammar_score ?? 100) >= 88
                           ? '#10b981'
@@ -1308,7 +1348,7 @@ export default function DashboardPage() {
                           ? '#f59e0b'
                           : '#f43f5e'
                       }}>
-                        {result ? `${Math.round(result.rewritten_stats.grammar_score ?? 100)}%` : '0%'}
+                        {loading ? '--%' : result ? `${Math.round(result.rewritten_stats.grammar_score ?? 100)}%` : '0%'}
                       </span>
                     </div>
                   </div>

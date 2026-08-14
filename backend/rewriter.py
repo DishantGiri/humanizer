@@ -90,7 +90,7 @@ def get_next_groq_key() -> tuple[int, str]:
 
 
 class TextRewriter:
-    """Sends text to Gemini API (with 5-request key rotation) or Groq fallback for humanization."""
+    """Sends text to Groq or Gemini API with key rotation and fallback redundancy."""
 
     def __init__(self):
         if GROQ_API_KEY:
@@ -103,7 +103,7 @@ class TextRewriter:
 
     def _call_gemini(self, system_prompt: str, user_prompt: str, key_override: Optional[str] = None) -> str:
         """
-        Make a single call to Gemini API using key rotation (or override key) with randomized temperature.
+        Make a single call to Gemini API using key rotation (or override key).
         """
         if key_override:
             api_key = key_override
@@ -112,15 +112,14 @@ class TextRewriter:
             key_num, api_key = get_next_gemini_key()
 
         full_prompt = f"{system_prompt}\n\nTask Instructions & User Text:\n{user_prompt}"
-        temp = round(random.uniform(0.96, 1.05), 2)
+        temp = round(random.uniform(0.85, 0.95), 2)
 
-        # Attempt call via official google.genai or fallback REST API
         try:
             from google import genai
             from google.genai import types
             client = genai.Client(api_key=api_key)
             try:
-                config = types.GenerateContentConfig(temperature=temp, top_p=0.96)
+                config = types.GenerateContentConfig(temperature=temp, top_p=0.95)
                 response = client.models.generate_content(
                     model=GEMINI_MODEL,
                     contents=full_prompt,
@@ -154,7 +153,6 @@ class TextRewriter:
         else:
             key_num, api_key = get_next_groq_key()
 
-        # Set max_retries=0 so rate-limited (429/413) calls fail immediately and rotate to the next key without waiting 30s
         groq_client = Groq(api_key=api_key, max_retries=0)
 
         target_model = model or self.groq_model
@@ -172,14 +170,13 @@ class TextRewriter:
 
         effective_system = system_prompt
         extra_kwargs = {}
-        # Set max_tokens to 3000 for Qwen to strictly stay within Groq's 8,000 TPM limit
         max_tok = 3000 if 'qwen' in target_model.lower() else 4096
 
         if 'qwen' in target_model.lower():
             effective_system = '/no_think\n\n' + system_prompt
             extra_kwargs['extra_body'] = {'reasoning_format': 'hidden'}
 
-        temp = round(random.uniform(0.96, 1.05), 2)
+        temp = round(random.uniform(0.85, 0.95), 2)
 
         try:
             response = groq_client.chat.completions.create(
@@ -190,9 +187,9 @@ class TextRewriter:
                 ],
                 temperature=temp,
                 max_tokens=max_tok,
-                top_p=0.96,
-                frequency_penalty=0.65,
-                presence_penalty=0.45,
+                top_p=0.95,
+                frequency_penalty=0.35,
+                presence_penalty=0.20,
                 timeout=API_TIMEOUT,
                 **extra_kwargs
             )
@@ -250,7 +247,7 @@ class TextRewriter:
     def rewrite(self, text: str, mode: RewriteMode, level: RewriteLevel) -> str:
         """
         Rewrite the text using the specified mode and level.
-        Applies a multi-pass ("double cook") strategy for Moderate (Level 2) and Heavy (Level 3) rewrites.
+        Applies a high-fidelity rewrite pass, and for Heavy (Level 3) an optional polish pass.
         """
         system_prompt, user_prompt = build_rewrite_prompt(text, mode, level)
         pass1_result = self._call_llm(system_prompt, user_prompt)
@@ -280,20 +277,20 @@ class TextRewriter:
                     logger.warning("Question paraphrase correction call failed: %s", corr_err)
 
         level_val = level.value if hasattr(level, 'value') else int(level)
-        if level_val >= 2 and len(text.split()) >= 15:
-            logger.info("Running Pass 2 (Double Cook) naturalization pass for Level %d rewrite", level_val)
+        # For Heavy (Level 3), run a copyediting naturalization polish if text is substantial
+        if level_val == 3 and len(text.split()) >= 35:
+            logger.info("Running Pass 2 naturalization polish for Level 3 Heavy rewrite")
             pass2_system = (
-                "You are a master human author and senior copyeditor. "
-                "Take the draft and polish it into fluent, beautifully structured human-written English with natural narrative cadence.\n"
-                "CRITICAL POLISHING RULES:\n"
-                "1. NATURAL CLAUSE FLOW & COMPOUND SENTENCES: Combine any chopped or staccato fragments into rich, flowing compound sentences (20–35 words) connected by natural subordinating conjunctions ('while', 'because', 'as', 'where', 'since', 'so that'). Never write telegraphic 3-word fragments.\n"
-                "2. RHYTHMIC DIVERSITY: Interleave deep compound sentences with clear declarative statements. Ensure sentences range naturally from 8 to 32 words with varied grammatical subjects.\n"
+                "You are a master human author and senior copyeditor.\n"
+                "Review the draft rewrite and polish it into crisp, authentic, beautifully paced human writing.\n"
+                "POLISHING RULES:\n"
+                "1. NATURAL BURSTINESS: Ensure rhythmic variety by mixing short direct sentences (5-10 words) with clear medium and compound sentences (12-22 words). Avoid convoluted run-on sentences.\n"
+                "2. STRIP ALL AI TELLS: Remove copula avoidance ('serves as', 'stands as' -> 'is'), superficial -ing participle chains, and formulaic transitions ('Furthermore', 'Moreover', 'In conclusion').\n"
                 "3. ZERO EM DASHES & ZERO SEMICOLONS: Use standard commas, periods, or hyphens (-).\n"
-                "4. NO ROBOTIC BUZZWORDS OR FORMULAS: Delete 'Furthermore', 'Moreover', 'In conclusion', 'not just', and any paragraph-end wrapup summaries.\n"
-                "5. PRESERVE 100% ACCURACY: Keep all facts, numbers, dates, technical terms ('exabytes', 'autonomous driving'), rate qualifiers ('exponentially'), and core concepts ('innovation', 'human civilization') exactly intact.\n"
-                "6. OUTPUT SHAPE: Return ONLY the final polished text without preambles, notes, or changelogs."
+                "4. 100% FACTUAL FIDELITY: Strictly preserve all real facts, names, dates, numbers, and domain concepts. Never invent new claims or inject unrelated topics.\n"
+                "5. OUTPUT: Return ONLY the final polished text without preambles or notes."
             )
-            pass2_user = f'Draft text to polish and humanize:\n"{pass1_result}"'
+            pass2_user = f'Draft text to polish:\n"{pass1_result}"'
             try:
                 pass2_result = self._call_llm(pass2_system, pass2_user)
                 if pass2_result and len(pass2_result.split()) >= int(len(text.split()) * 0.7):

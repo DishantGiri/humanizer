@@ -84,7 +84,7 @@ export default function LandingHero({
     {
       question: 'What rewrite levels does CloakWriter offer?',
       answer:
-        'CloakWriter provides three distinct rewrite intensity levels: Light (minor polish), Medium (balanced restructuring), and Aggressive (deep natural rewriting for strict AI detectors like Turnitin).',
+        'CloakWriter provides three distinct rewrite intensity levels: Light (minor polish), Moderate (balanced restructuring), and Heavy (deep natural rewriting for strict AI detectors like Turnitin).',
     },
     {
       question: 'Is my text stored or shared with third parties?',
@@ -782,10 +782,10 @@ export default function LandingHero({
 
                 <ul className="pricing-features-list">
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 2 humanizations / day
+                    <Check size={16} /> 10 humanizations / day
                   </li>
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 250 words per input
+                    <Check size={16} /> 400 words per input
                   </li>
                   <li className="pricing-feature-item">
                     <Check size={16} /> Standard Bypass Pipeline
@@ -820,10 +820,10 @@ export default function LandingHero({
 
                 <ul className="pricing-features-list">
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 10 humanizations / day
+                    <Check size={16} /> 30 humanizations / day
                   </li>
                   <li className="pricing-feature-item">
-                    <Check size={16} /> 600 words per input
+                    <Check size={16} /> 1,000 words per input
                   </li>
                   <li className="pricing-feature-item">
                     <Check size={16} /> Enhanced Paraphrase Quality

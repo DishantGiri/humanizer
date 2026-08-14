@@ -355,9 +355,9 @@ async def rewrite_text(
                     rewritten_paras = []
                     for p_idx, para in enumerate(orig_paras):
                         p_rewritten = rewriter.rewrite(para, request.mode, request.level)
-                        
-                        # Step 2.5: Perplexity Pass (HEAVY mode only)
-                        if int(request.level) >= 3:
+
+                        # Step 2.5: Perplexity Pass — run at ALL levels for substantial paragraphs
+                        if len(para.split()) >= 80:
                             try:
                                 optimizer = get_perplexity_optimizer()
                                 p_rewritten = optimizer.optimize(p_rewritten, request.mode)
@@ -378,9 +378,9 @@ async def rewrite_text(
                         rewritten = "\n\n".join(out_paras)
                 else:
                     rewritten = rewriter.rewrite(target_text, request.mode, request.level)
-                    
-                    # Step 2.5: Perplexity Pass (HEAVY mode only)
-                    if int(request.level) >= 3:
+
+                    # Step 2.5: Perplexity Pass — run at ALL levels for text >= 80 words
+                    if len(target_text.split()) >= 80:
                         try:
                             optimizer = get_perplexity_optimizer()
                             rewritten = optimizer.optimize(rewritten, request.mode)
@@ -392,9 +392,30 @@ async def rewrite_text(
             # Step 2.6: Post-Hoc Statistical Validation Check & Grammar Sanitization
             is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
             if not is_valid:
-                logger.info("Statistical validation notice: %s. Applying statistical refinement pass.", val_reason)
+                logger.info("Statistical validation notice: %s. Applying targeted burstiness LLM re-pass.", val_reason)
                 rewritten = enforce_short_sentences(rewritten, max_words=26)
-                rewritten = add_burstiness(rewritten)
+                # Targeted LLM burstiness injection pass — replaces the shallow no-op fallback
+                try:
+                    word_count_rw = len(rewritten.split())
+                    burst_system = (
+                        "You are a senior copyeditor specializing in natural human prose rhythm.\n"
+                        "The draft below reads with a metronomic, AI-like cadence: too many sentences of the same length.\n\n"
+                        "YOUR ONLY JOB: Inject burstiness and sentence variety WITHOUT changing any facts, meaning, or content.\n"
+                        "RULES:\n"
+                        "1. Break 2-3 of the longer sentences (15+ words) into two shorter sentences.\n"
+                        "2. Fuse 2-3 short choppy sentences into one natural compound sentence where it reads better.\n"
+                        "3. Add 1-2 very short punchy sentences (4-7 words) as rhythm breaks where they fit naturally.\n"
+                        "4. ZERO em dashes (—), ZERO semicolons (;). Use commas and periods only.\n"
+                        "5. Preserve ALL facts, numbers, dates, and meaning exactly.\n"
+                        "6. Return ONLY the revised text. No preamble, no explanation."
+                    )
+                    burst_user = f"Draft to improve (target ~{word_count_rw} words):\n{rewritten}"
+                    burst_result = rewriter._call_llm(burst_system, burst_user)
+                    if burst_result and len(burst_result.split()) >= int(word_count_rw * 0.75):
+                        rewritten = humanize(burst_result, intensity=intensity, original_text=target_text if 'target_text' in dir() else rewritten, mode=request.mode.value)
+                        logger.info("Burstiness LLM re-pass applied successfully.")
+                except Exception as burst_err:
+                    logger.warning("Burstiness LLM re-pass failed, keeping enforce_short_sentences output: %s", burst_err)
 
             rewritten = clean_erroneous_punctuation(rewritten)
 

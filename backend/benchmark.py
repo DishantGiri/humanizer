@@ -14,9 +14,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ai_checker import AICheckEngine
 from humanizer import humanize
+from rewriter import TextRewriter
+from config import RewriteMode, RewriteLevel
 
 
-def run_benchmark(num_samples: int = 5):
+def run_benchmark(num_samples: int = 5, use_llm: bool = True):
     print("=" * 60)
     print(" 🚀 RUNNING HUMANIZER DATASET BENCHMARK SUITE")
     print("=" * 60)
@@ -43,6 +45,7 @@ def run_benchmark(num_samples: int = 5):
     print("\n[PART 2] Testing Humanization & AI Score Reduction on AI_Generated.csv...")
     before_scores = []
     after_scores = []
+    rewriter = TextRewriter() if use_llm else None
 
     with open('/home/dishantgiri/humanizer/AI_Generated.csv', 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -58,7 +61,16 @@ def run_benchmark(num_samples: int = 5):
             before_scores.append(before_report.overall_score)
 
             # Humanize through engine
-            humanized = humanize(raw_ai, intensity=0.8, original_text=raw_ai, mode="standard")
+            if use_llm and rewriter:
+                try:
+                    rewritten = rewriter.rewrite(raw_ai, RewriteMode.STANDARD, RewriteLevel.MODERATE)
+                    humanized = humanize(rewritten, intensity=0.7, original_text=raw_ai, mode="standard")
+                except Exception as e:
+                    print(f"    (LLM rewrite failed: {e}, falling back to direct humanize)")
+                    humanized = humanize(raw_ai, intensity=0.7, original_text=raw_ai, mode="standard")
+            else:
+                humanized = humanize(raw_ai, intensity=0.7, original_text=raw_ai, mode="standard")
+
             after_report = AICheckEngine.analyze(humanized)
             after_scores.append(after_report.overall_score)
 
@@ -79,4 +91,4 @@ def run_benchmark(num_samples: int = 5):
 
 
 if __name__ == "__main__":
-    run_benchmark(5)
+    run_benchmark(3, use_llm=True)

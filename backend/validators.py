@@ -89,14 +89,14 @@ def validate_human_statistics(text: str) -> Tuple[bool, str, Dict[str, Any]]:
         return True, "Short snippet, stats skipped.", stats
 
     issues = []
-    if stats["avg_sentence_length"] > 22.0:
-        issues.append(f"Avg sentence length too high ({stats['avg_sentence_length']} words, max target 22.0)")
+    if stats["avg_sentence_length"] > 18.0:
+        issues.append(f"Avg sentence length too high ({stats['avg_sentence_length']} words, max target 18.0)")
 
-    if stats["burstiness_ratio"] < 0.15 and stats["total_sentences"] >= 3:
-        issues.append(f"Low burstiness ({int(stats['burstiness_ratio']*100)}% micro-sentences, target >= 15%)")
+    if stats["burstiness_ratio"] < 0.20 and stats["total_sentences"] >= 3:
+        issues.append(f"Low burstiness ({int(stats['burstiness_ratio']*100)}% micro-sentences, target >= 20%)")
 
-    if stats["total_sentences"] >= 4 and stats["sentence_length_stdev"] < 2.5:
-        issues.append(f"Low sentence length variation (stdev {stats['sentence_length_stdev']}, target >= 2.5)")
+    if stats["total_sentences"] >= 4 and stats["sentence_length_stdev"] < 3.5:
+        issues.append(f"Low sentence length variation (stdev {stats['sentence_length_stdev']}, target >= 3.5)")
 
     if stats["function_word_ratio"] < 0.35:
         issues.append(f"Low function word ratio ({int(stats['function_word_ratio']*100)}% function words, target >= 35%)")
@@ -105,9 +105,14 @@ def validate_human_statistics(text: str) -> Tuple[bool, str, Dict[str, Any]]:
         issues.append(f"High mean word length ({stats['mean_word_length']} chars, target <= 5.8)")
 
     # Check for robotic formulaic transition markers
-    robotic_matches = re.findall(r'\b(?:furthermore|in conclusion|moreover|to sum up|in summary)\b', text, re.IGNORECASE)
+    robotic_matches = re.findall(r'\b(?:furthermore|in conclusion|moreover|to sum up|in summary|notably|importantly|consequently)\b', text, re.IGNORECASE)
     if robotic_matches:
         issues.append(f"Contains formulaic transition markers: {', '.join(set(robotic_matches))}")
+
+    # Check for high-density hedge words (Signal C tells)
+    hedge_matches = re.findall(r'\b(?:often|typically|tends to|may result in|in many cases|it is believed|generally speaking)\b', text, re.IGNORECASE)
+    if len(hedge_matches) >= 2:
+        issues.append(f"High hedge word density: {len(hedge_matches)} hedges detected ({', '.join(set(hedge_matches))})")
 
     if issues:
         reason = "Statistical anti-AI boundaries notice: " + "; ".join(issues)
@@ -115,3 +120,4 @@ def validate_human_statistics(text: str) -> Tuple[bool, str, Dict[str, Any]]:
         return False, reason, stats
 
     return True, "Statistically matches human text profile.", stats
+

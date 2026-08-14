@@ -105,89 +105,52 @@ export default function AdminDashboardPage() {
 
   // Authenticated Admin User -> Render Standalone Admin Management Portal
   return (
-    <div style={{ minHeight: '100vh', background: '#090d16', color: '#f8fafc' }}>
+    <div className="admin-page-root" style={{ minHeight: '100vh', background: '#090d16', color: '#f8fafc', overflowX: 'hidden' }}>
       
       {/* Top Navbar */}
-      <header style={{
-        height: '64px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(16px)',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <header className="admin-navbar">
+        <div className="admin-navbar-brand">
+          <div className="admin-navbar-logo">
             <ShieldAlert size={20} color="#ffffff" />
           </div>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-0.02em', color: '#f8fafc' }}>
+          <div className="admin-navbar-title-group">
+            <span className="admin-navbar-title">
               CloakWriter Admin
             </span>
-            <span style={{ fontSize: '0.72rem', color: '#38bdf8', marginLeft: '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.1)' }}>
+            <span className="admin-navbar-badge">
               v3.0 PORTAL
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="admin-navbar-actions">
           <button
             type="button"
+            className="admin-navbar-btn"
             onClick={() => router.push('/dashboard')}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#e2e8f0',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            title="Main App Dashboard"
+            aria-label="Main App Dashboard"
           >
-            <LayoutDashboard size={14} /> Main App Dashboard
+            <LayoutDashboard size={14} />
+            <span className="admin-btn-text">Main App Dashboard</span>
+            <span className="admin-btn-text-mobile">Dashboard</span>
           </button>
 
           <button
             type="button"
+            className="admin-navbar-btn admin-navbar-btn--danger"
             onClick={handleAdminLogout}
-            style={{
-              padding: '7px 14px',
-              borderRadius: '8px',
-              background: 'rgba(244, 63, 94, 0.1)',
-              border: '1px solid rgba(244, 63, 94, 0.25)',
-              color: '#f43f5e',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            title="Log Out"
+            aria-label="Log Out"
           >
-            <LogOut size={14} /> Log Out
+            <LogOut size={14} />
+            <span className="admin-btn-text">Log Out</span>
           </button>
         </div>
       </header>
 
       {/* Main Admin View Content */}
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '28px 24px' }}>
+      <main className="admin-main-container">
         <AdminView user={user} token={token} />
       </main>
     </div>
