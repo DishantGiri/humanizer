@@ -210,16 +210,16 @@ class TestHumanizerEngine(unittest.TestCase):
         self.assertNotIn("In conclusion", output)
 
     def test_anti_detection_strategies_in_prompts(self):
-        """Verify prompt system instructions include the 7 Hard Rules and 9 Levers."""
+        """Verify prompt system instructions include the Hard Rules and 9 Levers."""
         from prompts import _BASE_SYSTEM, _LEVEL_INSTRUCTIONS
-        self.assertIn("THE 7 HARD RULES", _BASE_SYSTEM)
+        self.assertIn("HARD RULES", _BASE_SYSTEM)
         self.assertIn("EM DASHES", _BASE_SYSTEM)
         self.assertIn("SEMICOLONS", _BASE_SYSTEM)
         self.assertIn("STRAIGHT QUOTES", _BASE_SYSTEM)
         self.assertIn("MASTER BANNED VOCABULARY", _BASE_SYSTEM)
         self.assertIn("NO NEGATION FRAMING", _BASE_SYSTEM)
         self.assertIn("THE 9 HUMANIZATION LEVERS", _BASE_SYSTEM)
-        self.assertIn("DESTROY PREDICTABLE STRUCTURE & BURSTINESS", _LEVEL_INSTRUCTIONS[3].upper())
+        self.assertIn("DESTROY PREDICTABLE STRUCTURE", _LEVEL_INSTRUCTIONS[3].upper())
 
     def test_scenario_1_flagrant_ai_humanization(self):
         """

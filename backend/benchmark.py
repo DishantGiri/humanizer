@@ -16,6 +16,7 @@ from ai_checker import AICheckEngine
 from humanizer import humanize
 from rewriter import TextRewriter
 from config import RewriteMode, RewriteLevel
+from humanize_pipeline import get_standard_pipeline
 
 
 def run_benchmark(num_samples: int = 5, use_llm: bool = True):
@@ -45,7 +46,7 @@ def run_benchmark(num_samples: int = 5, use_llm: bool = True):
     print("\n[PART 2] Testing Humanization & AI Score Reduction on AI_Generated.csv...")
     before_scores = []
     after_scores = []
-    rewriter = TextRewriter() if use_llm else None
+    pipeline = get_standard_pipeline() if use_llm else None
 
     with open('/home/dishantgiri/humanizer/AI_Generated.csv', 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -60,13 +61,12 @@ def run_benchmark(num_samples: int = 5, use_llm: bool = True):
             before_report = AICheckEngine.analyze(raw_ai)
             before_scores.append(before_report.overall_score)
 
-            # Humanize through engine
-            if use_llm and rewriter:
+            # Humanize through Standard Pipeline
+            if use_llm and pipeline:
                 try:
-                    rewritten = rewriter.rewrite(raw_ai, RewriteMode.STANDARD, RewriteLevel.MODERATE)
-                    humanized = humanize(rewritten, intensity=0.7, original_text=raw_ai, mode="standard")
+                    humanized = pipeline.process(raw_ai, mode=RewriteMode.STANDARD, level=RewriteLevel.MODERATE)
                 except Exception as e:
-                    print(f"    (LLM rewrite failed: {e}, falling back to direct humanize)")
+                    print(f"    (Pipeline execution fallback: {e})")
                     humanized = humanize(raw_ai, intensity=0.7, original_text=raw_ai, mode="standard")
             else:
                 humanized = humanize(raw_ai, intensity=0.7, original_text=raw_ai, mode="standard")

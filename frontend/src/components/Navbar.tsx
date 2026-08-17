@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sun, Moon } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export interface NavbarProps {
   activeMenu?: string;
@@ -11,8 +11,6 @@ export interface NavbarProps {
 
 export default function Navbar({
   activeMenu = 'humanizer',
-  theme = 'dark',
-  onToggleTheme,
 }: NavbarProps) {
   const breadcrumbText =
     activeMenu === 'dashboard'
@@ -30,16 +28,7 @@ export default function Navbar({
       </div>
 
       <div className="navbar__actions">
-        {onToggleTheme && (
-          <button
-            type="button"
-            className="global-navbar__theme-btn"
-            onClick={(e) => onToggleTheme(e)}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        )}
+        <ThemeToggle size="md" />
       </div>
     </header>
   );

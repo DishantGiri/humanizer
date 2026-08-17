@@ -5600,6 +5600,102 @@ body::before {
   transform: scale(1.05);
 }
 
+/* ── Segmented Theme Toggle ─────────────────────────────────────────────── */
+.theme-segmented-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.theme-segmented-toggle--md .theme-segmented-toggle__btn {
+  width: 32px;
+  height: 32px;
+}
+
+.theme-segmented-toggle--sm {
+  padding: 2px;
+  gap: 1px;
+}
+
+.theme-segmented-toggle--sm .theme-segmented-toggle__btn {
+  width: 26px;
+  height: 26px;
+}
+
+.theme-segmented-toggle__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary, #94a3b8);
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  transition: color var(--transition-fast);
+}
+
+.theme-segmented-toggle__btn:hover {
+  color: var(--text-primary, #ffffff);
+}
+
+.theme-segmented-toggle__btn--active {
+  color: var(--text-primary, #ffffff);
+}
+
+.theme-segmented-toggle__indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+.theme-segmented-toggle__icon-wrap {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] .theme-segmented-toggle {
+  background: #e2e8f0;
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .theme-segmented-toggle__btn {
+  color: #64748b;
+}
+
+[data-theme="light"] .theme-segmented-toggle__btn:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .theme-segmented-toggle__btn--active {
+  color: #0f172a;
+}
+
+[data-theme="light"] .theme-segmented-toggle__indicator {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
 .global-navbar__user-profile {
   display: flex;
   align-items: center;

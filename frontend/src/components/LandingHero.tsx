@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/hooks/useTheme';
 
 interface LandingHeroProps {
   onOpenAuth?: (mode: 'login' | 'register') => void;
@@ -35,9 +37,9 @@ interface LandingHeroProps {
 
 export default function LandingHero({
   onOpenAuth,
-  isDarkMode = true,
-  onToggleTheme,
 }: LandingHeroProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const router = useRouter();
   const [demoText, setDemoText] = useState('');
   const [demoHasHumanized, setDemoHasHumanized] = useState(false);
@@ -279,7 +281,7 @@ export default function LandingHero({
         <div className="landing-nav__container">
           <div className="landing-nav__brand">
             <a href="#hero" className="landing-nav__brand-link" aria-label="Go to top" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              <Logo variant="full" size="md" theme={isDarkMode ? 'dark' : 'light'} />
+              <Logo variant="full" size="md" theme={resolvedTheme} />
             </a>
           </div>
 
@@ -299,15 +301,7 @@ export default function LandingHero({
           </div>
 
           <div className="landing-nav__actions">
-            <button
-              type="button"
-              className="landing-nav__theme-btn"
-              onClick={(e) => onToggleTheme?.(e)}
-              aria-label="Toggle Theme"
-              title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
-            >
-              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+            <ThemeToggle size="md" />
 
             <Link href="/login" className="landing-nav__login-btn" style={{ textDecoration: 'none' }}>
               Log in
@@ -583,7 +577,7 @@ export default function LandingHero({
                           cx="75"
                           cy="75"
                           r="60"
-                          stroke={isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}
+                          stroke={isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}
                           strokeWidth="10"
                           fill="none"
                         />
@@ -592,7 +586,7 @@ export default function LandingHero({
                           cx="75"
                           cy="75"
                           r="60"
-                          stroke={demoOutput ? 'url(#qaGradient)' : (isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')}
+                          stroke={demoOutput ? 'url(#qaGradient)' : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)')}
                           strokeWidth="10"
                           fill="none"
                           strokeDasharray="377"

@@ -40,6 +40,16 @@ GEMINI_API_KEYS: list[str] = [
     ] if k and k.strip()
 ]
 
+# ── OpenRouter API Configuration ───────────────────────────────────────────
+
+OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API", os.getenv("OPENROUTER_API_KEY", ""))
+OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat")
+OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+# ── Niutrans API Configuration ──────────────────────────────────────────────
+
+NIUTRANS_API_KEY: str = os.getenv("NIUTRANS_API_KEY", "")
+
 # ── Limits ──────────────────────────────────────────────────────────────────
 
 MAX_INPUT_LENGTH: int = 10_000  # characters

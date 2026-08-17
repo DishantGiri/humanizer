@@ -43,6 +43,8 @@ import LevelSelector from '@/components/LevelSelector';
 import { toast } from '@/components/Toast';
 import Logo from '@/components/Logo';
 import Navbar from '@/components/Navbar';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/hooks/useTheme';
 import DynamicSeo from '@/components/DynamicSeo';
 import LottieLoader from '@/components/LottieLoader';
 import TypewriterText from '@/components/TypewriterText';
@@ -177,67 +179,8 @@ export default function DashboardPage() {
 
 
 
-  // Theme state ('dark' | 'light')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  useEffect(() => {
-    const savedTheme = (localStorage.getItem('humyn_theme') as 'dark' | 'light') || 'dark';
-    queueMicrotask(() => {
-      setTheme(savedTheme);
-    });
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
-
-  const toggleTheme = (e?: React.MouseEvent<HTMLButtonElement>) => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-
-    const updateDOM = () => {
-      setTheme(newTheme);
-      localStorage.setItem('humyn_theme', newTheme);
-      document.documentElement.setAttribute('data-theme', newTheme);
-    };
-
-    if (
-      !e ||
-      !document.startViewTransition ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      updateDOM();
-      return;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const right = window.innerWidth - rect.left;
-    const bottom = window.innerHeight - rect.top;
-    const maxRadius = Math.hypot(
-      Math.max(rect.left, right),
-      Math.max(rect.top, bottom)
-    );
-
-    const transition = document.startViewTransition(() => {
-      flushSync(() => {
-        updateDOM();
-      });
-    });
-
-    transition.ready.then(() => {
-      document.documentElement.animate(
-        {
-          clipPath: [
-            `circle(0px at ${x}px ${y}px)`,
-            `circle(${maxRadius}px at ${x}px ${y}px)`,
-          ],
-        },
-        {
-          duration: 500,
-          easing: 'ease-in-out',
-          pseudoElement: '::view-transition-new(root)',
-        }
-      );
-    });
-  };
+  // Theme state from global provider
+  const { resolvedTheme } = useTheme();
 
   // Check saved session on mount
   useEffect(() => {
@@ -586,7 +529,7 @@ export default function DashboardPage() {
       <div ref={mobileSidebarRef} className={`mobile-sidebar ${mobileMenuOpen ? 'mobile-sidebar--open' : ''}`}>
         <div className="mobile-sidebar__header">
           <div onClick={() => { setActiveMenu('humanizer'); closeMobileMenu(); }} style={{ cursor: 'pointer' }}>
-            <Logo variant="full" size="md" theme={theme} />
+            <Logo variant="full" size="md" theme={resolvedTheme} />
           </div>
           <button type="button" className="mobile-sidebar__close" onClick={closeMobileMenu} aria-label="Close navigation menu">
             <X size={20} />
@@ -643,7 +586,7 @@ export default function DashboardPage() {
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar__brand" style={{ cursor: 'pointer' }} onClick={() => setActiveMenu('humanizer')}>
-          <Logo variant={sidebarCollapsed ? 'icon' : 'full'} size="md" theme={theme} />
+          <Logo variant={sidebarCollapsed ? 'icon' : 'full'} size="md" theme={resolvedTheme} />
         </div>
 
         <nav className="sidebar__menu">
@@ -681,7 +624,7 @@ export default function DashboardPage() {
             aria-label="Plans and pricing"
           >
             <CreditCard size={18} />
-            <span className="sidebar__menu-text">Plans & Pricing</span>
+            <span className="sidebar__menu-text">Plans &amp; Pricing</span>
           </button>
 
           {user?.role === 'admin' && (
@@ -828,17 +771,11 @@ export default function DashboardPage() {
             <Menu size={22} />
           </button>
           <div onClick={() => setActiveMenu('humanizer')} style={{ cursor: 'pointer' }}>
-            <Logo variant="full" size="sm" theme={theme} />
+            <Logo variant="full" size="sm" theme={resolvedTheme} />
           </div>
-          <button type="button" className="mobile-topbar__theme" onClick={toggleTheme} aria-label="Toggle theme" title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+          <ThemeToggle size="sm" />
         </div>
-        <Navbar
-          activeMenu={activeMenu}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
+        <Navbar activeMenu={activeMenu} />
 
         <div className="content-container">
           {activeMenu === 'dashboard' ? (

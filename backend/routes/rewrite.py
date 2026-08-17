@@ -27,6 +27,7 @@ from cache_limiter import get_cached_rewrite, set_cached_rewrite, is_rate_limite
 from similarity import calculate_similarity_metrics
 from nlp_analyzer import analyze_text_nlp
 from ai_checker import AICheckEngine, AICheckReport
+from humanize_pipeline import get_standard_pipeline, StandardHumanizePipeline
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ _rewriter: TextRewriter | None = None
 _verifier: MeaningVerifier | None = None
 _bouncer: TranslationBouncer | None = None
 _perplexity_optimizer: PerplexityOptimizer | None = None
+_standard_pipeline: StandardHumanizePipeline | None = None
 
 
 def get_rewriter() -> TextRewriter:
@@ -309,115 +311,15 @@ async def rewrite_text(
         rewritten = cached_output
     else:
         try:
-            rewriter = get_rewriter()
-            intensity = 0.4 if request.level == 1 else (0.7 if request.level == 2 else 1.0)
+            pipeline = get_standard_pipeline()
             target_text = text_body if doc_title else clean_text
 
-            lines = [line for line in target_text.split('\n')]
-            is_list = len(lines) > 2 and any(
-                line.strip().startswith(('-', '*', '•', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')) or
-                (':' in line and len(line.split(':')[0].split()) <= 4)
-                for line in lines if line.strip()
+            rewritten = pipeline.process(
+                target_text,
+                mode=request.mode,
+                level=request.level,
+                target_lang="en"
             )
-
-            if is_list:
-                rewritten_lines = []
-                for line in lines:
-                    stripped_line = line.strip()
-                    if not stripped_line:
-                        rewritten_lines.append("")
-                        continue
-                    prefix = ""
-                    core_text = stripped_line
-                    for marker in ('-', '*', '•', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.'):
-                        if stripped_line.startswith(marker):
-                            prefix = marker + " "
-                            core_text = stripped_line[len(marker):].strip()
-                            break
-
-                    if ":" in core_text and len(core_text.split(":")[0].split()) <= 4:
-                        parts = core_text.split(":", 1)
-                        key = parts[0].strip()
-                        val = parts[1].strip()
-                        val_rewritten = rewriter.rewrite(val, request.mode, request.level)
-                        val_humanized = humanize(val_rewritten, intensity=intensity, original_text=val, mode=request.mode.value)
-                        rewritten_lines.append(f"{prefix}{key}: {val_humanized}")
-                    else:
-                        line_rewritten = rewriter.rewrite(core_text, request.mode, request.level)
-                        line_humanized = humanize(line_rewritten, intensity=intensity, original_text=core_text, mode=request.mode.value)
-                        rewritten_lines.append(f"{prefix}{line_humanized}")
-                rewritten = "\n".join(rewritten_lines)
-            else:
-                orig_paras = [p.strip() for p in target_text.split('\n\n') if p.strip()]
-                # If short or medium multi-paragraph text (<= 500 words), rewrite as a single cohesive unit
-                # to maintain global narrative flow and avoid repetitive paragraph-level intro/conclusion traps.
-                if len(orig_paras) > 1 and len(target_text.split()) > 500:
-                    rewritten_paras = []
-                    for p_idx, para in enumerate(orig_paras):
-                        p_rewritten = rewriter.rewrite(para, request.mode, request.level)
-
-                        # Step 2.5: Perplexity Pass — run at ALL levels for substantial paragraphs
-                        if len(para.split()) >= 80:
-                            try:
-                                optimizer = get_perplexity_optimizer()
-                                p_rewritten = optimizer.optimize(p_rewritten, request.mode)
-                            except Exception as opt_err:
-                                logger.warning("Perplexity pass skipped for para %d: %s", p_idx, opt_err)
-
-                        p_humanized = humanize(p_rewritten, intensity=intensity, original_text=para, mode=request.mode.value)
-                        rewritten_paras.append(p_humanized)
-                    rewritten = "\n\n".join(rewritten_paras)
-
-                    # ── Paragraph parity enforcement ─────────────────────────────
-                    out_paras = [p.strip() for p in rewritten.split('\n\n') if p.strip()]
-                    if len(out_paras) != len(orig_paras) and out_paras:
-                        if len(out_paras) > len(orig_paras):
-                            keep = out_paras[:len(orig_paras) - 1]
-                            tail = " ".join(out_paras[len(orig_paras) - 1:])
-                            out_paras = keep + [tail]
-                        rewritten = "\n\n".join(out_paras)
-                else:
-                    rewritten = rewriter.rewrite(target_text, request.mode, request.level)
-
-                    # Step 2.5: Perplexity Pass — run at ALL levels for text >= 80 words
-                    if len(target_text.split()) >= 80:
-                        try:
-                            optimizer = get_perplexity_optimizer()
-                            rewritten = optimizer.optimize(rewritten, request.mode)
-                        except Exception as opt_err:
-                            logger.warning("Perplexity pass skipped: %s", opt_err)
-
-                    rewritten = humanize(rewritten, intensity=intensity, original_text=target_text, mode=request.mode.value)
-
-            # Step 2.6: Post-Hoc Statistical Validation Check & Grammar Sanitization
-            is_valid, val_reason, val_stats = validate_human_statistics(rewritten)
-            if not is_valid:
-                logger.info("Statistical validation notice: %s. Applying targeted burstiness LLM re-pass.", val_reason)
-                rewritten = enforce_short_sentences(rewritten, max_words=20)
-                # Targeted LLM burstiness injection pass — replaces the shallow no-op fallback
-                try:
-                    word_count_rw = len(rewritten.split())
-                    burst_system = (
-                        "You are a senior copyeditor specializing in natural human prose rhythm.\n"
-                        "The draft below reads with a metronomic, AI-like cadence: too many sentences of the same length.\n\n"
-                        "YOUR ONLY JOB: Inject burstiness and sentence variety WITHOUT changing any facts, meaning, or content.\n"
-                        "RULES:\n"
-                        "1. Break 2-3 of the longer sentences (15+ words) into two shorter sentences.\n"
-                        "2. Fuse 2-3 short choppy sentences into one natural compound sentence where it reads better.\n"
-                        "3. Add 1-2 very short punchy sentences (4-7 words) as rhythm breaks where they fit naturally.\n"
-                        "4. ZERO em dashes (—), ZERO semicolons (;). Use commas and periods only.\n"
-                        "5. Preserve ALL facts, numbers, dates, and meaning exactly.\n"
-                        "6. Return ONLY the revised text. No preamble, no explanation."
-                    )
-                    burst_user = f"Draft to improve (target ~{word_count_rw} words):\n{rewritten}"
-                    burst_result = rewriter._call_llm(burst_system, burst_user)
-                    if burst_result and len(burst_result.split()) >= int(word_count_rw * 0.75):
-                        rewritten = humanize(burst_result, intensity=intensity, original_text=target_text if 'target_text' in dir() else rewritten, mode=request.mode.value)
-                        logger.info("Burstiness LLM re-pass applied successfully.")
-                except Exception as burst_err:
-                    logger.warning("Burstiness LLM re-pass failed, keeping enforce_short_sentences output: %s", burst_err)
-
-            rewritten = clean_erroneous_punctuation(rewritten)
 
             # Re-attach document title if present
             if doc_title:
@@ -425,7 +327,7 @@ async def rewrite_text(
 
             # Store in Redis cache
             set_cached_rewrite(clean_text, request.mode.value, request.level.value, rewritten)
-        except RewriteError as e:
+        except Exception as e:
             logger.error("Rewrite error: %s", e)
             raise HTTPException(
                 status_code=500,

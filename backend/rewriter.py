@@ -1,12 +1,16 @@
 """
-Text Rewriter module supporting Gemini LLM inference with automatic 5-request API key rotation
-and Groq fallback redundancy.
+Text Rewriter module supporting:
+1. Groq LLM inference with automatic 5-request API key pool rotation.
+2. OpenRouter API integration (DeepSeek / Qwen / custom models).
+3. Gemini LLM fallback redundancy with key pool rotation.
+4. Multi-turn conversational rewriting for cross-lingual linguistic distance pipelines.
 """
 
 import threading
 import logging
 import random
-from typing import Optional
+from typing import Optional, List, Dict, Any
+import httpx
 from groq import Groq, APIError, APITimeoutError, RateLimitError, AuthenticationError
 
 from config import (
@@ -16,6 +20,9 @@ from config import (
     GROQ_FALLBACK_MODEL,
     GEMINI_MODEL,
     GEMINI_API_KEYS,
+    OPENROUTER_API_KEY,
+    OPENROUTER_MODEL,
+    OPENROUTER_BASE_URL,
     MAX_RETRIES,
     API_TIMEOUT,
     RewriteMode,
@@ -90,7 +97,7 @@ def get_next_groq_key() -> tuple[int, str]:
 
 
 class TextRewriter:
-    """Sends text to Groq or Gemini API with key rotation and fallback redundancy."""
+    """Sends text to Groq, OpenRouter, or Gemini API with key rotation and fallback redundancy."""
 
     def __init__(self):
         if GROQ_API_KEY:
@@ -100,6 +107,84 @@ class TextRewriter:
 
         self.groq_model = GROQ_MODEL
         self.groq_fallback = GROQ_FALLBACK_MODEL
+        self.openrouter_api_key = OPENROUTER_API_KEY
+        self.openrouter_model = OPENROUTER_MODEL
+        self.openrouter_base_url = OPENROUTER_BASE_URL.rstrip("/")
+
+    def _call_openrouter(self, messages: list[dict], model: Optional[str] = None, temperature: float = 1.3) -> str:
+        """
+        Call OpenRouter OpenAI-compatible chat completions API.
+        """
+        if not self.openrouter_api_key:
+            raise RewriteError("OpenRouter API key not configured.")
+
+        url = f"{self.openrouter_base_url}/chat/completions"
+        target_model = model or self.openrouter_model
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://cloakwriter.app",
+            "X-Title": "CloakWriter Humanizer",
+        }
+        payload = {
+            "model": target_model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+
+        try:
+            resp = httpx.post(url, headers=headers, json=payload, timeout=API_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            if content and content.strip():
+                return content.strip()
+            raise RewriteError("OpenRouter returned empty response.")
+        except Exception as ex:
+            raise RewriteError(f"OpenRouter API Error ({target_model}): {ex}")
+
+    def _call_gemini_messages(self, messages: list[dict], temperature: float = 1.0) -> str:
+        """
+        Format multi-turn messages and call Gemini API with key pool rotation.
+        """
+        if not GEMINI_API_KEYS:
+            raise RewriteError("Gemini API keys not configured.")
+
+        # Flatten multi-turn messages into conversation text for Gemini
+        combined_parts = []
+        for msg in messages:
+            role = msg.get("role", "user").upper()
+            content = msg.get("content", "")
+            combined_parts.append(f"[{role}]:\n{content}")
+        full_prompt = "\n\n".join(combined_parts)
+
+        key_num, api_key = get_next_gemini_key()
+        temp = min(max(temperature, 0.2), 1.0)
+
+        try:
+            from google import genai
+            from google.genai import types
+            client = genai.Client(api_key=api_key)
+            try:
+                config = types.GenerateContentConfig(temperature=temp, top_p=0.95)
+                response = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=full_prompt,
+                    config=config,
+                )
+            except Exception:
+                response = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=full_prompt,
+                )
+            content = response.text
+            if content and content.strip():
+                return content.strip()
+            raise RewriteError("Gemini API returned an empty response.")
+        except Exception as err:
+            err_msg = str(err)
+            logger.warning("Gemini Key #%d call error: %s", key_num, err_msg)
+            raise RewriteError(f"Gemini API Error (Key #{key_num}): {err_msg}")
 
     def _call_gemini(self, system_prompt: str, user_prompt: str, key_override: Optional[str] = None) -> str:
         """
@@ -139,9 +224,15 @@ class TextRewriter:
             logger.warning("Gemini Key #%d call error: %s", key_num, err_msg)
             raise RewriteError(f"Gemini API Error (Key #{key_num}): {err_msg}")
 
-    def _call_groq(self, system_prompt: str, user_prompt: str, model: Optional[str] = None, key_idx_override: Optional[int] = None) -> str:
+    def _call_groq_messages(
+        self,
+        messages: list[dict],
+        model: Optional[str] = None,
+        key_idx_override: Optional[int] = None,
+        temperature: float = 1.3,
+    ) -> str:
         """
-        Make a call to Groq API using key pool rotation across configured Groq keys.
+        Make a multi-turn chat completion call to Groq API using key rotation.
         """
         if not GROQ_API_KEYS:
             raise RewriteError("Groq API keys not configured.")
@@ -154,7 +245,6 @@ class TextRewriter:
             key_num, api_key = get_next_groq_key()
 
         groq_client = Groq(api_key=api_key, max_retries=0)
-
         target_model = model or self.groq_model
         tm_lower = target_model.lower()
 
@@ -168,28 +258,18 @@ class TextRewriter:
         elif any(term in tm_lower for term in ['3.3', 'llama-3.3', 'llama 3.3']):
             target_model = 'llama-3.3-70b-versatile'
 
-        effective_system = system_prompt
         extra_kwargs = {}
         max_tok = 3000 if 'qwen' in target_model.lower() else 4096
 
-        if 'qwen' in target_model.lower():
-            effective_system = '/no_think\n\n' + system_prompt
-            extra_kwargs['extra_body'] = {'reasoning_format': 'hidden'}
-
-        temp = round(random.uniform(0.85, 0.95), 2)
+        temp = min(max(temperature, 0.2), 1.5)
 
         try:
             response = groq_client.chat.completions.create(
                 model=target_model,
-                messages=[
-                    {"role": "system", "content": effective_system},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=messages,
                 temperature=temp,
                 max_tokens=max_tok,
                 top_p=0.95,
-                frequency_penalty=0.35,
-                presence_penalty=0.20,
                 timeout=API_TIMEOUT,
                 **extra_kwargs
             )
@@ -207,11 +287,22 @@ class TextRewriter:
         except Exception as ex:
             raise RewriteError(f"Groq API Error (Key #{key_num}, model {target_model}): {ex}")
 
+    def _call_groq(self, system_prompt: str, user_prompt: str, model: Optional[str] = None, key_idx_override: Optional[int] = None) -> str:
+        """
+        Make a call to Groq API using key pool rotation across configured Groq keys.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        return self._call_groq_messages(messages, model=model, key_idx_override=key_idx_override, temperature=0.9)
+
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
-        Main LLM dispatcher:
+        Main LLM dispatcher for single-turn system/user queries:
         1. Tries Groq API (Llama 3.3 70B -> Qwen fallback) across all Groq keys.
-        2. Fallback to Gemini API key pool rotation if all Groq models/keys fail.
+        2. Tries OpenRouter if configured.
+        3. Fallback to Gemini API key pool rotation if all Groq/OpenRouter attempts fail.
         """
         # Step 1: Primary - Try Groq API with instant key rotation and model fallback
         if GROQ_API_KEYS:
@@ -228,7 +319,19 @@ class TextRewriter:
                     except RewriteError as groq_err:
                         logger.warning("Groq Key #%d (%s) attempt failed: %s", current_k_idx + 1, g_model, groq_err)
 
-        # Step 2: Fallback - Gemini API with instant rotation across distinct Gemini keys
+        # Step 2: Try OpenRouter
+        if self.openrouter_api_key:
+            try:
+                logger.info("Calling OpenRouter LLM inference (%s)", self.openrouter_model)
+                res = self._call_openrouter([
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ], temperature=0.9)
+                return res
+            except Exception as or_err:
+                logger.warning("OpenRouter attempt failed: %s", or_err)
+
+        # Step 3: Fallback - Gemini API with instant rotation across distinct Gemini keys
         logger.info("Falling back to Gemini LLM inference (%s)", GEMINI_MODEL)
         if GEMINI_API_KEYS:
             with _counter_lock:
@@ -242,7 +345,76 @@ class TextRewriter:
                 except RewriteError as gemini_err:
                     logger.warning("Gemini Key #%d attempt failed: %s", current_g_idx + 1, gemini_err)
 
-        raise RewriteError("Rewriting failed after trying all Groq and Gemini key pools.")
+        raise RewriteError("Rewriting failed after trying all Groq, OpenRouter, and Gemini key pools.")
+
+    def _call_llm_conversation(self, messages: list[dict], temperature: float = 1.3) -> str:
+        """
+        Multi-turn LLM conversation dispatcher supporting Groq, OpenRouter, and Gemini.
+        """
+        # Step 1: OpenRouter (DeepSeek / Qwen at temperature 1.3 works exceptionally well for de-AI rewriting)
+        if self.openrouter_api_key:
+            try:
+                return self._call_openrouter(messages, temperature=temperature)
+            except Exception as or_err:
+                logger.warning("OpenRouter conversational call failed: %s. Trying Groq.", or_err)
+
+        # Step 2: Groq key rotation pool
+        if GROQ_API_KEYS:
+            with _counter_lock:
+                start_k_idx = (_groq_request_counter // 5) % len(GROQ_API_KEYS)
+
+            groq_models = [self.groq_model, self.groq_fallback]
+            for offset in range(len(GROQ_API_KEYS)):
+                current_k_idx = (start_k_idx + offset) % len(GROQ_API_KEYS)
+                for g_model in groq_models:
+                    try:
+                        return self._call_groq_messages(
+                            messages,
+                            model=g_model,
+                            key_idx_override=current_k_idx,
+                            temperature=temperature,
+                        )
+                    except Exception as groq_err:
+                        logger.warning("Groq conversational call failed (Key #%d, %s): %s", current_k_idx + 1, g_model, groq_err)
+
+        # Step 3: Gemini fallback
+        if GEMINI_API_KEYS:
+            try:
+                return self._call_gemini_messages(messages, temperature=min(temperature, 1.0))
+            except Exception as gemini_err:
+                logger.warning("Gemini conversational call failed: %s", gemini_err)
+
+        raise RewriteError("Conversational rewriting failed across all providers.")
+
+    def cross_lingual_rewrite(
+        self,
+        text: str,
+        target_language: str,
+        history: Optional[dict] = None,
+        temperature: float = 1.3,
+    ) -> str:
+        """
+        Cross-lingual de-AI rewriter from humanize-text methodology.
+        Translates while breaking AI statistical fingerprints and carrying multi-turn history.
+        """
+        system_prompt = "你是一个专业的文案改写专家,精通多语言本地化。"
+        user_prompt = f"翻译为{target_language}，去掉 AI 味道，拟人化改写，只输出结果：\n{text}"
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        if history and "input" in history and "output" in history:
+            messages.append({
+                "role": "user",
+                "content": f"翻译为中文，去掉 AI 味道，拟人化改写，只输出结果：\n{history['input']}",
+            })
+            messages.append({
+                "role": "assistant",
+                "content": history["output"],
+            })
+
+        messages.append({"role": "user", "content": user_prompt})
+
+        return self._call_llm_conversation(messages, temperature=temperature)
 
     def rewrite(self, text: str, mode: RewriteMode, level: RewriteLevel) -> str:
         """
