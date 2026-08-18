@@ -795,12 +795,64 @@ def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
 # ── Text Extraction & Typography Normalization ──────────────────────────────
 
 def extract_final_output(text: str) -> str:
-    """Strip internal thinking tags <think>...</think> from models."""
+    """Strip internal thinking/reasoning content from model outputs.
+
+    Handles three formats:
+    1. <think>...</think> XML tags (DeepSeek-R1, Qwen3, etc.)
+    2. Loose <think> / </think> fragments
+    3. Raw reasoning preamble emitted by gpt-oss-120b when reasoning_format
+       is not 'hidden' — detected by separator patterns and reasoning markers.
+    """
     if not text:
         return text
+
+    # ── Layer 1: Strip <think>...</think> XML blocks ──────────────────────────
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
-    return text.strip()
+    text = text.strip()
+    if not text:
+        return text
+
+    # ── Layer 2: Strip raw reasoning preamble (gpt-oss fallback) ─────────────
+    # The reasoning preamble typically ends with a separator line (---, ===, ***)
+    # or a colon-terminated header before the actual rewritten text.
+    # Pattern: find the last clean separator and return only what follows.
+    _SEPARATOR_RE = re.compile(
+        r'^(?:-{3,}|={3,}|\*{3,}|_{3,})\s*$',
+        re.MULTILINE,
+    )
+    sep_matches = list(_SEPARATOR_RE.finditer(text))
+    if sep_matches:
+        # Take everything after the LAST separator line.
+        last_sep = sep_matches[-1]
+        after_sep = text[last_sep.end():].strip()
+        if after_sep:
+            return after_sep
+
+    # ── Layer 3: Heuristic — detect numbered reasoning preamble ──────────────
+    # If the response starts with patterns like "1." / "Step 1" / "Thinking
+    # Process:" / "Deconstruct" it's almost certainly raw reasoning output.
+    _REASONING_OPENER_RE = re.compile(
+        r'^(?:\d+\.\s+\w|Step\s+\d|Thinking\s+Process|Deconstruct|Analysis:|'
+        r'Let me|First,\s+I|I will|I need to|I\'ll|Here\'s my|My approach)',
+        re.IGNORECASE,
+    )
+    lines = text.split('\n')
+    if lines and _REASONING_OPENER_RE.match(lines[0].strip()):
+        # Scan forward for a blank line followed by non-reasoning content.
+        # The actual rewrite is usually the last coherent paragraph block.
+        blank_idx = None
+        for i, line in enumerate(lines):
+            if not line.strip() and i > 0:
+                blank_idx = i
+        if blank_idx is not None:
+            candidate = '\n'.join(lines[blank_idx + 1:]).strip()
+            # Accept only if it has meaningful content (>20 chars) and
+            # doesn't look like more reasoning steps.
+            if len(candidate) > 20 and not _REASONING_OPENER_RE.match(candidate):
+                return candidate
+
+    return text
 
 
 def strip_preamble(text: str) -> str:

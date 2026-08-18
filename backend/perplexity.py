@@ -1,119 +1,245 @@
 """
 Perplexity Optimization module.
-Implements Step 2.5 of the pipeline:
-1. Paraphrase targeting increased perplexity and human stylistic variation
-2. Persona-specific voice calibration (e.g. college student, domain specialist, executive)
+
+Runs a targeted LLM pass to inject high perplexity (unexpected-but-natural wording),
+human burstiness (sentence length variation), and persona-calibrated voice — the
+four signals measured by AI detectors.
 """
 
 import logging
-import random
+from typing import Optional
 from groq import Groq
 from config import GROQ_API_KEY, GROQ_API_KEYS, GROQ_MODEL, GROQ_FALLBACK_MODEL, RewriteMode
 from rewriter import get_next_groq_key
 
 logger = logging.getLogger(__name__)
 
+# ── Tunable constants (change here, not in logic) ───────────────────────────
+
+_TEMP: float = 1.10           # Higher temp → more surprising token choices → higher perplexity
+_TOP_P: float = 0.95
+_FREQ_PENALTY: float = 0.35   # Reduces token repetition; both primary AND fallback use this
+_PRES_PENALTY: float = 0.20   # Encourages topic variety; both primary AND fallback use this
+_MAX_TOKENS_PRIMARY: int = 3000
+_MAX_TOKENS_FALLBACK: int = 2048
+_WORD_FLOOR_RATIO: float = 0.70   # Rewrite must be ≥70% of original word count
+_WORD_CEIL_RATIO: float = 1.15    # Rewrite must be ≤115% of original word count
+_MIN_WORDS_FLOOR: int = 5
+
+# Fail fast on individual calls — we have a fallback model and key rotation
+# to handle transient failures, so retrying inside a single call just adds latency.
+_MAX_RETRIES: int = 0
+
+# ── Persona map (dict lookup; safe when RewriteMode gains new members) ───────
+
+_PERSONA_MAP: dict[str, str] = {
+    RewriteMode.NATURAL.value:       "thoughtful human writer crafting an authentic, engaging piece",
+    RewriteMode.CREATIVE.value:      "thoughtful human writer crafting an authentic, engaging piece",
+    RewriteMode.CASUAL.value:        "thoughtful human writer crafting an authentic, engaging piece",
+    RewriteMode.FRIENDLY.value:      "thoughtful human writer crafting an authentic, engaging piece",
+    RewriteMode.SIMPLE.value:        "thoughtful human writer crafting an authentic, engaging piece",
+    RewriteMode.NATIVE.value:        "native English speaker with a natural, idiomatic writing style",
+    RewriteMode.STANDARD.value:      "clear, highly articulate native English speaker",
+    RewriteMode.ACADEMIC.value:      "scholarly researcher writing a clear, confident academic paper",
+    RewriteMode.FORMAL.value:        "scholarly researcher writing a clear, confident academic paper",
+    RewriteMode.FLUENCY.value:       "seasoned professional writing clear, direct executive communication",
+    RewriteMode.PROFESSIONAL.value:  "seasoned professional writing clear, direct executive communication",
+    RewriteMode.BUSINESS.value:      "seasoned professional writing clear, direct executive communication",
+    RewriteMode.CONCISE.value:       "seasoned professional writing clear, direct executive communication",
+}
+_DEFAULT_PERSONA = "clear, highly articulate native English speaker"
+
 
 class PerplexityOptimizer:
-    """Maximizes linguistic variety and applies target personas to eliminate AI fingerprints."""
+    """
+    Runs a single targeted LLM pass to inject human-writing signals:
+    - High perplexity (unexpected but natural word choices)
+    - Strong burstiness (varied sentence lengths)
+    - Lower token probability (non-obvious phrasing patterns)
+    - Distinctive stylometry (varied connectors, concrete voice)
+    """
 
-    def __init__(self):
-        self.model = GROQ_MODEL
-        self.fallback_model = GROQ_FALLBACK_MODEL
+    def __init__(self) -> None:
+        self.model: str = GROQ_MODEL
+        self.fallback_model: str = GROQ_FALLBACK_MODEL
 
-    def _call_groq(self, system_prompt: str, user_prompt: str, temp: float = 0.90) -> str:
-        """Call Groq using key rotation with balanced entropy sampling."""
-        target_model = self.model or "llama-3.3-70b-versatile"
+    def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+        """
+        Call Groq with key rotation and model fallback.
 
-        if GROQ_API_KEYS:
-            key_num, api_key = get_next_groq_key()
-            client = Groq(api_key=api_key, max_retries=0)
-        elif GROQ_API_KEY:
-            client = Groq(api_key=GROQ_API_KEY, max_retries=0)
-        else:
-            return user_prompt
+        Returns:
+            The model's output string on success, or None on total failure.
+            Never returns user_prompt silently — callers decide the fallback.
 
+        Notes:
+            - max_retries=0 on both primary and fallback: fail-fast is intentional
+              since key rotation and model fallback already provide redundancy.
+            - frequency_penalty and presence_penalty are applied on BOTH primary
+              and fallback paths so de-AI style behaviour isn't silently lost.
+        """
+        if not GROQ_API_KEYS and not GROQ_API_KEY:
+            logger.warning(
+                "PerplexityOptimizer: no Groq API keys configured — skipping optimization pass."
+            )
+            return None
+
+        # ── Resolve API key (key selection failure is caught separately) ────
+        try:
+            if GROQ_API_KEYS:
+                key_num, api_key = get_next_groq_key()
+            else:
+                key_num, api_key = 1, GROQ_API_KEY
+        except Exception as key_err:
+            logger.warning("PerplexityOptimizer: key selection failed: %s", key_err)
+            return None
+
+        # ── Build client after key is resolved ───────────────────────────────
+        client = Groq(api_key=api_key, max_retries=_MAX_RETRIES)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        shared_sampling = dict(
+            temperature=_TEMP,
+            top_p=_TOP_P,
+            frequency_penalty=_FREQ_PENALTY,
+            presence_penalty=_PRES_PENALTY,
+        )
+
+        # ── Primary model attempt ─────────────────────────────────────────────
         try:
             response = client.chat.completions.create(
-                model=target_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=temp,
-                max_tokens=3000,
-                top_p=0.95,
-                frequency_penalty=0.35,
-                presence_penalty=0.20,
+                model=self.model,
+                messages=messages,
+                max_tokens=_MAX_TOKENS_PRIMARY,
+                **shared_sampling,
             )
             content = response.choices[0].message.content
-            return content.strip() if content else user_prompt
-        except Exception as e:
-            logger.warning("Groq call in PerplexityOptimizer with model %s failed (%s), falling back to instant model", target_model, e)
-            try:
-                fallback = "llama-3.1-8b-instant"
-                response = client.chat.completions.create(
-                    model=fallback,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=temp,
-                    max_tokens=2048,
-                    top_p=0.95,
-                )
-                content = response.choices[0].message.content
-                return content.strip() if content else user_prompt
-            except Exception as f_err:
-                logger.warning("Fallback in PerplexityOptimizer failed: %s", f_err)
-                return user_prompt
+            if content and content.strip():
+                return content.strip()
+            logger.warning(
+                "PerplexityOptimizer: Key #%d, model %s returned empty content.",
+                key_num, self.model,
+            )
+        except Exception as primary_err:
+            logger.warning(
+                "PerplexityOptimizer: Key #%d, model %s failed: %s — trying fallback model.",
+                key_num, self.model, primary_err,
+            )
+
+        # ── Fallback model attempt (same key, same sampling params) ──────────
+        try:
+            response = client.chat.completions.create(
+                model=self.fallback_model,
+                messages=messages,
+                max_tokens=_MAX_TOKENS_FALLBACK,
+                **shared_sampling,  # frequency/presence_penalty preserved intentionally
+            )
+            content = response.choices[0].message.content
+            if content and content.strip():
+                return content.strip()
+            logger.warning(
+                "PerplexityOptimizer: fallback model %s also returned empty content.",
+                self.fallback_model,
+            )
+        except Exception as fallback_err:
+            logger.warning(
+                "PerplexityOptimizer: fallback model %s also failed: %s",
+                self.fallback_model, fallback_err,
+            )
+
+        return None
 
     def optimize(self, text: str, mode: str) -> str:
         """
-        Runs the perplexity and persona pass combined into a single call.
+        Run the perplexity and persona optimisation pass.
+
+        Args:
+            text: The text to optimise (post-rewrite, pre-detection-feedback).
+            mode: RewriteMode value string or enum.
+
+        Returns:
+            Optimised text if the LLM call succeeded and output is plausible;
+            original text otherwise (caller is always given something usable).
         """
-        mode_val = (mode.value if hasattr(mode, 'value') else str(mode)).lower()
-        if mode_val in (RewriteMode.NATURAL.value, RewriteMode.CREATIVE.value, RewriteMode.CASUAL.value, RewriteMode.FRIENDLY.value, RewriteMode.SIMPLE.value):
-            persona = "thoughtful human writer writing an authentic, engaging piece"
-        elif mode_val in (RewriteMode.ACADEMIC.value, RewriteMode.FORMAL.value):
-            persona = "scholarly researcher writing a clear academic paper"
-        elif mode_val in (RewriteMode.FLUENCY.value, RewriteMode.PROFESSIONAL.value, RewriteMode.BUSINESS.value, RewriteMode.CONCISE.value):
-            persona = "seasoned professional writing clear executive communication"
-        else:
-            persona = "clear, highly articulate native English speaker"
+        mode_val = (mode.value if hasattr(mode, "value") else str(mode)).lower()
+        persona = _PERSONA_MAP.get(mode_val, _DEFAULT_PERSONA)
 
         orig_words = len(text.split())
-        min_words = max(5, int(orig_words * 0.85))
-        max_words = max(8, int(orig_words * 1.15))
+        min_words = max(_MIN_WORDS_FLOOR, int(orig_words * _WORD_FLOOR_RATIO))
+        max_words = max(8, int(orig_words * _WORD_CEIL_RATIO))
 
         system_prompt = (
             f"You are a {persona}.\n"
-            "Paraphrase the following text so it flows naturally with authentic human voice, preserves 100% core factual fidelity, and eliminates all AI patterns.\n\n"
-            "CORE PRINCIPLES:\n"
-            f"1. LENGTH: The source is {orig_words} words. Your rewrite should be between {min_words} and {max_words} words.\n"
-            "2. RHYTHMIC DIVERSITY: Mix short punchy sentences (5-10 words) with natural medium sentences (12-20 words). At least 20% of sentences must be 7 words or fewer. Never chain 3+ sentences of the same length.\n"
-            "3. STRIP AI VOCABULARY & CLICHES: Eliminate 'delve', 'testament', 'vibrant', 'landscape', 'pivotal', 'leverage', 'robust', 'comprehensive', 'nuanced', 'paradigm', copula avoidance ('serves as' -> 'is'), -ing participle chains, and formulaic transitions ('Furthermore', 'In conclusion', 'Notably', 'Importantly').\n"
-            "4. ZERO EM DASHES (--) OR EN DASHES: Replace with commas, periods, or standard hyphens (-).\n"
-            "5. STRICT FACTUAL FIDELITY: Preserve all actual facts, names, dates, numbers, formulas, and domain terminology from the source text. NEVER invent new details or inject unrelated topics.\n"
-            "6. PARAGRAPH PARITY: Output the exact same number of paragraphs as the input.\n"
-            "7. RAW OUTPUT ONLY: Return ONLY the rewritten text with no preamble, markdown code blocks, or commentary.\n\n"
-            "SENTENCE COMPLEXITY CONTROL (critical):\n"
-            "- HARD CAP: No sentence may exceed 20 words. If a sentence exceeds 20 words, break it into two simple sentences.\n"
-            "- MAXIMUM 2 COMMAS: Any sentence with 3 or more commas MUST be split into two.\n"
-            "- BANNED STRUCTURES: Do not stack relative clauses (', which ... , which ...') or subordinate clauses ('because ... since ... while ...').\n"
-            "- DIRECT SUBJECT-VERB-OBJECT: Prefer clean SVO order. Write with crisp, active directness.\n\n"
-            "SPECIFICITY & CONCRETENESS (critical):\n"
-            "- BANNED GENERIC NOUNS: 'things', 'aspects', 'factors', 'elements', 'components', 'areas', 'issues', 'challenges', 'opportunities', 'solutions', 'approach', 'various', 'several', 'certain', 'multiple', 'mechanisms', 'dynamics'. Replace with the exact specific noun.\n"
-            "- BANNED WEAK VERBS: 'utilize', 'perform', 'conduct', 'implement', 'execute', 'leverage', 'facilitate', 'ensure', 'provide'. Use concrete action verbs: 'build', 'run', 'write', 'send', 'track', 'measure', 'cut', 'fix'.\n"
-            "- BANNED COURTESY & NARRATOR FILLER: 'she thanked', 'he thanked', 'expressed gratitude', 'conveyed appreciation', 'took the time to', 'was able to', 'proceeded to', 'went on to'. State facts directly without polite padding.\n"
-            "- BANNED VAGUE QUANTIFIERS: 'various', 'several', 'many', 'numerous', 'a number of', 'a variety of'. Use the actual count or specific example from the source."
+            "Rewrite the text to read like authentic human writing. Preserve 100% of the factual content.\n\n"
+            "TARGET — hit all four signals AI detectors measure:\n\n"
+            "1. PERPLEXITY (use unexpected-but-natural words):\n"
+            "   Replace obvious verbs with specific ones: 'was hard' → 'ground on', "
+            "'improved' → 'started moving', 'she decided' → 'she made the call'.\n"
+            "   Make 2-3 surprising but completely natural word choices per paragraph.\n\n"
+            "2. BURSTINESS (varied sentence lengths):\n"
+            f"   Mix: some short (5-9 words), most medium (14-22 words).\n"
+            "   After every 2-3 medium sentences, drop a short punchy one:\n"
+            "   'It worked.' / 'Most don't.' / 'That's it.' / 'Worth it.' / 'Not always.'\n"
+            "   Never write 3 sentences in a row of similar length.\n\n"
+            "3. TOKEN PROBABILITY (avoid the most predictable next word):\n"
+            "   Start 1-2 sentences with 'And', 'But', or 'Because' — humans do this naturally.\n"
+            "   Use a fragment once for emphasis: 'Which matters.' / 'And that was it.'\n\n"
+            "4. STYLOMETRY (distinctive, varied voice):\n"
+            "   Mix connectors: 'though', 'even so', 'and yet', 'which is why', 'because of that'.\n"
+            "   Contractions everywhere: it's, don't, can't, they're, we're, you'll, isn't.\n"
+            "   Concrete nouns over abstractions. Personal pronouns (you, we, it) as subjects.\n\n"
+            "HARD RULES:\n"
+            f"- Output length: {min_words} to {max_words} words (input is {orig_words} words).\n"
+            "- ZERO em dashes (—) or en dashes (–). ZERO semicolons (;).\n"
+            "- No sentence over 26 words. More than 2 commas in a sentence → split it.\n"
+            "- BANNED: delve, leverage, utilize, robust, comprehensive, pivotal, nuanced, "
+            "multifaceted, furthermore, moreover, additionally, notably, importantly, "
+            "seamless, transformative, paradigm, measurably, demonstrably, meaningfully.\n"
+            "- Same paragraph count as input.\n"
+            "- Output ONLY the rewritten text. No preamble, no notes."
         )
 
-        logger.info("Running Combined Perplexity & Persona Optimization Pass (Step 2.5: %s)", persona)
-        optimized = self._call_groq(system_prompt, text, temp=0.90)
-        optimized = optimized.strip()
-        if not optimized or len(optimized.split()) < int(orig_words * 0.6):
+        logger.info(
+            "PerplexityOptimizer: running optimisation pass (persona: %s, mode: %s)",
+            persona, mode_val,
+        )
+        result = self._call_groq(system_prompt, text)
+
+        if result is None:
+            logger.warning(
+                "PerplexityOptimizer: all LLM attempts failed — returning original text unchanged."
+            )
             return text
 
-        return optimized
+        result_words = len(result.split())
 
+        # Quality gate: check both floor and ceiling, and that it's not just repeated content
+        if result_words < min_words:
+            logger.warning(
+                "PerplexityOptimizer: output too short (%d words, floor %d) — discarding.",
+                result_words, min_words,
+            )
+            return text
+
+        if result_words > max_words * 1.3:
+            logger.warning(
+                "PerplexityOptimizer: output too long (%d words, ceiling %d) — discarding.",
+                result_words, max_words,
+            )
+            return text
+
+        # Detect low-effort outputs: if >60% of output bigrams match input, it's near-identical
+        def _bigrams(s: str) -> set:
+            words = s.lower().split()
+            return set(zip(words, words[1:])) if len(words) > 1 else set()
+
+        orig_bg = _bigrams(text)
+        result_bg = _bigrams(result)
+        if orig_bg and len(result_bg & orig_bg) / len(orig_bg) > 0.85:
+            logger.warning(
+                "PerplexityOptimizer: output is >85%% identical to input (bigram overlap) — discarding."
+            )
+            return text
+
+        return result

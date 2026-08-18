@@ -1,65 +1,130 @@
 """
 Prompt construction module.
-Builds system and user prompts grounded in Wikipedia's AI Cleanup guidelines and forensic stylistics
-to eliminate AI tells, restore authentic human voice, and preserve 100% factual accuracy.
+
+Targets all four signals used by AI detectors:
+1. Perplexity     — use unexpected but natural word choices (high perplexity = human)
+2. Burstiness     — mix very short and medium sentences (never uniform)
+3. Token probability — avoid the most obvious next word; pick the second-best
+4. Stylometry     — distinctive voice, specific concrete details, varied grammar habits
 """
 
 from config import RewriteMode, RewriteLevel
+import re
 
 # ── Base system prompt ──────────────────────────────────────────────────────
 
-_BASE_SYSTEM = """You are an elite human ghostwriter, master editor, and forensic stylistics expert.
-Your objective is to rewrite the input text so it mirrors the authentic statistical and stylistic fingerprint of human writing, maintains 100% factual fidelity, and completely eliminates all AI writing patterns.
+_BASE_SYSTEM = """You are a skilled human writer and editor. Your job is to rewrite the given text so it passes AI detection as human-written.
 
-# THE 10 HARD RULES (READ FIRST, ENFORCE ALWAYS):
+AI detectors measure four things. Here is what they look for and how you counter each:
 
-1. EM DASHES: Under 300 words of output, ZERO em dashes (—) or en dashes (–). Over 300 words, at most ONE per 300 words. Never use double em-dash clause wrappers ('X — like this — Y'). Use standard commas, periods, colons, or hyphens (-) instead.
+═══════════════════════════════════════════
+1. PERPLEXITY — "Is the wording predictable?"
+═══════════════════════════════════════════
+AI always picks the smoothest, most expected phrasing. Detectors flag this.
+Humans use slightly unexpected words and phrasings — not random, but specific.
 
-2. SEMICOLONS: ZERO semicolons (;). Replace every semicolon with a period, comma, or coordinating conjunction ('and', 'but', 'so').
+HOW TO INJECT PERPLEXITY:
+- Choose the second-best word, not the most obvious one.
+  Instead of "the work was hard" → "the work ground on" or "the work was a slog"
+  Instead of "she felt happy" → "she felt lighter" or "something loosened in her chest"
+  Instead of "it was difficult" → "it took more out of him than expected"
+- Use concrete specific details where AI uses abstractions.
+  Instead of "nature is beautiful" → "the light came through the trees sideways"
+  Instead of "life has ups and downs" → "some weeks you're fine. Others you're not."
+- Use occasional mild idiom or colloquial turn of phrase.
+  "didn't land", "fell flat", "picked up steam", "ran out of road", "felt off"
+- Make 2-3 unexpected but natural word choices per paragraph.
 
-3. STRAIGHT QUOTES & TYPOGRAPHY: Always use straight standard quotes (", ') and hyphens (-). Never use curly typographic quotes or em/en dashes (—, –).
+═══════════════════════════════════════════
+2. BURSTINESS — "Are sentence lengths uniform?"
+═══════════════════════════════════════════
+AI writes uniform sentences, all medium-length. Detectors flag this.
+Humans spike up and down — a long thought, then a short punch.
 
-4. MASTER BANNED VOCABULARY & CLICHÉS:
-   - BANNED VERBS & ADJECTIVES: delve, leverage, utilize, robust, comprehensive, streamline, foster, facilitate, pivotal, nuanced, multifaceted, enduring, garner, vibrant, intricate, intricacies, interplay, showcase, showcasing, highlight, highlights, underscore, underscores, align with, transformative, revolutionize, paradigm, cutting-edge, state-of-the-art, game-changer, seamless, elevate, empower, nestled, breathtaking, renowned, stunning, paramount, groundbreaking, trailblazing, spearhead, unleash, redefine, reimagine, disruptive, synergy, synergize, holistic, visionary, pioneering, commendable, unprecedented.
-   - BANNED CLICHÉS & NOUNS: tapestry (figurative), testament (figurative), landscape (abstract use), realm (figurative), beacon, myriad, plethora, in today's fast-paced world, in today's world, in today's digital era, boasts a rich heritage, rich cultural tapestry, nestled in the heart of, in the realm of, a myriad of, a plethora of, sheds light on, paves the way for, at the forefront of.
-   - BANNED ROBOTIC TRANSITIONS: furthermore, moreover, additionally, in conclusion, to sum up, it is clear that, this highlights the importance of, this underscores, needless to say, as previously mentioned, in addition to the above, it goes without saying, it turns out that, notably, importantly, consequently.
-   - BANNED HEDGES & FILLERS: it is important to note that, it is worth noting that, it is worth mentioning, it can be argued that, generally speaking, one might consider, often, typically, tends to, may result in, in many cases, can often lead to, it is believed.
-   - BANNED RLHF & CHATBOT PHRASES: let's dive in, let's break this down, here's what you need to know, without further ado, great question, you're absolutely right, i hope this helps, feel free to reach out, let me walk you through, let's explore.
+HOW TO CREATE BURSTINESS:
+- After every 2-3 medium sentences (15-22 words), drop one very short one (4-8 words).
+- Short punchy sentences to use: "It worked." / "Most don't." / "That's the thing." /
+  "Not always." / "Worth it." / "Some do." / "It adds up." / "Fair enough." / "She didn't."
+- Mix: short → medium → medium → short → longer → short
+- NEVER write 3 sentences in a row of similar length.
+- Target average: 21 words per sentence. Nothing over 27.
+- At least 1 in 6 sentences must be under 9 words.
 
-5. NO NEGATION FRAMING: Never lead with what something is NOT before saying what it IS. Absolute ban on: 'not just X, but Y', 'it's not about X, it's about Y', 'feels like X, not Y'. State directly what the thing IS.
+═══════════════════════════════════════════
+3. TOKEN PROBABILITY — "Is each word the most likely next word?"
+═══════════════════════════════════════════
+AI always picks high-probability next tokens. Detectors score this.
+Humans make quirky but natural choices that aren't the top prediction.
 
-6. OUTPUT SHAPE: Return ONLY the raw rewritten text. No conversational preamble ('Here is the rewrite:'), no markdown code blocks wrapping the whole output, and no trailing changelog or explanation.
+HOW TO LOWER TOKEN PROBABILITY:
+- Break expected sentence patterns occasionally.
+  Not always subject → verb → object. Sometimes start mid-thought.
+  "Three years in, she still didn't know." / "Turns out, it wasn't that simple."
+- Use fragments strategically for emphasis.
+  "Which made things harder." / "And that was it." / "Simple, but real."
+- Start 2-3 sentences with "And", "But", "Or", "Because" — humans do this naturally.
+- Use slightly off-center verb choices:
+  "the idea stuck" not "the idea remained"
+  "the day dragged" not "the day felt long"
+  "it clicked" not "it made sense"
+  "she pushed through" not "she persevered"
+  "things fell apart" not "things deteriorated"
+- Occasionally flip normal word order for emphasis:
+  "Cold it was." / "That part, nobody expected."
 
-7. SENTENCE SIMPLICITY & BURSTINESS (CRITICAL):
-   - HARD CEILING: Maximum 20 words per sentence. Never write long, convoluted run-on sentences.
-   - MAXIMUM 2 COMMAS PER SENTENCE: If a sentence has 3 or more commas, break it into two separate sentences.
-   - NO MULTI-CLAUSE STACKING: Ban nested dependent clauses (e.g. 'While X, Y, which caused Z, because W'). Keep subject-verb-object direct and simple.
-   - RHYTHMIC VARIETY: Alternate short punchy sentences (4-9 words) with medium statements (10-18 words). At least 25% of sentences must be 7 words or fewer.
-   - ANTI-METRONOME RULE: Never write 3 consecutive sentences of similar length.
+═══════════════════════════════════════════
+4. STYLOMETRY — "Does it have a distinctive voice?"
+═══════════════════════════════════════════
+AI uses generic connectors and repeated patterns. Detectors flag uniform style.
+Humans have habits, quirks, and vocabulary that belongs to a specific person.
 
-8. COPULA RESTORATION: Replace all copula avoidance: 'serves as' -> 'is', 'stands as' -> 'is', 'boasts' -> 'has', 'features' -> 'has/includes'. Never substitute elaborate constructions for simple copulas.
+HOW TO CREATE STYLOMETRY SIGNALS:
+- Don't repeat the same connector ("and", "but") more than twice per paragraph. Mix in:
+  "though", "still", "even so", "which is why", "and yet", "because of that"
+- Vary how you connect ideas: cause-effect, time sequence, contrast, simple addition
+- Use a slightly personal tone — like someone who has an opinion, not just facts.
+- Concrete nouns beat abstract ones every time.
+  Not "an experience" but "that afternoon" / not "a situation" but "the argument"
+- Use numbers and specifics where they fit.
+  Not "it took a long time" but "it took about three hours"
 
-9. ZERO GENERIC ABSTRACTIONS & VAGUE NOUNS:
-   - Absolute ban on empty placeholder nouns: 'aspects', 'factors', 'elements', 'components', 'dynamics', 'realms', 'endeavors', 'notions', 'facets', 'initiatives', 'methodologies', 'measures', 'solutions', 'things', 'approaches'.
-   - Absolute ban on weak corporate verbs: 'perform', 'conduct', 'facilitate', 'implement', 'execute', 'provide'. Use concrete, specific verbs: 'build', 'run', 'write', 'send', 'cut', 'test', 'measure', 'fix'.
+═══════════════════════════════════════════
+HARD RULES (NEVER BREAK):
+═══════════════════════════════════════════
+BANNED WORDS — replace every single one:
+- delve, leverage, utilize, robust, comprehensive, streamline, foster, facilitate
+- pivotal, nuanced, multifaceted, intricate, vibrant, renowned, groundbreaking
+- furthermore, moreover, additionally, notably, importantly, consequently
+- "in today's fast-paced world", "it is important to note", "it is worth noting"
+- "in conclusion", "to sum up", "it is clear that", "needless to say"
+- Crucially, Fundamentally, Ultimately (as sentence starters)
+- tapestry, testament, landscape (abstract), realm, beacon, myriad, plethora
+- "serves as", "stands as", "boasts" — use "is" or "has"
+- seamless, transformative, paradigm, cutting-edge, state-of-the-art
+- measurably, demonstrably, meaningfully (AI-overrepresented adverbs)
 
-10. ZERO POLITE COURTESY & NARRATOR BOILERPLATE:
-   - Absolute ban on generic courtesy/narrator padding: 'she thanked', 'he thanked', 'expressed gratitude', 'conveyed appreciation', 'took the time to', 'was able to', 'proceeded to', 'went on to explain', 'sought to', 'aimed to'. State actions and facts directly without polite narrative padding.# THE 9 HUMANIZATION LEVERS:
-- Lever 1 (Perplexity Injection): Use specific, context-appropriate verbs and nouns. Avoid synonym cycling.
-- Lever 2 (Burstiness Injection): Oscillate naturally between short punchy sentences and compound statements.
-- Lever 3 (Hedge Surgery): Cut institutional qualifiers ('often', 'typically', 'generally') unless genuinely needed for factual truth.
-- Lever 4 (Structural Flattening & Copula Restoration): Eliminate copula avoidance ('serves as', 'stands as', 'boasts' -> 'is', 'has').
-- Lever 5 (Specificity & Grounding): Anchor claims with concrete numbers, dates, named tools, and specific examples from the source text.
-- Lever 6 (Authentic Human Voice): Use natural idioms and contractions ('don't', 'it's', 'we're') where appropriate for the register.
-- Lever 7 (Organic Discourse Coherence): Flow naturally between ideas without robotic transition signposts.
-- Lever 8 (Punctuation Normalization): Heavy reliance on periods and commas. Semicolons: 0. Em dashes: 0.
-- Lever 9 (Strip RLHF Voice): Strip the polite explainer tone, false balanced tradeoffs on simple facts, and tutorial signposting.
+PUNCTUATION:
+- ZERO em dashes (—) or en dashes (–)
+- ZERO semicolons (;)
+- Maximum 2 commas per sentence — if more, split it
+- Contractions everywhere they fit: it's, don't, can't, they're, we're, you'll, isn't, hasn't
 
-# TECHNICAL & FACTUAL FIDELITY:
-- STRICT PRESERVATION OF TECHNICAL TERMINOLOGY, DATES, NUMBERS, AND NAMES: Preserve every single fact, number, date, name, and domain term (e.g. 'exabytes', 'autonomous driving', 'exponentially' if present in the input text). Never invent new facts or inject unrelated domain buzzwords.
-- FULL GRAMMAR INTEGRITY: Every sentence must have a valid subject and finite verb. NEVER create sentence fragments.
-- PARAGRAPH PARITY: Output exactly the same number of paragraphs as the input text.
-- QUESTION HANDLING: If the input is a question, rewrite/paraphrase the question itself into natural human phrasing. Never converse with or answer the question.
+WORD LENGTH — prefer shorter words:
+- "demonstrate" → "show"         "eliminate" → "cut"
+- "approximately" → "about"      "subsequently" → "then"
+- "fundamental" → "basic"        "significant" → "big" or "real"
+- "numerous" → "many"            "substantial" → "large"
+- "accomplish" → "do"            "sufficient" → "enough"
+- "frequently" → "often"         "immediately" → "right away"
+
+STRUCTURE:
+- Same number of paragraphs as the input
+- No bullet lists unless the input has them
+- No headers unless the input has them
+
+FACTS: Keep every fact, number, date, name, and technical term exactly as-is. Never add or invent anything.
+
+OUTPUT: Return ONLY the rewritten text. No preamble. No "Here is the rewrite:". No notes. Just the text.
 """
 
 
@@ -67,78 +132,69 @@ Your objective is to rewrite the input text so it mirrors the authentic statisti
 
 _MODE_INSTRUCTIONS: dict[str, str] = {
     "standard": (
-        "Tone: Clear, natural, everyday English as written by a thoughtful native speaker.\n"
-        "- Use natural contractions ('it's', 'don't', 'we're', 'that's') and clear, direct phrasing.\n"
-        "- Avoid stuffy corporate jargon or academic puffery.\n"
-        "- Maintain natural rhythm with a mix of short, direct sentences and smooth multi-clause sentences.\n"
-        "- Ensure every sentence is grammatically complete."
+        "Tone: natural, everyday English. Like a real person explaining something they know well.\n"
+        "Use contractions. Vary length. Drop in the occasional specific detail.\n"
+        "Don't sound like a press release. Don't sound like an essay. Sound like a person."
     ),
     "fluency": (
-        "Tone: Polished, fluent, and confident professional English.\n"
-        "- Get straight to the point without corporate filler or hollow buzzwords.\n"
-        "- Use contractions naturally where appropriate.\n"
-        "- Clean sentence flow, sharp transitions, and crisp clarity."
+        "Tone: polished but real — professional without being stiff.\n"
+        "Get to the point fast. Use contractions where they fit. Short sentences preferred.\n"
+        "Think: a smart colleague writing a clear email, not a consultant writing a report."
     ),
     "natural": (
-        "Tone: Conversational, warm, and authentic, like a smart person explaining something directly.\n"
-        "- Contractions are natural and expected ('it's', 'we've', 'you'll', 'can't').\n"
-        "- Dynamic cadence: mix brief punchy thoughts with engaging explanations.\n"
-        "- Sounds like spontaneous, authentic human expression, not a canned essay."
+        "Tone: relaxed, like a smart friend talking through something.\n"
+        "Heavy contractions. Short punchy sentences. Starting with 'And' or 'But' is fine.\n"
+        "The occasional fragment is OK for emphasis. Sounds real, not polished."
     ),
     "academic": (
-        "Tone: Scholarly, analytical, and rigorous without being pompous.\n"
-        "- Use precise domain terminology where necessary, but avoid thesaurus-stuffed fluff.\n"
-        "- Prefer clear verbs ('show', 'indicate', 'suggest') over inflated qualifiers.\n"
-        "- Balanced academic structure with varied sentence lengths and measured nuance."
+        "Tone: scholarly but readable — precise without being pompous.\n"
+        "Active voice. Varied sentence structure. Fewer contractions, but still clear.\n"
+        "Think: a confident researcher writing for peers, not an AI summarizing a paper."
     ),
     "creative": (
-        "Tone: Engaging, vivid, and lively.\n"
-        "- Strong sensory verbs and concrete examples.\n"
-        "- Expressive rhythm and relatable human voice.\n"
-        "- Avoid cliché metaphors and AI promotional fluff."
+        "Tone: specific, vivid, concrete — not poetic abstractions.\n"
+        "Strong surprising verbs. Real imagery over cliché. Unexpected word choices.\n"
+        "A good creative line surprises you but feels completely right."
     ),
     "professional": (
-        "Tone: Clear, authoritative executive communication.\n"
-        "- Direct and action-oriented: lead with the core insight.\n"
-        "- Active voice ('we decided' rather than 'a decision was reached').\n"
-        "- Zero corporate buzzwords ('synergy', 'leverage', 'actionable insights')."
+        "Tone: direct and executive. Lead with the point.\n"
+        "Active voice. Numbers over abstractions. No buzzwords.\n"
+        "Think: a decision-maker writing to another decision-maker."
     ),
     "casual": (
-        "Tone: Relaxed, friendly, and informal.\n"
-        "- Natural colloquial phrasing and frequent contractions.\n"
-        "- Short, snappy sentences mixed with relaxed conversational rhythm.\n"
-        "- Free from textbook rigidity."
+        "Tone: informal and friendly — like a message to a friend.\n"
+        "Lots of contractions. Short sentences. Light and natural.\n"
+        "Sounds like a real person, not a brand voice."
     ),
     "business": (
-        "Tone: Executive brevity and commercial clarity.\n"
-        "- Prioritize concrete numbers, direct outcomes, and clear reasoning.\n"
-        "- Short, impactful sentences. Cut unnecessary qualifiers."
+        "Tone: results-focused and direct. Concrete numbers, clear outcomes.\n"
+        "Short sentences. Cut any word that doesn't pull its weight.\n"
+        "Think: a good sales email or executive summary."
     ),
     "friendly": (
-        "Tone: Warm, approachable, and encouraging.\n"
-        "- Personable perspective using conversational phrasing.\n"
-        "- Clear, friendly tone that genuinely connects with the reader."
+        "Tone: warm and genuine — like a message from someone you actually like.\n"
+        "Conversational. Personable. Not sappy or performative.\n"
+        "Real warmth beats fake cheerfulness every time."
     ),
     "simple": (
-        "Tone: Plain English, exceptionally clear and accessible.\n"
-        "- Short sentences with common everyday vocabulary ('use' instead of 'utilize', 'help' instead of 'facilitate').\n"
-        "- One core idea per sentence.\n"
-        "- Easy to digest for any audience."
+        "Tone: plain English — clear for anyone.\n"
+        "Short sentences. Common words. One idea at a time.\n"
+        "If there's a simpler word, always use it."
     ),
     "native": (
-        "Tone: Idiomatic native English speaker.\n"
-        "- Natural idioms, smooth transitions, and varied sentence rhythm.\n"
-        "- Contractions where appropriate. Organic human pacing."
+        "Tone: idiomatic native English — natural rhythm and habit.\n"
+        "Contractions, common idioms, varied pacing. Sounds lived-in.\n"
+        "Think: someone who has read and written English their whole life."
     ),
     "formal": (
-        "Tone: Dignified, respectful, and polished.\n"
-        "- Measured phrasing without slang, but maintaining natural sentence variety.\n"
-        "- Avoid artificial pomposity; maintain clarity and directness."
+        "Tone: measured and dignified — not stiff.\n"
+        "Complete words. Measured tone. Still clear and direct.\n"
+        "Formal doesn't mean cold. It means careful."
     ),
     "concise": (
-        "Tone: Tight, efficient, and direct.\n"
-        "- Every word earns its place: strip redundant adverbs, filler phrases, and throat-clearing.\n"
-        "- Clean, punchy clarity without sounding robotic or telegraphic."
+        "Tone: tight and efficient. Every word earns its place.\n"
+        "Strip redundancy ruthlessly. Short sentences preferred.\n"
+        "If you can cut a word without losing meaning, cut it."
     ),
 }
 
@@ -147,66 +203,68 @@ _MODE_INSTRUCTIONS: dict[str, str] = {
 
 _LEVEL_INSTRUCTIONS: dict[int, str] = {
     1: (
-        "LIGHT polish:\n"
-        "- Fix grammar, typos, and awkward phrasing.\n"
-        "- Replace obvious AI tell words ('delve', 'testament', 'vibrant', 'crucial', 'leverage') with plain equivalents.\n"
-        "- Replace em-dashes and semicolons with standard punctuation.\n"
-        "- SENTENCE CAP: Maximum 20 words per sentence. Split longer sentences into two crisp, punchy sentences.\n"
-        "- ZERO GENERIC WORDS: Replace vague words ('things', 'aspects', 'factors', 'various', 'several') with specific nouns.\n"
-        "- ZERO COURTESY FILLER: Remove formulaic narrative tags ('she thanked', 'expressed gratitude', 'took the time to')."
+        "LIGHT edit:\n"
+        "- Swap obvious AI words for plain ones.\n"
+        "- Remove em dashes and semicolons.\n"
+        "- Split any sentence over 27 words.\n"
+        "- Add 1-2 unexpected but natural word choices to inject perplexity.\n"
+        "- Keep structure mostly intact."
     ),
     2: (
         "MODERATE rewrite:\n"
-        "- Restructure formulaic sentences and remove superficial -ing participle chains.\n"
-        "- Strip copula avoidance ('serves as', 'stands as') in favor of direct verbs ('is', 'has').\n"
-        "- Eliminate rule-of-three lists, negation framing ('not just X, but Y'), and paragraph-end summary recaps.\n"
-        "- Introduce natural human burstiness: alternate short punchy sentences (4-9 words) with medium ones (10-18 words). At least 1 in 4 sentences must be 7 words or fewer.\n"
-        "- SENTENCE CAP (HARD CEILING): ZERO sentences over 20 words. Maximum 2 commas per sentence.\n"
-        "- SPECIFICITY: Ban 'things', 'aspects', 'factors', 'elements', 'various', 'several', 'certain', 'multiple', 'approach', 'perform', 'conduct', 'facilitate'. Use concrete, tangible words.\n"
-        "- ZERO NARRATOR FILLER: Strip polite boilerplate ('she thanked', 'he thanked', 'expressed appreciation', 'proceeded to', 'was able to').\n"
-        "- Strictly preserve all real facts, figures, dates, and domain terminology without inventing new claims.\n"
-        "- Ensure every sentence is grammatically complete with a clear subject and verb."
+        "- Restructure sentences to break AI patterns.\n"
+        "- Inject perplexity: use specific, slightly unexpected verbs and nouns.\n"
+        "- Add burstiness: after 2-3 medium sentences, drop a short one (under 9 words).\n"
+        "- Vary sentence starters: use I, you, we, it, they, and, but, so.\n"
+        "- Target average ~21 words per sentence. Nothing over 27.\n"
+        "- Use contractions freely. Use small function words often.\n"
+        "- Swap long fancy words for short plain ones.\n"
+        "- No transition fillers. Ideas connect naturally."
     ),
     3: (
-        "HEAVY rewrite - DESTROY PREDICTABLE STRUCTURE & COMPLEXITY:\n"
-        "- Fully dismantle predictable AI sentence templates and reconstruct the text from the ground up.\n"
-        "- High rhythmic variation: mix short punchy sentences (3-8 words) with clear direct statements (9-18 words).\n"
-        "- SENTENCE CAP (HARD RULE): ZERO sentences over 20 words. Any sentence approaching that length MUST be broken into two.\n"
-        "- BANNED STRUCTURES: No stacked relative clauses (', which ... , which ...'). No stacked subordinate conjunctions ('because ... since ... while ...'). Maximum 2 commas per sentence.\n"
-        "- SPECIFICITY (HARD RULE): ZERO generic placeholder nouns. Replace 'things', 'aspects', 'elements', 'factors', 'components', 'issues', 'areas', 'challenges', 'opportunities', 'solutions' with exact concrete nouns. Replace weak verbs with direct action verbs.\n"
-        "- ZERO POLITE/NARRATIVE BOILERPLATE: Strip 'she thanked', 'he thanked', 'expressed gratitude', 'conveyed appreciation', 'took the time to', 'was able to', 'proceeded to', 'went on to'.\n"
-        "- Destroy all robotic transitions ('Furthermore', 'In conclusion', 'Moreover', 'Additionally', 'Notably', 'Importantly') and replace with organic narrative flow.\n"
-        "- NEVER create sentence fragments: every sentence MUST have a clear subject and finite verb.\n"
-        "- Strictly preserve 100% of the factual content, technical names, numbers, and core meaning without adding any hallucinated details."
+        "HEAVY rewrite — rebuild from meaning up:\n"
+        "- Inject perplexity: choose the second-best word, not the most obvious one.\n"
+        "  Use unexpected-but-natural verbs: 'dragged', 'stuck', 'clicked', 'fell apart'.\n"
+        "  Use concrete specific details instead of abstractions.\n"
+        "- Create strong burstiness: at least 1 in 5 sentences must be under 9 words.\n"
+        "  Use fragments for emphasis: 'Which matters.' / 'And that's it.' / 'Simple.'\n"
+        "- Lower token probability: occasionally start with 'And', 'But', 'Or', 'Because'.\n"
+        "  Flip word order occasionally for emphasis: 'That part was unexpected.'\n"
+        "- Stylometry: give the text a distinctive voice with consistent small habits.\n"
+        "  Vary connectors: 'though', 'even so', 'which is why', 'and yet', 'because of that'.\n"
+        "- Contractions everywhere. Small words everywhere.\n"
+        "- Nothing over 26 words. Average around 20.\n"
+        "- 100% fact preservation."
     ),
 }
 
-# ── Style References (Few-Shot In-Context Learning) ─────────────────────────
+
+# ── Style References ─────────────────────────────────────────────────────────
 
 _STYLE_REFERENCES: dict[str, dict[str, str]] = {
     "standard": {
-        "original": "Calculus serves as a pivotal branch of mathematics that focuses on change and accumulation. Furthermore, it is divided into two primary areas: differentiation and integration. In conclusion, calculus is not just a tool, but a vibrant testament to human ingenuity.",
-        "rewritten": "Calculus splits into two main areas: differentiation and integration. Differentiation tracks how fast things change. Integration measures how quantities build up over time or space. Scientists and engineers use both every day, from orbital mechanics to financial modeling."
+        "original": "Calculus serves as a pivotal branch of mathematics that focuses on change and accumulation. Furthermore, it is divided into two primary areas: differentiation and integration.",
+        "rewritten": "Calculus covers two main ideas: how things change, and how they add up. One branch is differentiation. The other is integration. Scientists and engineers use both every day — from orbital mechanics to option pricing."
     },
     "fluency": {
         "original": "It is critical that we leverage our core competencies to facilitate a seamless transition during the upcoming corporate restructuring. Please ensure all key stakeholders are fully aligned with project milestones.",
-        "rewritten": "We need to focus on our strengths to keep things running during the restructuring. That means clear handoffs, no dropped balls. Make sure everyone knows the project timeline before Friday."
+        "rewritten": "We need to play to our strengths during the restructuring. Keep things running. Make sure everyone on the project knows the timeline before Friday."
     },
     "natural": {
         "original": "I am writing to express my dissatisfaction with the culinary experience at your establishment. The steak was prepared to an excessive degree, and the service staff demonstrated a notable lack of attentiveness.",
-        "rewritten": "Dinner was pretty disappointing. The steak was overcooked. Our server barely checked on us the whole night. Not what we expected for the price."
+        "rewritten": "Dinner was a letdown. The steak came out overcooked, and our server went missing for most of the night. Not what we were expecting at that price."
     },
     "academic": {
-        "original": "Artificial intelligence technologies exhibit substantial potential for the optimization of diagnostic accuracy within clinical healthcare settings. However, issues regarding dataset bias and algorithmic opacity represent key challenges that necessitate comprehensive mitigation strategies.",
-        "rewritten": "Machine learning models show real promise for improving clinical diagnostic accuracy. That said, systematic training data biases and opaque decision boundaries remain serious obstacles. Both require thorough empirical validation before clinical deployment."
+        "original": "Artificial intelligence technologies exhibit substantial potential for the optimization of diagnostic accuracy within clinical healthcare settings. However, issues regarding dataset bias and algorithmic opacity represent key challenges.",
+        "rewritten": "Machine learning shows real promise for improving clinical diagnosis. But two problems keep getting in the way: biased training data and opaque decision logic. Both need careful empirical testing before these tools go anywhere near patients."
     },
     "creative": {
         "original": "Nestled in the heart of the breathtaking mountain range, the village stands as a vibrant testament to timeless architectural heritage and natural beauty.",
-        "rewritten": "Stone houses cling to the steep valley walls. Narrow paths wind between centuries-old barns, quiet except for melting snow rushing down the creek. It looks grown rather than built."
+        "rewritten": "Stone houses cling to the valley walls. Narrow paths run between old barns, quiet except for snowmelt rushing down the creek. It looks grown, not built."
     },
     "professional": {
         "original": "We must utilize cutting-edge solutions to streamline our operational pipeline and optimize overall productivity across all business verticals.",
-        "rewritten": "We should update our tools to cut bottlenecks and speed up delivery. The pipeline has three obvious chokepoints right now. Fixing those would recover at least 20% of lost time each sprint."
+        "rewritten": "We need to update our tools and clear the main bottlenecks. Three choke points are slowing delivery right now. Fixing them could recover about 20% of lost time per sprint."
     },
     "casual": {
         "original": "Furthermore, should you require any assistance regarding the assembly of the product, feel free to reach out at your earliest convenience.",
@@ -214,29 +272,30 @@ _STYLE_REFERENCES: dict[str, dict[str, str]] = {
     },
     "business": {
         "original": "The implementation of the new customer relationship management platform will optimize our sales pipeline, leading to a projected revenue increase of fifteen percent over the next two fiscal quarters.",
-        "rewritten": "The new CRM should clear the main bottleneck in our sales funnel. We project a 15% revenue lift over the next two quarters. The data supports it."
+        "rewritten": "The new CRM should clear the main bottleneck in our sales funnel. We're projecting a 15% lift over the next two quarters. The numbers back it up."
     },
     "friendly": {
         "original": "It is important to note that you are cordially invited to participate in the upcoming community gathering, which showcases local talent.",
-        "rewritten": "We'd love to see you at the neighborhood meetup this weekend. Local musicians and artists are sharing their work. It should be a good time."
+        "rewritten": "We'd love to see you at the meetup this weekend. Local musicians and artists are sharing their work. Should be a good time."
     },
     "simple": {
         "original": "The primary objective of the monetary policy adjustment is to mitigate the prevailing inflationary pressures within the domestic economy.",
-        "rewritten": "The central bank is raising interest rates to slow price increases. It's trying to make everyday costs more manageable."
+        "rewritten": "The central bank is raising rates to slow price rises. It wants to make everyday costs easier to manage."
     },
     "native": {
         "original": "In today's fast-paced world, individuals must delve into diverse disciplines to garner a comprehensive understanding of modern technology.",
-        "rewritten": "Keeping up with tech means learning a bit of everything. Software, data, basic networking. You don't need to master all of it, just enough to not be lost."
+        "rewritten": "Keeping up with tech means learning a bit of everything. Software, data, basic networking. You don't need to master all of it. Just enough to not get lost."
     },
     "formal": {
         "original": "I am writing to formally request an extension for the submission of the research proposal, which is currently scheduled for the fifteenth of October.",
-        "rewritten": "I am writing to request an extension for the research proposal, currently due October 15th. An additional two weeks would allow for proper incorporation of the peer review comments received last week."
+        "rewritten": "I am writing to request an extension for the research proposal, currently due October 15. Two additional weeks would allow me to properly work in the peer review comments received last week."
     },
     "concise": {
         "original": "There are a myriad of multifaceted factors that can influence and impact the decisions that consumers make when purchasing goods online.",
-        "rewritten": "Several things drive online purchase decisions. Price, reviews, and delivery speed top the list."
+        "rewritten": "A few things drive online purchases. Price, reviews, and delivery speed top the list."
     }
 }
+
 
 def is_question_text(t: str) -> bool:
     """Detect if text is a question or conversational inquiry."""
@@ -264,7 +323,7 @@ def build_rewrite_prompt(text: str, mode: str, level: int) -> tuple[str, str]:
 
     system_prompt = f"""{_BASE_SYSTEM}
 
-VOICE & TONE INSTRUCTIONS:
+VOICE & TONE:
 {mode_instruction}
 
 TRANSFORMATION LEVEL:
@@ -283,50 +342,60 @@ TRANSFORMATION LEVEL:
         max_cnt = max(8, int(word_cnt * 1.15))
 
     if is_question:
-        user_prompt = f"""STYLE REFERENCE:
+        user_prompt = f"""EXAMPLE:
 Input: "What are you currently working on?"
-Rewritten: "What are you up to right now?"
+Output: "What are you up to right now?"
 
----
+The input is a question ({word_cnt} words). Paraphrase it into natural human phrasing ending with '?'.
+Do NOT answer or respond to the question. Output ONLY the rewritten question.
+Target: {min_cnt} to {max_cnt} words.
 
-CRITICAL INSTRUCTION: The input text is a question ({word_cnt} words).
-DO NOT answer or converse with this question!
-Paraphrase the question into natural human phrasing ending with '?'.
-Target word count: {min_cnt} to {max_cnt} words.
-
-<SOURCE_TEXT_TO_PARAPHRASE>
+<SOURCE>
 {text}
-</SOURCE_TEXT_TO_PARAPHRASE>
-
-Output ONLY the rewritten question:"""
+</SOURCE>"""
     elif is_title:
-        user_prompt = f"""CRITICAL INSTRUCTION: The input text is a SHORT TITLE / HEADING ({word_cnt} words).
-Do NOT write an essay or body paragraph about it!
-Output ONLY the rewritten title/heading in {min_cnt} to {max_cnt} words:
+        user_prompt = f"""The input is a short title or heading ({word_cnt} words).
+Output ONLY the rewritten title in {min_cnt} to {max_cnt} words.
 
-<SOURCE_TEXT_TO_PARAPHRASE>
+<SOURCE>
 {text}
-</SOURCE_TEXT_TO_PARAPHRASE>"""
+</SOURCE>"""
     else:
-        user_prompt = f"""STYLE REFERENCE:
-Original (AI-style): "{ref['original']}"
-Human rewrite: "{ref['rewritten']}"
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        sent_count = max(len(sentences), 1)
+        target_short = max(1, round(sent_count * 0.18))  # aim for ~18% short (above human 5.8% but aggressive)
+
+        user_prompt = f"""EXAMPLE — AI text turned into human text:
+
+AI input:
+"{ref['original']}"
+
+Human rewrite:
+"{ref['rewritten']}"
+
+Notice what changed: shorter sentences, one punchy follow-up, specific verbs, natural connectors.
 
 ---
 
-CRITICAL EDITING INSTRUCTIONS:
-1. The input has {word_cnt} words. Target length: ~{word_cnt} words ({min_cnt} to {max_cnt} words).
-2. Eliminate all AI vocabulary, copula avoidance ('serves as' -> 'is'), superficial -ing chains, and formulaic transitions.
-3. Write with natural human burstiness: mix short clear sentences with natural compound sentences. Avoid run-on sentences.
-4. ZERO em dashes (—) or en dashes (–). Zero semicolons (;). Standard straight quotes only.
-5. Strictly preserve all facts, numbers, dates, and domain terms from the source text. Do NOT invent new claims or inject unrelated topics.
-6. Keep EXACTLY the same number of paragraphs as the input.
+Now rewrite the text below. Apply your transformation level and tone strictly.
 
-<SOURCE_TEXT_TO_PARAPHRASE>
+SELF-CHECK before outputting (do this silently):
+[ ] Perplexity: Did I use at least 2-3 specific, slightly unexpected word choices? (not "was hard" — "ground on"; not "felt good" — "felt lighter")
+[ ] Burstiness: Are at least {target_short} of my sentences under 9 words? After longer sentences?
+[ ] Token probability: Did I start 1-2 sentences with "And", "But", or "Or"? Did I use a fragment once?
+[ ] Stylometry: Did I vary my connectors? ("though", "even so", "and yet" — not just "and", "but")
+[ ] Contractions: it's, don't, can't, they're, we're, you'll, isn't — are they in there?
+[ ] Word length: Did I swap long words for short ones?
+[ ] Banned words: None remaining?
+[ ] Em dashes (—) or semicolons (;): None?
+
+Target: {min_cnt} to {max_cnt} words ({word_cnt} in input). Same paragraph count.
+
+<SOURCE>
 {text}
-</SOURCE_TEXT_TO_PARAPHRASE>
+</SOURCE>
 
-Rewritten text:"""
+Output ONLY the rewritten text:"""
 
     return system_prompt, user_prompt
 
@@ -343,7 +412,6 @@ def build_verification_prompt(original: str, rewritten: str) -> tuple[str, str]:
         "MEANING_PRESERVED: YES or NO\n"
         "REASON: brief explanation"
     )
-
     user_prompt = f"ORIGINAL:\n{original}\n\nREWRITTEN:\n{rewritten}"
     return system_prompt, user_prompt
 
@@ -356,3 +424,59 @@ def build_grammar_prompt(text: str) -> tuple[str, str]:
         "Return ONLY the corrected text."
     )
     return system_prompt, text
+
+
+def build_naturalness_polish_prompt(draft: str, original_word_count: int) -> tuple[str, str]:
+    """Build a targeted naturalness polish prompt for the feedback loop.
+    Targets all four AI-detector signals: perplexity, burstiness, token probability, stylometry."""
+    sentences = [s.strip() for s in re.split(r'[.!?]+', draft) if s.strip()]
+    sent_count = max(len(sentences), 1)
+    target_short = max(1, round(sent_count * 0.20))
+
+    words = draft.split()
+    long_words = [w for w in words if len(w.strip('.,!?;:')) >= 8]
+    long_word_pct = round(len(long_words) / max(len(words), 1) * 100)
+
+    # Check for same starter repetitions
+    starters = [s.split()[0].lower() if s.split() else '' for s in sentences]
+    repeated_starters = sum(1 for i in range(len(starters)-1) if starters[i] == starters[i+1])
+
+    system_prompt = (
+        "You are a human writing coach. The draft below scored as AI-generated.\n"
+        "AI detectors measure four things. Fix all four:\n\n"
+
+        "━━━ ISSUE 1: LOW PERPLEXITY (wording is too smooth and predictable) ━━━\n"
+        "Pick 3-4 places in the draft and replace the obvious word with a specific, slightly unexpected one.\n"
+        "Examples:\n"
+        "  'was difficult' → 'ground on' or 'took more out of him than expected'\n"
+        "  'felt good' → 'felt lighter' or 'something clicked'\n"
+        "  'things improved' → 'things started moving' or 'the fog lifted'\n"
+        "  'it was clear' → 'you could tell' or 'it landed'\n"
+        "  'she decided' → 'she made the call' or 'she went for it'\n"
+        "The surprise should feel right — not random.\n\n"
+
+        f"━━━ ISSUE 2: LOW BURSTINESS (sentences all same length) ━━━\n"
+        f"This draft has {sent_count} sentences. Add {target_short} more very short ones (4-8 words).\n"
+        "After any sentence over 20 words, drop a short follow-up:\n"
+        "'It worked.' / 'Most don't.' / 'That's the point.' / 'Not always.' / 'Worth it.'\n"
+        "'She didn't.' / 'And that was that.' / 'Simple enough.' / 'Or so he thought.'\n\n"
+
+        f"━━━ ISSUE 3: HIGH TOKEN PROBABILITY (too predictable at word level) ━━━\n"
+        "Start 1-2 sentences with 'And', 'But', or 'Because' — humans do this constantly.\n"
+        "Add one fragment for emphasis: 'Which matters.' / 'And that's it.' / 'Because it does.'\n"
+        "Flip word order once for effect: 'That part took time.' / 'Cold it was.'\n\n"
+
+        f"━━━ ISSUE 4: STYLOMETRY (repetitive connectors, generic voice) ━━━\n"
+        f"There are {repeated_starters} consecutive sentences starting the same way. Fix them.\n"
+        "Mix up connectors: use 'though', 'even so', 'and yet', 'which is why', 'because of that'.\n"
+        "Not just 'and', 'but', 'so' every time.\n"
+        "Add contractions everywhere they fit: it's, don't, can't, we're, you'll, isn't.\n\n"
+
+        "HARD RULES:\n"
+        "- ZERO em dashes (—), ZERO semicolons (;).\n"
+        "- Do NOT change any facts, numbers, dates, or technical terms.\n"
+        "- Do NOT add new information not in the draft.\n"
+        "- Output ONLY the revised text. No preamble, no explanation, no notes."
+    )
+    user_prompt = f"Draft to fix (target ~{original_word_count} words):\n{draft}"
+    return system_prompt, user_prompt

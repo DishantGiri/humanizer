@@ -1,24 +1,26 @@
 """
 Standard Humanize Pipeline Module.
 
-Synthesizes humanize-text's v1.5.1 Linguistic Distance Pipeline with CloakWriter's
-advanced stylistic engine and AI forensic verification:
+Groq-only 2-pass direct humanization strategy:
 
-Step 1: Input (EN) -> Chinese (ZH) de-AI LLM rewrite (creative variation, temp 1.3)
-Step 2: Chinese -> Japanese (JA) de-AI LLM rewrite (carries Step 1 conversation history)
-Step 3: Japanese -> Finnish (FI) via Google Translate (Uralic agglutinative syntax disruption)
-Step 4: Finnish -> Target (EN) via Niutrans / Google Translate (cross-engine reconstruction)
-Step 5: CloakWriter Stylistic Engine (copula restoration, contraction calibration, AI vocab eradication)
-Step 6: Detection-Guided Feedback Loop (forensic AI checker validation & burstiness enforcement)
+Pass 1: Full structural rewrite — breaks AI sentence patterns, varies starters,
+         targets human sentence-length statistics (~18-23 word average).
+
+Pass 2: Naturalness polish — targeted cleanup of any remaining AI signals,
+         sentence variety enforcement, contraction injection.
+
+Step 3: Detection-guided feedback loop (forensic AI checker + stat validator).
 """
 
 import time
 import logging
+import random
 from typing import Optional, Dict, List, Any
 
-from config import RewriteMode, RewriteLevel, NIUTRANS_API_KEY
+_rng = random.Random()
+
+from config import RewriteMode, RewriteLevel
 from rewriter import TextRewriter, RewriteError
-from translator import TranslationBouncer, google_translate, niutrans_translate
 from humanizer import (
     humanize,
     clean_erroneous_punctuation,
@@ -30,28 +32,26 @@ from humanizer import (
     normalize_word_complexity,
     inject_pronoun_subjects,
     inject_micro_sentences,
+    extract_final_output,
 )
 from ai_checker import AICheckEngine
 from validators import validate_human_statistics
+from prompts import build_naturalness_polish_prompt
 
 logger = logging.getLogger(__name__)
 
 
 class StandardHumanizePipeline:
     """
-    Production-grade humanization pipeline combining linguistic distance cross-engine translation
-    with deep stylistic refinement and detection-guided verification.
+    Production-grade Groq-only 2-pass humanization pipeline with
+    detection-guided feedback loop.
     """
 
     def __init__(
         self,
         rewriter: Optional[TextRewriter] = None,
-        bouncer: Optional[TranslationBouncer] = None,
-        intermediate_lang: str = "fi",
     ):
         self.rewriter = rewriter or TextRewriter()
-        self.bouncer = bouncer or TranslationBouncer()
-        self.intermediate_lang = intermediate_lang
 
     def run_standard_chain(
         self,
@@ -62,19 +62,12 @@ class StandardHumanizePipeline:
         apply_detection_feedback: bool = True,
     ) -> Dict[str, Any]:
         """
-        Executes the full 6-step humanization chain.
-
-        Args:
-            text: Input text to humanize.
-            target_lang: Target language code for final output (default: "en").
-            mode: Rewrite style mode (e.g. Standard, Academic, Casual).
-            level: Rewrite level (Light, Moderate, Heavy).
-            apply_detection_feedback: Whether to run detection-guided feedback loop.
+        Executes the 2-pass + feedback Groq-only humanization chain.
 
         Returns:
             dict containing:
                 - 'result': final humanized text
-                - 'steps': list of intermediate steps with engine & output
+                - 'steps': list of intermediate steps
                 - 'processing_time_ms': total processing duration in ms
                 - 'ai_report': forensic AI check verdict and score
         """
@@ -90,107 +83,66 @@ class StandardHumanizePipeline:
         steps = []
         mode_val = mode.value if hasattr(mode, "value") else str(mode)
         intensity = 0.4 if level == 1 else (0.7 if level == 2 else 1.0)
+        original_word_count = len(text.split())
 
-        # ── Step 1: Input -> Chinese (LLM de-AI rewrite) ──────────────────────
-        logger.info("Pipeline Step 1: Input -> Chinese (LLM de-AI rewrite)")
+        # ── Pass 1: Full structural rewrite (Groq primary) ─────────────────────
+        logger.info("Pipeline Pass 1: Full structural humanization rewrite (Groq)")
         try:
-            step1_out = self.rewriter.cross_lingual_rewrite(
-                text=text,
-                target_language="中文",
-                history=None,
-                temperature=1.3,
-            )
+            pass1_out = self.rewriter.rewrite(text, mode, level)
         except Exception as e1:
-            logger.warning("Step 1 (LLM Input->ZH) failed: %s. Falling back to direct rewrite.", e1)
-            step1_out = self.rewriter.rewrite(text, mode, level)
+            logger.warning("Pass 1 LLM rewrite failed: %s. Falling back to rule-based humanizer.", e1)
+            pass1_out = humanize(text, intensity=intensity, original_text=text, mode=mode_val)
+
+        # Post-process Pass 1 to strip any LLM artifacts
+        pass1_out = strip_formatting_artifacts(pass1_out)
+        pass1_out = signal_targeted_cleanup(pass1_out, mode=mode_val)
+        pass1_out = clean_erroneous_punctuation(pass1_out)
 
         steps.append({
             "step": 1,
-            "engine": "LLM",
-            "direction": "Input → Chinese (中文改写)",
-            "output": step1_out,
-            "length": len(step1_out),
+            "engine": "Groq LLM",
+            "direction": "Structural humanization rewrite",
+            "output": pass1_out,
+            "length": len(pass1_out),
         })
 
-        # ── Step 2: Chinese -> Japanese (LLM with Step 1 conversation history) ──
-        logger.info("Pipeline Step 2: Chinese -> Japanese (LLM rewrite with history)")
+        # ── Pass 2: Naturalness polish (Groq second pass) ──────────────────────
+        logger.info("Pipeline Pass 2: Groq naturalness polish pass")
+        step2_out = pass1_out
         try:
-            step2_out = self.rewriter.cross_lingual_rewrite(
-                text=step1_out,
-                target_language="日语",
-                history={"input": text, "output": step1_out},
-                temperature=1.3,
+            polish_system, polish_user = build_naturalness_polish_prompt(
+                pass1_out, original_word_count
             )
+            polish_result = self.rewriter._call_llm(polish_system, polish_user)
+            if polish_result and len(polish_result.split()) >= int(original_word_count * 0.75):
+                step2_out = extract_final_output(polish_result)
+                if not step2_out:
+                    step2_out = polish_result.strip()
+            else:
+                logger.warning("Pass 2 polish output too short or empty; using Pass 1 output.")
         except Exception as e2:
-            logger.warning("Step 2 (LLM ZH->JA) failed: %s. Using Step 1 output for translation hop.", e2)
-            step2_out = step1_out
+            logger.warning("Pass 2 naturalness polish failed: %s. Using Pass 1 output.", e2)
+
+        # Post-process Pass 2
+        step2_out = strip_formatting_artifacts(step2_out)
+        step2_out = signal_targeted_cleanup(step2_out, mode=mode_val)
+        step2_out = disrupt_sentence_rhythm(step2_out, short_threshold=8)
+        step2_out = clean_erroneous_punctuation(step2_out)
 
         steps.append({
             "step": 2,
-            "engine": "LLM",
-            "direction": "Chinese → Japanese (日语改写)",
+            "engine": "Groq LLM",
+            "direction": "Naturalness polish pass",
             "output": step2_out,
             "length": len(step2_out),
         })
 
-        # ── Step 3: Japanese -> Finnish (First NMT hop via Google Translate) ──
-        logger.info("Pipeline Step 3: Japanese -> Finnish (Google Translate)")
-        try:
-            step3_out = google_translate(step2_out, source="ja", target=self.intermediate_lang)
-        except Exception as e3:
-            logger.warning("Step 3 (NMT JA->%s) failed: %s. Using step2 output.", self.intermediate_lang, e3)
-            step3_out = step2_out
-
-        steps.append({
-            "step": 3,
-            "engine": "Google Translate",
-            "direction": f"Japanese → {self.intermediate_lang.upper()} (一轮翻译)",
-            "output": step3_out,
-            "length": len(step3_out),
-        })
-
-        # ── Step 4: Finnish -> Target Language (Second NMT hop via Niutrans / Google) ──
-        logger.info("Pipeline Step 4: Finnish -> %s (Niutrans / Cross-Engine)", target_lang.upper())
-        try:
-            step4_out = niutrans_translate(
-                step3_out,
-                source=self.intermediate_lang,
-                target=target_lang,
-                api_key=NIUTRANS_API_KEY,
-            )
-        except Exception as e4:
-            logger.warning("Step 4 (NMT %s->%s) failed: %s. Falling back to Google.", self.intermediate_lang, target_lang, e4)
-            step4_out = google_translate(step3_out, source=self.intermediate_lang, target=target_lang)
-
-        steps.append({
-            "step": 4,
-            "engine": "Niutrans / NMT",
-            "direction": f"{self.intermediate_lang.upper()} → {target_lang.upper()} (二轮翻译)",
-            "output": step4_out,
-            "length": len(step4_out),
-        })
-
-        # ── Step 5: CloakWriter Stylistic Engine Post-Processing ───────────────
-        logger.info("Pipeline Step 5: CloakWriter Stylistic Engine Post-Processing")
-        step5_out = humanize(step4_out, intensity=intensity, original_text=text, mode=mode_val)
-        step5_out = disrupt_sentence_rhythm(step5_out, short_threshold=8)
-        step5_out = signal_targeted_cleanup(step5_out, mode=mode_val)
-        step5_out = clean_erroneous_punctuation(step5_out)
-
-        steps.append({
-            "step": 5,
-            "engine": "CloakWriter Stylistics Engine",
-            "direction": "Stylistic & Forensic Refinement",
-            "output": step5_out,
-            "length": len(step5_out),
-        })
-
-        # ── Step 6: Detection-Guided Iterative Feedback Loop ──────────────────
-        final_result = step5_out
+        # ── Step 3: Detection-Guided Iterative Feedback Loop ──────────────────
+        final_result = step2_out
         ai_report = None
 
         if apply_detection_feedback:
-            logger.info("Pipeline Step 6: Detection-Guided Feedback Verification")
+            logger.info("Pipeline Step 3: Detection-Guided Feedback Verification")
 
             max_feedback_passes = 3
             for pass_num in range(max_feedback_passes):
@@ -202,58 +154,67 @@ class StandardHumanizePipeline:
                 # Target: score <= 5 (solidly Human verdict)
                 if report.overall_score <= 5 and is_stat_valid:
                     logger.info(
-                        "Detection feedback PASS %d: Score %d/27 (Human). No further passes needed.",
+                        "Detection feedback PASS %d: Score %d/27 (Human). Done.",
                         pass_num + 1, report.overall_score,
                     )
                     break
 
                 logger.info(
-                    "Detection feedback PASS %d trigger (Score: %d/27, Valid: %s, Reason: %s). Applying targeted cleanup.",
+                    "Detection feedback PASS %d trigger (Score: %d/27, Valid: %s, Reason: %s).",
                     pass_num + 1, report.overall_score, is_stat_valid, stat_reason,
                 )
 
-                # Pass A: Signal-targeted regex surgery (cheap, always runs)
+                # Pass A: Signal-targeted regex surgery (cheap, always runs first)
                 final_result = signal_targeted_cleanup(final_result, mode=mode_val)
                 final_result = normalize_word_complexity(final_result)
-                final_result = enforce_short_sentences_aggressive(final_result, max_words=16)
+                final_result = enforce_short_sentences_aggressive(final_result, max_words=20)
                 final_result = disrupt_sentence_rhythm(final_result, short_threshold=8)
+                final_result = inject_pronoun_subjects(final_result, _rng)
                 final_result = clean_erroneous_punctuation(final_result)
 
                 # Re-check after regex surgery
                 report_after_regex = AICheckEngine.analyze(final_result)
                 if report_after_regex.overall_score <= 5:
                     ai_report = report_after_regex.to_dict()
-                    logger.info("Signal-targeted cleanup brought score to %d/27. Done.", report_after_regex.overall_score)
+                    logger.info("Signal cleanup brought score to %d/27. Done.", report_after_regex.overall_score)
                     break
 
-                # Pass B: LLM burstiness repass (only on first pass, expensive)
+                # Pass B: LLM naturalness repass (only on first pass, expensive)
                 if pass_num == 0 and report_after_regex.overall_score >= 8:
                     try:
                         word_count = len(final_result.split())
                         burst_system = (
-                            "You are a senior copyeditor specializing in natural human prose rhythm.\n"
-                            "The draft below has slight repetitive cadence: too many sentences of the same length.\n\n"
-                            "YOUR ONLY JOB: Inject burstiness and sentence variety WITHOUT changing any facts, meaning, or content.\n"
-                            "RULES:\n"
-                            "1. Break 2-3 of the longer sentences (15+ words) into two shorter sentences.\n"
-                            "2. Fuse 2-3 short choppy sentences into one natural compound sentence where it reads better.\n"
-                            "3. Add 1-2 very short punchy sentences (4-7 words) as rhythm breaks where they fit naturally.\n"
-                            "4. ZERO em dashes (\u2014), ZERO semicolons (;). Use commas and periods only.\n"
-                            "5. ZERO AI vocabulary: no 'delve', 'leverage', 'utilize', 'robust', 'comprehensive', 'furthermore', 'moreover', 'additionally', 'pivotal', 'nuanced', 'multifaceted'.\n"
-                            "6. Preserve ALL facts, numbers, dates, and meaning exactly.\n"
-                            "7. Return ONLY the revised text. No preamble, no explanation."
+                            "You are a senior copyeditor fixing AI-detectable writing patterns.\n\n"
+                            "The draft below scores as AI-generated. Fix these specific issues:\n\n"
+                            "1. SENTENCE LENGTH: Break any sentence over 24 words into two shorter sentences.\n"
+                            "   Target average: 18-21 words per sentence (human average).\n\n"
+                            "2. SENTENCE STARTERS: If two or more consecutive sentences start with the same word,\n"
+                            "   rephrase one to start differently. Vary pronouns, nouns, and verb phrases.\n\n"
+                            "3. BANNED WORDS — replace every remaining one:\n"
+                            "   furthermore, moreover, additionally, notably, importantly, consequently,\n"
+                            "   ultimately, fundamentally, crucially, seamless, robust, nuanced, pivotal,\n"
+                            "   paradigm, multifaceted, transformative, vibrant, intricate.\n\n"
+                            "4. WORD COMPLEXITY: Swap any 3+ syllable word for a simpler equivalent where meaning is preserved.\n"
+                            "   'demonstrate' -> 'show'. 'eliminate' -> 'remove'. 'utilize' -> 'use'.\n\n"
+                            "5. CONTRACTIONS: Add natural contractions where they fit the register.\n"
+                            "   it's, don't, can't, they're, we're, you'll, isn't, hasn't.\n\n"
+                            "HARD RULES:\n"
+                            "- ZERO em dashes (—), ZERO semicolons (;).\n"
+                            "- Do NOT change any facts, numbers, dates, or technical terms.\n"
+                            "- Do NOT add information not in the draft.\n"
+                            "- Output ONLY the revised text. No preamble, no notes."
                         )
-                        burst_user = f"Draft to improve (target ~{word_count} words):\n{final_result}"
+                        burst_user = f"Draft to fix (target ~{word_count} words):\n{final_result}"
                         burst_res = self.rewriter._call_llm(burst_system, burst_user)
                         if burst_res and len(burst_res.split()) >= int(word_count * 0.75):
-                            # Run full cleanup on LLM output to prevent re-introduction of AI tells
+                            burst_res = extract_final_output(burst_res) or burst_res.strip()
                             burst_res = humanize(burst_res, intensity=intensity, original_text=text, mode=mode_val)
                             burst_res = signal_targeted_cleanup(burst_res, mode=mode_val)
                             burst_res = clean_erroneous_punctuation(burst_res)
                             final_result = burst_res
-                            logger.info("Detection-guided burstiness repass completed successfully.")
+                            logger.info("Detection-guided naturalness repass completed.")
                     except Exception as burst_err:
-                        logger.warning("Detection feedback burstiness repass failed: %s", burst_err)
+                        logger.warning("Detection feedback repass failed: %s", burst_err)
 
                 # Update ai_report with latest score
                 report_final = AICheckEngine.analyze(final_result)
@@ -288,7 +249,6 @@ class StandardHumanizePipeline:
             for line in lines if line.strip()
         )
 
-        intensity = 0.4 if level == 1 else (0.7 if level == 2 else 1.0)
         mode_val = mode.value if hasattr(mode, "value") else str(mode)
 
         if is_list:
@@ -319,7 +279,7 @@ class StandardHumanizePipeline:
 
         orig_paras = [p.strip() for p in text.split('\n\n') if p.strip()]
 
-        # Long documents: process paragraph by paragraph to avoid translation hop truncation
+        # Long documents: process paragraph by paragraph to avoid truncation
         if len(orig_paras) > 1 and len(text.split()) > 400:
             rewritten_paras = []
             for para in orig_paras:

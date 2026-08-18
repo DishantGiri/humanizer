@@ -12,8 +12,8 @@ load_dotenv()
 # ── Groq API ────────────────────────────────────────────────────────────────
 
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "qwen/qwen3.6-27b")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
 
 GROQ_API_KEYS: list[str] = [
     k.strip() for k in [
@@ -28,7 +28,7 @@ GROQ_API_KEYS: list[str] = [
 
 # ── Gemini API & Key Pool Configuration ─────────────────────────────────────
 
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
 GEMINI_API_KEYS: list[str] = [
     k.strip() for k in [

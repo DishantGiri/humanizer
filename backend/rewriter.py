@@ -29,6 +29,7 @@ from config import (
     RewriteLevel,
 )
 from prompts import build_rewrite_prompt, build_grammar_prompt, is_question_text
+from humanizer import extract_final_output
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ class RewriteError(Exception):
 _gemini_request_counter = 0
 _groq_request_counter = 0
 _counter_lock = threading.Lock()
+
+# ── Reasoning / Thinking Models ──────────────────────────────────────────────
+# These models output internal chain-of-thought by default. We suppress it via
+# reasoning_format='hidden' so only the final answer reaches users.
+_REASONING_MODELS: set[str] = {
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+}
 
 
 def get_next_gemini_key() -> tuple[int, str]:
@@ -179,7 +188,8 @@ class TextRewriter:
                 )
             content = response.text
             if content and content.strip():
-                return content.strip()
+                clean_c = extract_final_output(content)
+                return clean_c if clean_c else content.strip()
             raise RewriteError("Gemini API returned an empty response.")
         except Exception as err:
             err_msg = str(err)
@@ -217,7 +227,8 @@ class TextRewriter:
                 )
             content = response.text
             if content and content.strip():
-                return content.strip()
+                clean_c = extract_final_output(content)
+                return clean_c if clean_c else content.strip()
             raise RewriteError("Gemini API returned an empty response.")
         except Exception as err:
             err_msg = str(err)
@@ -246,22 +257,16 @@ class TextRewriter:
 
         groq_client = Groq(api_key=api_key, max_retries=0)
         target_model = model or self.groq_model
-        tm_lower = target_model.lower()
 
-        if 'qwen' in tm_lower:
-            if '3.6' in tm_lower or '27b' in tm_lower:
-                target_model = 'qwen/qwen3.6-27b'
-            elif 'coder' in tm_lower:
-                target_model = 'qwen-2.5-coder-32b'
-            else:
-                target_model = 'qwen-2.5-32b'
-        elif any(term in tm_lower for term in ['3.3', 'llama-3.3', 'llama 3.3']):
-            target_model = 'llama-3.3-70b-versatile'
-
-        extra_kwargs = {}
-        max_tok = 3000 if 'qwen' in target_model.lower() else 4096
-
+        max_tok = 4096
         temp = min(max(temperature, 0.2), 1.5)
+
+        # For reasoning/thinking models, instruct Groq to hide chain-of-thought so
+        # only the final answer reaches the user (reasoning_format='hidden').
+        extra_body: dict = {}
+        if target_model in _REASONING_MODELS:
+            extra_body["reasoning_format"] = "hidden"
+            logger.debug("Groq reasoning model '%s': setting reasoning_format=hidden", target_model)
 
         try:
             response = groq_client.chat.completions.create(
@@ -271,12 +276,24 @@ class TextRewriter:
                 max_tokens=max_tok,
                 top_p=0.95,
                 timeout=API_TIMEOUT,
-                **extra_kwargs
+                extra_body=extra_body if extra_body else None,
             )
             content = response.choices[0].message.content
             if not content:
                 raise RewriteError(f"Groq API (Key #{key_num}, model {target_model}) returned an empty response.")
-            return content.strip()
+
+            # Strip <think>...</think> tags (safety net for 'raw' format responses).
+            content_clean = extract_final_output(content)
+            if not content_clean:
+                # Raw content exists but extract_final_output consumed it all (pure reasoning).
+                # Fall back to raw stripped content rather than raising.
+                logger.warning(
+                    "Groq API (Key #%d, model %s): extract_final_output returned empty "
+                    "(likely pure <think> output) — using raw content.",
+                    key_num, target_model,
+                )
+                content_clean = content.strip()
+            return content_clean
 
         except AuthenticationError:
             raise RewriteError(f"Invalid Groq API key #{key_num}.")
@@ -295,7 +312,7 @@ class TextRewriter:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return self._call_groq_messages(messages, model=model, key_idx_override=key_idx_override, temperature=0.9)
+        return self._call_groq_messages(messages, model=model, key_idx_override=key_idx_override, temperature=1.1)
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """
@@ -309,7 +326,8 @@ class TextRewriter:
             with _counter_lock:
                 start_k_idx = (_groq_request_counter // 5) % len(GROQ_API_KEYS)
 
-            groq_models = [self.groq_model, self.groq_fallback]
+            # Ordered by capability: 120b first, then 20b, then qwen as non-reasoning fallback
+            groq_models = [self.groq_model, self.groq_fallback, "qwen/qwen3.6-27b"]
             for offset in range(len(GROQ_API_KEYS)):
                 current_k_idx = (start_k_idx + offset) % len(GROQ_API_KEYS)
                 for g_model in groq_models:
