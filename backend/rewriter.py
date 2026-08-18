@@ -258,7 +258,7 @@ class TextRewriter:
         groq_client = Groq(api_key=api_key, max_retries=0)
         target_model = model or self.groq_model
 
-        max_tok = 4096
+        max_tok = 8192 if target_model in _REASONING_MODELS else 4096
         temp = min(max(temperature, 0.2), 1.5)
 
         # For reasoning/thinking models, instruct Groq to hide chain-of-thought so
@@ -266,7 +266,7 @@ class TextRewriter:
         extra_body: dict = {}
         if target_model in _REASONING_MODELS:
             extra_body["reasoning_format"] = "hidden"
-            logger.debug("Groq reasoning model '%s': setting reasoning_format=hidden", target_model)
+            logger.debug("Groq reasoning model '%s': setting reasoning_format=hidden, max_tok=8192", target_model)
 
         try:
             response = groq_client.chat.completions.create(

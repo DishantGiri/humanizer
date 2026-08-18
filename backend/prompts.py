@@ -335,11 +335,14 @@ TRANSFORMATION LEVEL:
     is_title = (not is_question) and word_cnt <= 10 and not any(punct in text for punct in ('.', '!', '?', ';'))
 
     if word_cnt < 10:
-        min_cnt = max(2, word_cnt - 2)
-        max_cnt = word_cnt + 3
+        min_cnt = max(2, word_cnt - 3)
+        max_cnt = word_cnt + 4
+    elif mode_val == "concise":
+        min_cnt = max(5, int(word_cnt * 0.60))
+        max_cnt = max(8, int(word_cnt * 0.90))
     else:
-        min_cnt = max(5, int(word_cnt * 0.85))
-        max_cnt = max(8, int(word_cnt * 1.15))
+        min_cnt = max(5, int(word_cnt * 0.80))
+        max_cnt = max(8, int(word_cnt * 1.20))
 
     if is_question:
         user_prompt = f"""EXAMPLE:
