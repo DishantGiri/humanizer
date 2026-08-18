@@ -797,11 +797,11 @@ def deduplicate_and_diversify_fillers(text: str, mode: str = 'standard') -> str:
 def extract_final_output(text: str) -> str:
     """Strip internal thinking/reasoning content from model outputs.
 
-    Handles three formats:
+    Handles four formats:
     1. <think>...</think> XML tags (DeepSeek-R1, Qwen3, etc.)
-    2. Loose <think> / </think> fragments
-    3. Raw reasoning preamble emitted by gpt-oss-120b when reasoning_format
-       is not 'hidden' — detected by separator patterns and reasoning markers.
+    2. Explicit section headers (e.g. 'Revised Text:', 'Human Rewrite:', 'Output:')
+    3. Separator lines (---, ===, ***)
+    4. Raw reasoning monologues ('Here's a thinking process:', '1. Analyze User Input:', etc.)
     """
     if not text:
         return text
@@ -813,44 +813,45 @@ def extract_final_output(text: str) -> str:
     if not text:
         return text
 
-    # ── Layer 2: Strip raw reasoning preamble (gpt-oss fallback) ─────────────
-    # The reasoning preamble typically ends with a separator line (---, ===, ***)
-    # or a colon-terminated header before the actual rewritten text.
-    # Pattern: find the last clean separator and return only what follows.
+    # ── Layer 2: Explicit output section markers ─────────────────────────────
+    _OUTPUT_MARKER_RE = re.compile(
+        r'(?:^|\n)(?:Output|Final Output|Rewritten Text|Revised Text|Human Rewrite|Humanized Text|Polished Text|Final Text):\s*',
+        re.IGNORECASE
+    )
+    markers = list(_OUTPUT_MARKER_RE.finditer(text))
+    if markers:
+        res = text[markers[-1].end():].strip()
+        if len(res) > 10:
+            return res
+
+    # ── Layer 3: Strip via separator line (---, ===, ***) ─────────────────────
     _SEPARATOR_RE = re.compile(
-        r'^(?:-{3,}|={3,}|\*{3,}|_{3,})\s*$',
-        re.MULTILINE,
+        r'(?:^|\n)(?:-{3,}|={3,}|\*{3,}|_{3,})\s*(?:\n|$)'
     )
     sep_matches = list(_SEPARATOR_RE.finditer(text))
     if sep_matches:
-        # Take everything after the LAST separator line.
-        last_sep = sep_matches[-1]
-        after_sep = text[last_sep.end():].strip()
-        if after_sep:
+        after_sep = text[sep_matches[-1].end():].strip()
+        if len(after_sep) > 10:
             return after_sep
 
-    # ── Layer 3: Heuristic — detect numbered reasoning preamble ──────────────
-    # If the response starts with patterns like "1." / "Step 1" / "Thinking
-    # Process:" / "Deconstruct" it's almost certainly raw reasoning output.
+    # ── Layer 4: Detect raw reasoning monologue ──────────────────────────────
     _REASONING_OPENER_RE = re.compile(
-        r'^(?:\d+\.\s+\w|Step\s+\d|Thinking\s+Process|Deconstruct|Analysis:|'
-        r'Let me|First,\s+I|I will|I need to|I\'ll|Here\'s my|My approach)',
-        re.IGNORECASE,
+        r'^(?:here\'s\s+(?:a\s+)?thinking|here\s+is\s+(?:a\s+)?thinking|thinking\s+process|'
+        r'1\.\s+|step\s+\d|deconstruct|analysis:|let\'s\s+analyze|first,\s+i|i\s+need\s+to|i\'ll|my\s+approach)',
+        re.IGNORECASE
     )
-    lines = text.split('\n')
-    if lines and _REASONING_OPENER_RE.match(lines[0].strip()):
-        # Scan forward for a blank line followed by non-reasoning content.
-        # The actual rewrite is usually the last coherent paragraph block.
-        blank_idx = None
-        for i, line in enumerate(lines):
-            if not line.strip() and i > 0:
-                blank_idx = i
-        if blank_idx is not None:
-            candidate = '\n'.join(lines[blank_idx + 1:]).strip()
-            # Accept only if it has meaningful content (>20 chars) and
-            # doesn't look like more reasoning steps.
-            if len(candidate) > 20 and not _REASONING_OPENER_RE.match(candidate):
-                return candidate
+    if _REASONING_OPENER_RE.match(text.strip()):
+        blocks = [b.strip() for b in text.split('\n\n') if b.strip()]
+        non_reasoning_blocks = []
+        _STEP_BLOCK_RE = re.compile(
+            r'^(?:\d+\.|\*|-|Step\s+\d|Issues|Draft|Analyze|Word count|Perplexity|Burstiness|Constraint|Let\'s|Original:)',
+            re.IGNORECASE
+        )
+        for block in blocks:
+            if not (_REASONING_OPENER_RE.match(block) or _STEP_BLOCK_RE.match(block)):
+                non_reasoning_blocks.append(block)
+        if non_reasoning_blocks:
+            return '\n\n'.join(non_reasoning_blocks)
 
     return text
 

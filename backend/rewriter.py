@@ -147,7 +147,8 @@ class TextRewriter:
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
             if content and content.strip():
-                return content.strip()
+                clean_c = extract_final_output(content)
+                return clean_c if clean_c else content.strip()
             raise RewriteError("OpenRouter returned empty response.")
         except Exception as ex:
             raise RewriteError(f"OpenRouter API Error ({target_model}): {ex}")
@@ -258,7 +259,17 @@ class TextRewriter:
         groq_client = Groq(api_key=api_key, max_retries=0)
         target_model = model or self.groq_model
 
-        max_tok = 8192 if target_model in _REASONING_MODELS else 4096
+        # Estimate input prompt tokens (approx 1 token per 3.5 chars) to prevent HTTP 413 TPM limit exceeded (8,000 TPM limit on Groq free/on-demand tier)
+        total_prompt_chars = sum(len(m.get("content", "")) for m in messages)
+        est_input_tokens = int(total_prompt_chars / 3.5)
+        # Leave a safe buffer: total requested (input + completion) <= 7200
+        safe_completion_budget = max(400, 7200 - est_input_tokens)
+
+        if target_model in _REASONING_MODELS:
+            max_tok = min(safe_completion_budget, 4500)
+        else:
+            max_tok = min(safe_completion_budget, 3000)
+
         temp = min(max(temperature, 0.2), 1.5)
 
         # For reasoning/thinking models, instruct Groq to hide chain-of-thought so
@@ -266,7 +277,7 @@ class TextRewriter:
         extra_body: dict = {}
         if target_model in _REASONING_MODELS:
             extra_body["reasoning_format"] = "hidden"
-            logger.debug("Groq reasoning model '%s': setting reasoning_format=hidden, max_tok=8192", target_model)
+            logger.debug("Groq reasoning model '%s': setting reasoning_format=hidden, max_tok=%d (est_input=%d)", target_model, max_tok, est_input_tokens)
 
         try:
             response = groq_client.chat.completions.create(
@@ -486,11 +497,11 @@ class TextRewriter:
             try:
                 pass2_result = self._call_llm(pass2_system, pass2_user)
                 if pass2_result and len(pass2_result.split()) >= int(len(text.split()) * 0.7):
-                    return pass2_result
+                    return extract_final_output(pass2_result)
             except Exception as ex:
                 logger.warning("Pass 2 naturalization pass failed, using Pass 1 output: %s", ex)
 
-        return pass1_result
+        return extract_final_output(pass1_result)
 
     def grammar_polish(self, text: str) -> str:
         """
