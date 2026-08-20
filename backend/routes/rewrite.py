@@ -11,7 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Header, Depends, UploadFile, File
 from pydantic import BaseModel, Field
 
-from config import RewriteMode, RewriteLevel, MAX_INPUT_LENGTH
+from config import RewriteMode, RewriteLevel, MAX_INPUT_LENGTH, MIN_INPUT_WORDS
 from analyzer import analyze
 from rewriter import TextRewriter, RewriteError
 from verifier import MeaningVerifier
@@ -263,6 +263,11 @@ async def rewrite_text(
 
     # Enforce Word Count Limits
     input_word_count = len(request.text.strip().split())
+    if input_word_count < MIN_INPUT_WORDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Text must be at least {MIN_INPUT_WORDS} words."
+        )
     if input_word_count > cfg['max_words']:
         raise HTTPException(
             status_code=400,

@@ -189,9 +189,14 @@ export default function LandingHero({
       return;
     }
 
-    // Check word limit (< 100 words for demo)
+    // Check word limits (min 40 words, max 100 words for demo)
+    if (wordCount < 40) {
+      setDemoError('Text must be at least 40 words.');
+      return;
+    }
+
     if (wordCount > 100) {
-      setDemoError('Demo is limited to under 100 words to save tokens. Please shorten your text or log in for unlimited humanization.');
+      setDemoError('Demo is limited to 40-100 words. Please shorten your text or log in for unlimited humanization.');
       return;
     }
 
@@ -502,8 +507,13 @@ export default function LandingHero({
                   {demoOutput ? (
                     <span style={{ color: '#10b981', fontWeight: 700 }}>✓ Humanized</span>
                   ) : (
-                    <span style={{ color: wordCount > 100 ? '#ef4444' : undefined, fontWeight: wordCount > 100 ? 700 : undefined }}>
-                      {wordCount}/100 words
+                    <span
+                      style={{
+                        color: wordCount > 0 && wordCount < 40 ? '#f59e0b' : wordCount > 100 ? '#ef4444' : undefined,
+                        fontWeight: (wordCount > 0 && wordCount < 40) || wordCount > 100 ? 700 : undefined,
+                      }}
+                    >
+                      {wordCount}/100 words {wordCount > 0 && wordCount < 40 ? '(min 40 words)' : ''}
                     </span>
                   )}
                   <span>{charCount} chars</span>

@@ -376,6 +376,12 @@ export default function DashboardPage() {
       return;
     }
 
+    const currentWordCount = inputText.trim().split(/\s+/).filter(Boolean).length;
+    if (currentWordCount < 40) {
+      toast.danger('Text must be at least 40 words.');
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     setOutputText('');
@@ -916,7 +922,18 @@ export default function DashboardPage() {
 
                   <div className="card-footer-bar">
                     <div className="counter-chips">
-                      <span className="chip">{inputText.trim() ? inputText.trim().split(/\s+/).length : 0} words</span>
+                      {(() => {
+                        const inputWords = inputText.trim() ? inputText.trim().split(/\s+/).filter(Boolean).length : 0;
+                        const isUnderMin = inputWords > 0 && inputWords < 40;
+                        return (
+                          <span
+                            className={`chip ${isUnderMin ? 'chip--warning' : ''}`}
+                            style={isUnderMin ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' } : undefined}
+                          >
+                            {inputWords} words {isUnderMin ? '(min 40)' : ''}
+                          </span>
+                        );
+                      })()}
                       <span className="chip">{inputText.length} chars</span>
                     </div>
 
