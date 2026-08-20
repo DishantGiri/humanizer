@@ -32,20 +32,81 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "CloakWriter - Rewrite Text Naturally",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://cloakwriter.app"),
+  title: {
+    default: "CloakWriter AI - #1 Free AI Humanizer & AI Text Converter",
+    template: "%s | CloakWriter AI",
+  },
   description:
-    "Transform AI-generated or awkward text into natural, human-sounding writing. Supports academic, professional, casual, and 6 more styles with meaning preservation.",
-  keywords: ["CloakWriter", "AI humanizer", "text rewriter", "paraphraser", "writing tool", "natural writing"],
+    "Transform AI-generated content from ChatGPT, Claude & Gemini into natural, human-written text. Bypass leading AI detectors like Turnitin, ZeroGPT, CopyLeaks & GPTZero with 100% meaning preservation.",
+  keywords: [
+    "CloakWriter",
+    "AI humanizer",
+    "bypass Turnitin AI detection",
+    "humanize ChatGPT text",
+    "AI text converter",
+    "ZeroGPT bypass tool",
+    "CopyLeaks bypass",
+    "GPTZero humanizer",
+    "text rewriter",
+    "free AI paraphraser",
+    "natural human writing",
+  ],
+  authors: [{ name: "CloakWriter Team", url: "https://cloakwriter.app" }],
+  creator: "CloakWriter AI",
+  publisher: "CloakWriter AI",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
     shortcut: "/favicon.ico",
     apple: "/favicon.png",
   },
+  manifest: "/manifest.webmanifest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: "CloakWriter - Rewrite Text Naturally",
+    title: "CloakWriter AI - #1 Free AI Humanizer & AI Text Converter",
     description:
-      "Transform text into natural, human-sounding writing with AI-powered rewriting.",
+      "Transform AI-generated content into natural human writing. Bypass Turnitin, ZeroGPT, and CopyLeaks effortlessly.",
+    url: "https://cloakwriter.app",
+    siteName: "CloakWriter AI",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CloakWriter AI - The Ultimate AI Text Humanizer",
+      },
+    ],
+    locale: "en_US",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CloakWriter AI - #1 Free AI Humanizer",
+    description:
+      "Transform ChatGPT, Claude, and Gemini text into authentic human writing. Bypass AI detectors with 100% factual accuracy.",
+    images: ["/og-image.png"],
+    creator: "@cloakwriter",
+  },
+  alternates: {
+    canonical: "https://cloakwriter.app",
   },
 };
 

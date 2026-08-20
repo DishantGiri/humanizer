@@ -319,6 +319,49 @@ export default function LandingHero({
         </div>
       </nav>
 
+      {/* ── JSON-LD Structured Data Schema (SEO Rich Snippets) ────────────────── */}
+      <script
+        id="landing-faq-jsonld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'SoftwareApplication',
+                'name': 'CloakWriter AI',
+                'operatingSystem': 'All',
+                'applicationCategory': 'UtilitiesApplication',
+                'url': 'https://cloakwriter.app',
+                'offers': {
+                  '@type': 'Offer',
+                  'price': '0',
+                  'priceCurrency': 'USD',
+                },
+                'aggregateRating': {
+                  '@type': 'AggregateRating',
+                  'ratingValue': '4.9',
+                  'ratingCount': '1280',
+                },
+                'description':
+                  'CloakWriter AI is an advanced AI text humanizer that converts ChatGPT, Claude, and Gemini outputs into natural human prose to bypass Turnitin, ZeroGPT, and CopyLeaks.',
+              },
+              {
+                '@type': 'FAQPage',
+                'mainEntity': faqs.map((faq) => ({
+                  '@type': 'Question',
+                  'name': faq.question,
+                  'acceptedAnswer': {
+                    '@type': 'Answer',
+                    'text': faq.answer,
+                  },
+                })),
+              },
+            ],
+          }),
+        }}
+      />
+
       <div className="landing-hero-screen">
         <div className="landing-hero-bg-layer" />
         {/* ── Hero Section ─────────────────────────────────────────────────── */}
@@ -332,13 +375,13 @@ export default function LandingHero({
               </div>
 
               <h1 className="landing-hero__title">
-                Humanize Your
+                Humanize AI Text &amp;
                 <br />
-                AI Writing
+                Bypass AI Detection
               </h1>
 
               <p className="landing-hero__subtitle">
-                Bypass AI detectors with undetectable, human-like text rewriting. Powered by cutting-edge natural language modeling.
+                Transform ChatGPT, Claude, and Gemini content into authentic, human-written text. Bypass Turnitin, ZeroGPT, CopyLeaks, and GPTZero effortlessly.
               </p>
 
               <div className="landing-hero__actions">
