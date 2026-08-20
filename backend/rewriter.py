@@ -51,6 +51,7 @@ _counter_lock = threading.Lock()
 _REASONING_MODELS: set[str] = {
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
 }
 
 
@@ -337,8 +338,11 @@ class TextRewriter:
             with _counter_lock:
                 start_k_idx = (_groq_request_counter // 5) % len(GROQ_API_KEYS)
 
-            # Ordered by capability: 120b first, then 20b, then qwen as non-reasoning fallback
-            groq_models = [self.groq_model, self.groq_fallback, "qwen/qwen3.6-27b"]
+            # Ordered by preference: primary configured model, fallback model
+            groq_models = []
+            for m in [self.groq_model, self.groq_fallback]:
+                if m and m not in groq_models:
+                    groq_models.append(m)
             for offset in range(len(GROQ_API_KEYS)):
                 current_k_idx = (start_k_idx + offset) % len(GROQ_API_KEYS)
                 for g_model in groq_models:

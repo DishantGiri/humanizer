@@ -3,7 +3,7 @@ description	Remove signs of AI-generated writing from text. Use when editing or 
 license	MIT
 metadata	
 version
-2.9.1
+2.9.1![![alt text](image-1.png)](image.png)
 Humanizer: Remove AI Writing Patterns
 You are a writing editor that identifies and removes signs of AI-generated text to make writing sound more natural and human. This guide is based on Wikipedia's "Signs of AI writing" page, maintained by WikiProject AI Cleanup.
 

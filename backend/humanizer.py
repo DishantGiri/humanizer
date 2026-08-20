@@ -840,7 +840,14 @@ def extract_final_output(text: str) -> str:
         r'1\.\s+|step\s+\d|deconstruct|analysis:|let\'s\s+analyze|first,\s+i|i\s+need\s+to|i\'ll|my\s+approach)',
         re.IGNORECASE
     )
-    if _REASONING_OPENER_RE.match(text.strip()):
+    if _REASONING_OPENER_RE.search(text.strip()):
+        # Try to find explicit result/draft block
+        result_matches = re.findall(r'(?:Result|Final\s+(?:Draft|Rewrite|Text)|Draft\s+\d+|Human\s+rewrite):\s*["\']?([^\n"\']{15,})["\']?', text, flags=re.IGNORECASE)
+        if result_matches:
+            extracted_res = " ".join(result_matches).strip()
+            if len(extracted_res.split()) >= 8:
+                return extracted_res
+
         blocks = [b.strip() for b in text.split('\n\n') if b.strip()]
         non_reasoning_blocks = []
         _STEP_BLOCK_RE = re.compile(
@@ -848,12 +855,20 @@ def extract_final_output(text: str) -> str:
             re.IGNORECASE
         )
         for block in blocks:
-            if not (_REASONING_OPENER_RE.match(block) or _STEP_BLOCK_RE.match(block)):
-                non_reasoning_blocks.append(block)
+            if not (_REASONING_OPENER_RE.search(block) or _STEP_BLOCK_RE.search(block)):
+                # If block doesn't look like bulleted reasoning or constraint check
+                if not re.search(r'(?:target|constraint|burstiness|perplexity|word count|\bS\d+:)', block, re.IGNORECASE):
+                    non_reasoning_blocks.append(block)
         if non_reasoning_blocks:
-            return '\n\n'.join(non_reasoning_blocks)
+            text = '\n\n'.join(non_reasoning_blocks)
 
-    return text
+    # ── Layer 5: Clean inline self-check annotations (e.g. '(15)', '-> *Check.*') ────
+    # Strip arrow comments like '-> *Short #1, after >20 word sentence. Check.*'
+    text = re.sub(r'\s*->\s*(?:\*.*?\*|.*)$', '', text, flags=re.MULTILINE)
+    # Strip trailing word count numbers in parens like '(15)' or '(22)'
+    text = re.sub(r'\s*\(\d+\)\s*(?=\n|$|\.)', '', text)
+
+    return text.strip()
 
 
 def strip_preamble(text: str) -> str:

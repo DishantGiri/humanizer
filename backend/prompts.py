@@ -382,23 +382,13 @@ Notice what changed: shorter sentences, one punchy follow-up, specific verbs, na
 
 Now rewrite the text below. Apply your transformation level and tone strictly.
 
-SELF-CHECK before outputting (do this silently):
-[ ] Perplexity: Did I use at least 2-3 specific, slightly unexpected word choices? (not "was hard" — "ground on"; not "felt good" — "felt lighter")
-[ ] Burstiness: Are at least {target_short} of my sentences under 9 words? After longer sentences?
-[ ] Token probability: Did I start 1-2 sentences with "And", "But", or "Or"? Did I use a fragment once?
-[ ] Stylometry: Did I vary my connectors? ("though", "even so", "and yet" — not just "and", "but")
-[ ] Contractions: it's, don't, can't, they're, we're, you'll, isn't — are they in there?
-[ ] Word length: Did I swap long words for short ones?
-[ ] Banned words: None remaining?
-[ ] Em dashes (—) or semicolons (;): None?
-
 Target: {min_cnt} to {max_cnt} words ({word_cnt} in input). Same paragraph count.
 
 <SOURCE>
 {text}
 </SOURCE>
 
-Output ONLY the rewritten text:"""
+CRITICAL: Output ONLY the final rewritten text. Absolutely NO word counts, NO line annotations, NO explanations, and NO notes like (15) or -> Check."""
 
     return system_prompt, user_prompt
 
