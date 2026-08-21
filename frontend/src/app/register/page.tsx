@@ -40,9 +40,11 @@ export default function RegisterPage() {
         toast.danger('Google Client ID is not configured on backend.');
         return;
       }
+      const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem('humyn_oauth_state', state);
       const redirectUri = window.location.origin + '/api/auth/callback/google';
       const scope = 'openid email profile';
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&prompt=select_account`;
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&prompt=select_account`;
       window.location.href = googleAuthUrl;
     } catch {
       toast.danger('Failed to load Google OAuth configuration.');

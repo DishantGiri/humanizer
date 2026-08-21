@@ -141,6 +141,7 @@ class GoogleAuthRequest(BaseModel):
     credential: Optional[str] = Field(None, description="Google ID Token from Google Sign-In button")
     code: Optional[str] = Field(None, description="Google OAuth 2.0 authorization code")
     redirect_uri: Optional[str] = Field(None, description="Redirect URI used for OAuth code exchange")
+    state: Optional[str] = Field(None, description="CSRF state token for OAuth verification")
 
 # ── Plan Pricing ─────────────────────────────────────────────────────────────
 
@@ -158,28 +159,13 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
 
     token = authorization.split(" ")[1]
-    user_id = None
 
-    # 1. Decode JWT Token
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("sub")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-    except jwt.InvalidTokenError:
-        # 2. Legacy fallback for old session tokens stored in DB
-        query_legacy = """
-            SELECT u.id
-            FROM sessions s
-            JOIN users u ON s.user_id = u.id
-            WHERE s.token = ?
-        """
-        user_row_legacy = fetch_one(query_legacy, (token,))
-        if user_row_legacy:
-            user_id = user_row_legacy["id"]
+    # Verify session token exists in active sessions database (enforces logout invalidation)
+    session_row = fetch_one("SELECT user_id FROM sessions WHERE token = ?", (token,))
+    if not session_row:
+        raise HTTPException(status_code=401, detail="Session expired or logged out. Please log in again.")
 
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+    user_id = session_row["user_id"]
 
     query = """
         SELECT id, name, email, plan, plan_expires_at, role, usage_count, avatar_url, created_at
@@ -195,10 +181,10 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
     raw_expires_at = user_row.get("plan_expires_at")
     plan_expires_at_str = str(raw_expires_at) if raw_expires_at else None
 
-    # If fishtailinfosolutions domain, auto-grant pro plan
+    # If fishtailinfosolutions domain, auto-grant pro plan for free users (don't overwrite enterprise/plus paid plans)
     if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]:
-        user_plan = "pro"
-        if user_row.get("plan") != "pro":
+        if user_plan == "free":
+            user_plan = "pro"
             execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_row["id"],))
     elif user_plan != "free" and raw_expires_at:
         try:
@@ -240,7 +226,7 @@ PRO_PERK_DOMAIN_KEYWORD = "fishtailinfosolutions"
 def check_and_apply_pro_perk(email: str, user_id: Optional[str] = None) -> bool:
     """
     Checks if an email belongs to the fishtailinfosolutions domain.
-    If so, automatically upgrades the account to the 'pro' plan.
+    If so, automatically upgrades free accounts to the 'pro' plan.
     Returns True if Pro perk was applied, False otherwise.
     """
     email_clean = email.lower().strip()
@@ -250,10 +236,15 @@ def check_and_apply_pro_perk(email: str, user_id: Optional[str] = None) -> bool:
     domain = email_clean.split("@")[-1]
     if PRO_PERK_DOMAIN_KEYWORD in domain:
         if user_id:
-            execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
+            row = fetch_one("SELECT plan FROM users WHERE id = ?", (user_id,))
+            if row and (row.get("plan") or "free") == "free":
+                execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_id,))
+                return True
         else:
-            execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
-        return True
+            row = fetch_one("SELECT plan FROM users WHERE email = ?", (email_clean,))
+            if row and (row.get("plan") or "free") == "free":
+                execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
+                return True
 
     return False
 
@@ -282,12 +273,18 @@ def validate_user_name(name: str) -> str:
 async def register(request: RegisterRequest):
     """
     Register a new user account and send an SMTP email verification code.
+    Generic response prevents email enumeration.
     """
     email_clean = request.email.lower().strip()
     name_clean = validate_user_name(request.name)
 
     if fetch_one("SELECT id FROM users WHERE email = ?", (email_clean,)):
-        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+        return {
+            "message": "Registration request received. Please check your email for the 6-digit verification code.",
+            "email": email_clean,
+            "require_verification": True,
+            "email_sent": False
+        }
 
     initial_plan = "pro" if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1] else "free"
     user_id = str(uuid.uuid4())
@@ -761,8 +758,16 @@ async def create_razorpay_order(
             raise HTTPException(status_code=res.status_code, detail=f"Razorpay order failed: {res.text}")
 
         data = res.json()
+        order_id = data.get("id")
+
+        # Save order into server database for verification, ownership check, & replay defense
+        execute_query(
+            "INSERT INTO orders (order_id, user_id, plan, amount, currency, status) VALUES (?, ?, ?, ?, 'INR', 'created')",
+            (order_id, current_user.id, plan, amount)
+        )
+
         return {
-            "order_id": data.get("id"),
+            "order_id": order_id,
             "amount": data.get("amount"),
             "currency": data.get("currency"),
             "key_id": key_id,
@@ -782,11 +787,30 @@ async def verify_razorpay_payment(
 ):
     """
     Verify Razorpay payment signature and upgrade user plan.
+    Enforces order ownership, single-use replay defense, and server-side plan derivation.
     """
     key_secret = os.getenv("RAZORPAY_SECRET", "")
     if not key_secret:
         raise HTTPException(status_code=500, detail="Razorpay secret not configured on server.")
 
+    # 1. Fetch order from server database
+    order_row = fetch_one(
+        "SELECT order_id, user_id, plan, amount, status FROM orders WHERE order_id = ?",
+        (request.razorpay_order_id,)
+    )
+
+    if not order_row:
+        raise HTTPException(status_code=400, detail="Invalid order ID or payment order record not found.")
+
+    # 2. Verify order ownership
+    if order_row["user_id"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Payment order does not belong to your user account.")
+
+    # 3. Prevent replay attacks
+    if order_row["status"] == "completed":
+        raise HTTPException(status_code=400, detail="This payment order has already been verified and redeemed.")
+
+    # 4. Verify Razorpay cryptographic signature
     msg = f"{request.razorpay_order_id}|{request.razorpay_payment_id}"
     generated_sig = hmac.new(
         key_secret.encode("utf-8"),
@@ -797,12 +821,18 @@ async def verify_razorpay_payment(
     if generated_sig != request.razorpay_signature:
         raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
 
-    target_plan = request.plan.lower()
+    # 5. Derive target plan directly from server-side order record (prevent client tampering)
+    target_plan = str(order_row["plan"]).lower()
     cycle = (request.billing_cycle or "monthly").lower()
     days = 365 if cycle == "annually" else 30
     expires_at = (datetime.utcnow() + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
 
     execute_query("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?", (target_plan, expires_at, current_user.id))
+    execute_query(
+        "UPDATE orders SET status = 'completed', payment_id = ? WHERE order_id = ?",
+        (request.razorpay_payment_id, request.razorpay_order_id)
+    )
+
     current_user.plan = target_plan
     current_user.plan_expires_at = expires_at
     logger.info("Verified Razorpay payment for user %s -> plan %s (%s, expires %s)", current_user.id, target_plan, cycle, expires_at)

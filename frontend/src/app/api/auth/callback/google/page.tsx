@@ -27,9 +27,19 @@ export default function GoogleCallbackPage() {
       return;
     }
 
+    const state = urlParams.get('state');
+    const savedState = sessionStorage.getItem('humyn_oauth_state');
+    sessionStorage.removeItem('humyn_oauth_state');
+
+    if (savedState && state !== savedState) {
+      sessionStorage.setItem('humyn_auth_error', 'Google OAuth security verification failed (invalid CSRF state token). Please try signing in again.');
+      router.replace('/login');
+      return;
+    }
+
     const redirectUri = `${window.location.origin}/api/auth/callback/google`;
 
-    googleAuthUser({ code, redirect_uri: redirectUri })
+    googleAuthUser({ code, redirect_uri: redirectUri, state: state || undefined })
       .then((res) => {
         localStorage.setItem('humanizer_token', res.token);
         localStorage.setItem('humanizer_user', JSON.stringify(res.user));

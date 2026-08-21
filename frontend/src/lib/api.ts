@@ -564,7 +564,7 @@ export async function fetchGoogleOauthConfig(): Promise<{ client_id: string }> {
   return await response.json().catch(() => ({ client_id: '' }));
 }
 
-export async function googleAuthUser(params: { credential?: string; code?: string; redirect_uri?: string }): Promise<AuthResponse> {
+export async function googleAuthUser(params: { credential?: string; code?: string; redirect_uri?: string; state?: string }): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/api/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
