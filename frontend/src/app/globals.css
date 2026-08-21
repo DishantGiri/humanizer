@@ -5103,26 +5103,31 @@ body::before {
 .demo-output__content {
   position: relative;
   width: 100%;
-  padding: 20px;
+  flex: 1;
+  min-height: 220px;
   font-size: 0.95rem;
   line-height: 1.7;
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .demo-output__clear {
   color: var(--text-primary);
   margin: 0;
   font-weight: 400;
+  line-height: 1.6;
 }
 
 .demo-output__blur-wrapper {
   position: relative;
   overflow: hidden;
-  border-radius: 10px;
-  padding-top: 4px;
+  border-radius: 12px;
+  flex: 1;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
 }
 
 .demo-output__blurred {
@@ -5133,6 +5138,8 @@ body::before {
   opacity: 0.5;
   color: var(--text-secondary);
   margin: 0;
+  min-height: 140px;
+  line-height: 1.6;
 }
 
 .demo-output__overlay {
@@ -5143,20 +5150,22 @@ body::before {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(18, 19, 26, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 19, 26, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   font-size: 0.9rem;
   text-align: center;
+  z-index: 5;
+  box-sizing: border-box;
 }
 
 [data-theme="light"] .demo-output__overlay {
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(0, 0, 0, 0.12);
   color: #0f172a;
 }
 
@@ -5166,16 +5175,19 @@ body::before {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 10px 22px;
   background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
   border: none;
   border-radius: 8px;
   color: #ffffff;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .demo-output__unlock-btn:hover,

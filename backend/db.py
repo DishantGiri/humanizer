@@ -109,6 +109,7 @@ def init_db():
                     password_hash VARCHAR(255) NOT NULL,
                     salt VARCHAR(255) NOT NULL,
                     plan VARCHAR(32) DEFAULT 'free',
+                    plan_expires_at DATETIME NULL,
                     role VARCHAR(32) DEFAULT 'user',
                     email_verified INT DEFAULT 0,
                     usage_count INT DEFAULT 0,
@@ -187,6 +188,19 @@ def init_db():
                     custom_footer_scripts TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS orders (
+                    order_id VARCHAR(64) PRIMARY KEY,
+                    user_id VARCHAR(64) NOT NULL,
+                    plan VARCHAR(32) NOT NULL,
+                    amount INT NOT NULL,
+                    currency VARCHAR(16) DEFAULT 'INR',
+                    status VARCHAR(32) DEFAULT 'created',
+                    payment_id VARCHAR(64) DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_orders_user (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             ]
             for stmt in statements:
@@ -196,6 +210,10 @@ def init_db():
                     logger.info("MySQL table setup note: %s", ex)
             try:
                 cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN plan_expires_at DATETIME")
             except Exception:
                 pass
             try:
@@ -234,6 +252,7 @@ def init_db():
                         password_hash TEXT NOT NULL,
                         salt TEXT NOT NULL,
                         plan TEXT DEFAULT 'free',
+                        plan_expires_at TIMESTAMP NULL,
                         role TEXT DEFAULT 'user',
                         email_verified INTEGER DEFAULT 0,
                         is_first_login INTEGER DEFAULT 0,
@@ -313,8 +332,25 @@ def init_db():
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS orders (
+                        order_id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        plan TEXT NOT NULL,
+                        amount INTEGER NOT NULL,
+                        currency TEXT DEFAULT 'INR',
+                        status TEXT DEFAULT 'created',
+                        payment_id TEXT DEFAULT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """)
                 try:
                     cursor.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+                except Exception:
+                    pass
+                try:
+                    cursor.execute("ALTER TABLE users ADD COLUMN plan_expires_at TIMESTAMP")
                 except Exception:
                     pass
                 try:

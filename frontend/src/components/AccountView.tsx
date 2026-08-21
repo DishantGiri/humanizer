@@ -708,6 +708,17 @@ export default function AccountView({
               <h4 style={{ fontSize: '1.3rem', fontWeight: 800, marginTop: '4px', textTransform: 'uppercase' }}>
                 {getPlanBadgeLabel(user.plan)} Plan
               </h4>
+              {user.plan_expires_at ? (
+                <p style={{ fontSize: '0.82rem', color: '#38bdf8', marginTop: '4px', margin: 0, fontWeight: 500 }}>
+                  Subscription Renews / Expires: <strong>{new Date(user.plan_expires_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                </p>
+              ) : (
+                user.plan !== 'free' && (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', marginTop: '4px', margin: 0 }}>
+                    Lifetime Domain Perk Active
+                  </p>
+                )
+              )}
             </div>
 
             <button

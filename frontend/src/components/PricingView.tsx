@@ -92,6 +92,7 @@ export default function PricingView({
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               plan: planName,
+              billing_cycle: billingCycle,
             });
             onUpdateUser({ ...updatedUser, plan: planName });
             toast.success(`Successfully activated ${planName.toUpperCase()} Plan!`);

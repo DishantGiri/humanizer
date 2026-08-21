@@ -342,6 +342,7 @@ export interface User {
   name: string;
   email: string;
   plan: 'free' | 'plus' | 'pro' | 'enterprise' | 'starter' | string;
+  plan_expires_at?: string | null;
   role?: 'user' | 'admin' | string;
   usage_count: number;
   is_first_login?: number;
@@ -669,6 +670,7 @@ export async function verifyRazorpayPayment(
     razorpay_payment_id: string;
     razorpay_signature: string;
     plan: string;
+    billing_cycle?: 'monthly' | 'annually' | string;
   }
 ): Promise<User> {
   const response = await fetch(`${API_BASE}/api/auth/razorpay/verify-payment`, {

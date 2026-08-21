@@ -97,6 +97,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     plan: str = "free"
+    plan_expires_at: Optional[str] = None
     role: str = "user"
     usage_count: int = 0
     avatar_url: Optional[str] = None
@@ -131,6 +132,7 @@ class VerifyRazorpayPaymentRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     plan: str
+    billing_cycle: Optional[str] = "monthly"
 
 class RedeemCouponRequest(BaseModel):
     code: str = Field(..., description="Coupon code to redeem")
@@ -180,7 +182,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         raise HTTPException(status_code=401, detail="Invalid or expired session token")
 
     query = """
-        SELECT id, name, email, plan, role, usage_count, avatar_url, created_at
+        SELECT id, name, email, plan, plan_expires_at, role, usage_count, avatar_url, created_at
         FROM users
         WHERE id = ?
     """
@@ -190,18 +192,32 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
 
     email_clean = user_row["email"].lower().strip()
     user_plan = user_row.get("plan", "free")
+    raw_expires_at = user_row.get("plan_expires_at")
+    plan_expires_at_str = str(raw_expires_at) if raw_expires_at else None
 
     # If fishtailinfosolutions domain, auto-grant pro plan
     if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]:
         user_plan = "pro"
         if user_row.get("plan") != "pro":
             execute_query("UPDATE users SET plan = 'pro' WHERE id = ?", (user_row["id"],))
+    elif user_plan != "free" and raw_expires_at:
+        try:
+            exp_str = str(raw_expires_at)[:19]
+            exp_dt = datetime.strptime(exp_str, '%Y-%m-%d %H:%M:%S')
+            if datetime.utcnow() > exp_dt:
+                logger.info("Subscription expired for user %s. Reverting plan from %s to free.", user_row["id"], user_plan)
+                user_plan = "free"
+                plan_expires_at_str = None
+                execute_query("UPDATE users SET plan = 'free', plan_expires_at = NULL WHERE id = ?", (user_row["id"],))
+        except Exception as ex:
+            logger.warning("Error parsing plan_expires_at for user %s: %s", user_row["id"], ex)
 
     return UserResponse(
         id=user_row["id"],
         name=user_row["name"],
         email=user_row["email"],
         plan=user_plan,
+        plan_expires_at=plan_expires_at_str,
         role=user_row.get("role", "user"),
         usage_count=user_row.get("usage_count", 0),
         avatar_url=user_row.get("avatar_url"),
@@ -365,7 +381,7 @@ async def login(request: LoginRequest):
     email_clean = request.email.lower().strip()
 
     user_row = fetch_one(
-        "SELECT id, name, email, password_hash, salt, plan, role, usage_count, avatar_url, created_at FROM users WHERE email = ?",
+        "SELECT id, name, email, password_hash, salt, plan, plan_expires_at, role, usage_count, avatar_url, created_at FROM users WHERE email = ?",
         (email_clean,)
     )
 
@@ -377,9 +393,22 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail="Invalid email or password.")
 
     user_plan = user_row.get("plan", "free")
+    raw_expires_at = user_row.get("plan_expires_at")
+    plan_expires_at_str = str(raw_expires_at) if raw_expires_at else None
+
     if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1]:
         execute_query("UPDATE users SET plan = 'pro' WHERE email = ?", (email_clean,))
         user_plan = "pro"
+    elif user_plan != "free" and raw_expires_at:
+        try:
+            exp_str = str(raw_expires_at)[:19]
+            exp_dt = datetime.strptime(exp_str, '%Y-%m-%d %H:%M:%S')
+            if datetime.utcnow() > exp_dt:
+                user_plan = "free"
+                plan_expires_at_str = None
+                execute_query("UPDATE users SET plan = 'free', plan_expires_at = NULL WHERE email = ?", (email_clean,))
+        except Exception:
+            pass
 
     token = create_jwt_token(
         user_row["id"],
@@ -397,6 +426,7 @@ async def login(request: LoginRequest):
             name=user_row["name"],
             email=user_row["email"],
             plan=user_plan,
+            plan_expires_at=plan_expires_at_str,
             role=user_row.get("role", "user"),
             usage_count=user_row.get("usage_count", 0),
             avatar_url=user_row.get("avatar_url"),
@@ -450,11 +480,18 @@ async def upgrade_to_pro(
     current_user: UserResponse = Depends(get_current_user_from_token)
 ):
     """
-    Upgrade current user account to specified plan.
+    Upgrade current user account to specified plan (Restricted to Admin).
     """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Direct plan upgrade endpoint is restricted. Please upgrade through the payment gateway or redeem a valid promo voucher."
+        )
     target_plan = (request.plan if request and request.plan else "pro").lower()
-    execute_query("UPDATE users SET plan = ? WHERE id = ?", (target_plan, current_user.id))
+    expires_at = (datetime.utcnow() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+    execute_query("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?", (target_plan, expires_at, current_user.id))
     current_user.plan = target_plan
+    current_user.plan_expires_at = expires_at
     return current_user
 
 
@@ -761,9 +798,14 @@ async def verify_razorpay_payment(
         raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
 
     target_plan = request.plan.lower()
-    execute_query("UPDATE users SET plan = ? WHERE id = ?", (target_plan, current_user.id))
+    cycle = (request.billing_cycle or "monthly").lower()
+    days = 365 if cycle == "annually" else 30
+    expires_at = (datetime.utcnow() + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+
+    execute_query("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?", (target_plan, expires_at, current_user.id))
     current_user.plan = target_plan
-    logger.info("Verified Razorpay payment for user %s -> plan %s", current_user.id, target_plan)
+    current_user.plan_expires_at = expires_at
+    logger.info("Verified Razorpay payment for user %s -> plan %s (%s, expires %s)", current_user.id, target_plan, cycle, expires_at)
     return current_user
 
 
@@ -805,10 +847,12 @@ async def redeem_coupon(
 
     raw_target_plan = str(coupon.get("plan") or "plus").lower().strip()
     target_plan = "plus" if raw_target_plan == "starter" else raw_target_plan
+    expires_at = (datetime.utcnow() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
 
-    execute_query("UPDATE users SET plan = ? WHERE id = ?", (target_plan, current_user.id))
+    execute_query("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?", (target_plan, expires_at, current_user.id))
     current_user.plan = target_plan
-    logger.info("Coupon %s successfully redeemed by user %s -> activated plan: %s", code_clean, current_user.id, target_plan)
+    current_user.plan_expires_at = expires_at
+    logger.info("Coupon %s successfully redeemed by user %s -> activated plan: %s (expires %s)", code_clean, current_user.id, target_plan, expires_at)
     return current_user
 
 

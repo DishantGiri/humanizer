@@ -532,7 +532,11 @@ export default function LandingHero({
                   <div className="demo-output__content">
                     <p className="demo-output__clear">{demoOutput.firstHalf}</p>
                     <div className="demo-output__blur-wrapper">
-                      <p className="demo-output__blurred">{demoOutput.secondHalf}</p>
+                      <p className="demo-output__blurred">
+                        {demoOutput.secondHalf && demoOutput.secondHalf.length >= 100
+                          ? demoOutput.secondHalf
+                          : `${demoOutput.secondHalf} ${demoOutput.secondHalf || 'Full humanized text is locked. Log in or create an account to view and copy complete results.'} Full humanized output is available for free accounts.`}
+                      </p>
                       <div className="demo-output__overlay">
                         <Lock size={20} className="demo-output__lock-icon" style={{ color: '#38bdf8' }} />
                         <span style={{ fontWeight: 700 }}>Unlock Full Output</span>
