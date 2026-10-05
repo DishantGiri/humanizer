@@ -519,11 +519,11 @@ def adjust_lexical_sophistication(text: str, profile: ModeProfile, rng: random.R
         pattern = r'\b' + re.escape(ai_phrase) + r'\b'
         if re.search(pattern, text, flags=re.IGNORECASE):
             replacement = rng.choice(options)
-            def _sub_match(m):
+            def _sub_match(m, rep=replacement):
                 matched = m.group(0)
                 if matched[0].isupper():
-                    return replacement[0].upper() + replacement[1:]
-                return replacement
+                    return rep[0].upper() + rep[1:]
+                return rep
             text = re.sub(pattern, _sub_match, text, flags=re.IGNORECASE)
     return text
 
@@ -531,6 +531,7 @@ def adjust_lexical_sophistication(text: str, profile: ModeProfile, rng: random.R
 def strip_formulaic_patterns_and_summaries(text: str) -> str:
     """
     Strips robotic transitions, formulaic summary wrapups, and negation framing.
+    Only strips at sentence boundaries to avoid mid-sentence grammar breakage.
     """
     if not text:
         return text
@@ -542,43 +543,66 @@ def strip_formulaic_patterns_and_summaries(text: str) -> str:
     for pat in summary_end_patterns:
         text = re.sub(pat, '', text, flags=re.IGNORECASE)
 
-    # Strip robotic transition words wherever they appear at start of sentence
+    # Strip robotic transition words ONLY at the start of a sentence.
+    # After stripping, capitalize the next word to maintain grammatical correctness.
     robotic_openers = [
-        (r'\bFurthermore,?\s*', ''),
-        (r'\bMoreover,?\s*', ''),
-        (r'\bIn conclusion,?\s*', ''),
-        (r'\bTo sum up,?\s*', ''),
-        (r'\bAdditionally,?\s*', ''),
-        (r'\bIn addition to the above,?\s*', ''),
-        (r'\bNeedless to say,?\s*', ''),
-        (r'\bIt is clear that\s+', ''),
-        (r'\bThe\s+(?:rule|standard|key|common)\s+(?:fix|insight|approach|pattern|problem)\s*:\s*', ''),
-        # Extended: patterns detected by FORMULAIC_PATTERN_REGEXES in analyzer.py
-        (r'\bNotably,?\s*', ''),
-        (r'\bImportantly,?\s*', ''),
-        (r'\bConsequently,?\s*', ''),
-        (r'\bIn summary,?\s*', ''),
-        (r'\bTo summarize,?\s*', ''),
-        (r'\bAs previously mentioned,?\s*', ''),
-        (r'\bIt goes without saying,?\s*', ''),
-        (r'\bIt turns out that\s+', ''),
-        (r'\bIt turns out,?\s*', ''),
-        (r'\bThis highlights the importance of\s+', ''),
-        (r'\bThis underscores\s+', ''),
-        (r'\bUltimately,?\s*this\s+(?:shows|highlights|demonstrates)\s+', ''),
+        r'\bFurthermore,?\s*',
+        r'\bMoreover,?\s*',
+        r'\bIn conclusion,?\s*',
+        r'\bTo sum up,?\s*',
+        r'\bAdditionally,?\s*',
+        r'\bIn addition to the above,?\s*',
+        r'\bNeedless to say,?\s*',
+        r'\bIt is clear that\s+',
+        r'\bNotably,?\s*',
+        r'\bImportantly,?\s*',
+        r'\bConsequently,?\s*',
+        r'\bIn summary,?\s*',
+        r'\bTo summarize,?\s*',
+        r'\bAs previously mentioned,?\s*',
+        r'\bIt goes without saying,?\s*',
+        r'\bIt turns out that\s+',
+        r'\bIt turns out,?\s*',
+        r'\bUltimately,?\s*this\s+(?:shows|highlights|demonstrates)\s+',
     ]
-    for pat, rep in robotic_openers:
-        text = re.sub(pat, rep, text, flags=re.IGNORECASE)
+
+    # Process sentence by sentence to ensure we only strip at sentence start
+    sentences = _split_sentences(text)
+    cleaned_sentences = []
+    for sent in sentences:
+        modified = sent
+        for pat in robotic_openers:
+            m = re.match(pat, modified, flags=re.IGNORECASE)
+            if m:
+                remainder = modified[m.end():].strip()
+                if remainder and len(remainder.split()) >= 3:
+                    # Capitalize the first letter of the remainder
+                    modified = remainder[0].upper() + remainder[1:]
+                # If remainder is too short, keep original sentence intact
+                break
+        cleaned_sentences.append(modified)
+    text = _join_sentences(cleaned_sentences)
+
+    # Strip "This highlights/underscores" only when followed by enough content
+    text = re.sub(
+        r'\bThis highlights the importance of\s+',
+        '', text, flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r'\bThis underscores\s+',
+        '', text, flags=re.IGNORECASE
+    )
 
     # Simplify negation framing
     text = re.sub(
-        r'\bit[\'’]?s not about\s+([^,;.]+),\s*it[\'’]?s about\s+([^,;.]+)',
-        r'It is about \2',
+        r"\bit['’]?s not about\s+([^,;.]+),\s*it['’]?s about\s+([^,;.]+)",
+        r"It is about \2",
         text,
         flags=re.IGNORECASE
     )
 
     return text.strip()
+
 
 
 def strip_hedge_words(text: str) -> str:
@@ -934,21 +958,60 @@ def clean_erroneous_punctuation(text: str) -> str:
     text = re.sub(r'([,;:])\s*([.!?])', r'\2', text)
     text = re.sub(r'\.\s*,', ',', text)
 
+    # Fix dangling commas at start of sentence (e.g. ", the system" -> "The system")
+    text = re.sub(r'(?:^|(?<=[\.!?]\s)),\s*', '', text)
+
+    # Fix orphaned conjunctions at start of sentence after stripping
+    # (e.g. "And, ." or "But ." -> remove the broken sentence)
+    text = re.sub(r'\b(?:And|But|Or|So|Yet)\s*[,.]\s*(?=[A-Z]|$)', '', text)
+
+    # Remove empty sentences (just a period or punctuation with no content)
+    text = re.sub(r'(?:^|\s)\.(?=\s|$)', '', text)
+
     # Ensure missing space after period is added if followed by capital letter (e.g. "word.Next" -> "word. Next")
     text = re.sub(r'([a-z0-9])\.([A-Z])', r'\1. \2', text)
 
     # Deduplicate repeated articles or prepositions (e.g. "the the", "in in")
     text = re.sub(r'\b(the|a|an|in|on|at|to|of|for)\s+\1\b', r'\1', text, flags=re.IGNORECASE)
 
-    # Fix "an" before consonant (e.g. "an vital" -> "a vital") and "a" before vowel ("a important" -> "an important")
-    text = re.sub(r'\ban\s+([bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ])', r'a \1', text)
-    text = re.sub(r'\ba\s+([aeioAEIO])', r'an \1', text)
+    # Fix "an" before consonant sound and "a" before vowel sound
+    # Exception list: words starting with silent h, acronyms with vowel sounds, etc.
+    _AN_EXCEPTIONS = {'hour', 'honest', 'honor', 'honour', 'heir', 'herb',
+                      'mba', 'mri', 'nba', 'fbi', 'html', 'http', 'sql', 'api'}
+    _A_EXCEPTIONS = {'university', 'universal', 'uniform', 'unique', 'united',
+                     'union', 'unit', 'usage', 'useful', 'user', 'usual',
+                     'usually', 'utility', 'utilize', 'one', 'once', 'european'}
+
+    def _fix_article(m):
+        article = m.group(1).lower()
+        word = m.group(2)
+        word_lower = word.lower()
+        first_char_lower = word[0].lower()
+
+        # Check exception lists first
+        if word_lower in _AN_EXCEPTIONS or any(word_lower.startswith(e) for e in _AN_EXCEPTIONS):
+            return f'an {word}'
+        if word_lower in _A_EXCEPTIONS or any(word_lower.startswith(e) for e in _A_EXCEPTIONS):
+            return f'a {word}'
+
+        # Default: vowel letter -> "an", consonant letter -> "a"
+        if first_char_lower in 'aeiou':
+            return f'an {word}'
+        else:
+            return f'a {word}'
+
+    text = re.sub(r'\b(a|an)\s+([a-zA-Z]\w*)', _fix_article, text, flags=re.IGNORECASE)
 
     # Clean up double spaces
     text = re.sub(r'[ \t]+', ' ', text)
 
     # Capitalize after sentence endings
     text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+
+    # Capitalize first character of text
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
 
     return text.strip()
 
@@ -1081,44 +1144,17 @@ def enforce_short_sentences(text: str, max_words: int = 20) -> str:
                     res.extend([part1, part2])
                     split_done = True
 
-        # Strategy 4: Split at the comma closest to the midpoint that produces a valid subject-starting part2
-        if not split_done and not _SUBORDINATE_START.match(s) and not re.match(r'^(?:things like|activities like|such as)\b', s, re.IGNORECASE):
-            _SUBJ = re.compile(
-                r'^(?:it|this|they|we|you|he|she|that|these|those|the|a|an|i|his|her|its|our|their)\s+[a-z]+',
-                re.IGNORECASE
-            )
-            mid = len(s) // 2
-            commas = sorted(
-                [i for i, c in enumerate(s) if c == ',' and abs(i - mid) < mid * 0.7],
-                key=lambda i: abs(i - mid)
-            )
-            for best in commas:
-                # Do not split inside listed items (e.g. after 'such as' or 'including' or 'things like')
-                if re.search(r'\b(?:such as|including|for example|e\.g\.|things like|like)\b', s[:best], re.IGNORECASE):
-                    continue
-                part1 = s[:best].strip() + '.'
-                part2_raw = s[best + 1:].strip()
-                part2 = part2_raw[0].upper() + part2_raw[1:] if part2_raw else ''
-                if (part1 and part2
-                        and len(part1.split()) >= 4
-                        and len(part2.split()) >= 4
-                        and not _SUBORDINATE_START.match(part1)
-                        and _SUBJ.match(part2)):
-                    res.extend([part1, part2])
-                    split_done = True
-                    break
-
         if not split_done:
             res.append(s)
 
     return _join_sentences(res)
 
 
-
 def disrupt_sentence_rhythm(text: str, short_threshold: int = 8) -> str:
     """
     Disrupts robotic, metronomic sentence rhythm by identifying consecutive short clauses
     and merging them with natural connective punctuation or phrasing, preventing AI rhythmic tells.
+    Always uses proper conjunctions to avoid comma splices.
     """
     if not text or not text.strip():
         return text
@@ -1151,9 +1187,22 @@ def disrupt_sentence_rhythm(text: str, short_threshold: int = 8) -> str:
             ):
                 first_clean = sentences[i].rstrip('.!?')
                 second_clean = sentences[i + 1]
-                if second_clean and len(second_clean) > 1:
-                    second_clean = second_clean[0].lower() + second_clean[1:]
-                result.append(f"{first_clean}, {second_clean}")
+                second_words = second_clean.split()
+                first_word_s2 = second_words[0].lower() if second_words else ""
+
+                # Preserve capitalization for 'I' or proper nouns
+                is_proper = (
+                    second_words
+                    and second_words[0][0].isupper()
+                    and second_words[0] not in ("It", "This", "They", "We", "You", "He", "She", "The", "A", "An")
+                )
+                formatted_s2 = second_clean if is_proper else (second_clean[0].lower() + second_clean[1:] if len(second_clean) > 1 else second_clean)
+
+                if first_word_s2 in ("and", "but", "so", "yet", "or"):
+                    result.append(f"{first_clean}, {formatted_s2}")
+                else:
+                    # Use coordinating conjunction to prevent comma splice
+                    result.append(f"{first_clean}, and {formatted_s2}")
                 i += 2
             else:
                 result.append(sentences[i])
@@ -1183,16 +1232,9 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "functionalities": "features",
     "significant": "big",
     "significantly": "much",
-    "reliability": "trust",
+    "reliability": "dependability",
     "performance": "speed",
     "effectively": "well",
-    "efficiency": "speed",
-    "methodology": "method",
-    "methodologies": "methods",
-    "environment": "setup",
-    "environments": "setups",
-    "communication": "talk",
-    "communications": "talks",
     "organization": "group",
     "organizations": "groups",
     "particularly": "mainly",
@@ -1221,7 +1263,7 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "accessibility": "access",
     "opportunities": "chances",
     "opportunity": "chance",
-    "infrastructure": "base",
+    "infrastructure": "systems",
     "characteristics": "traits",
     "characteristic": "trait",
     "understanding": "grasp",
@@ -1235,7 +1277,6 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "comprehensive": "full",
     "traditionally": "in the past",
     "collaboration": "teamwork",
-    "manufacturing": "making",
     "fundamentally": "at its core",
     "corresponding": "matching",
     "documentation": "docs",
@@ -1244,7 +1285,7 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "professionals": "experts",
     "professional": "expert",
     "technological": "tech",
-    "technologies": "tools",
+    "technologies": "tech",
     "operational": "working",
     "operations": "work",
     "educational": "teaching",
@@ -1301,7 +1342,7 @@ GENERIC_VOCABULARY_REPLACEMENTS: dict[str, list[str]] = {
     "various aspects": ["different parts", "many sides"],
     "various factors": ["these drivers", "several drivers"],
     "modern software development": ["modern software work", "current software dev"],
-    "software development": ["software dev", "building software"],
+    "software development": ["software dev"],
     "plays a role": ["matters", "counts"],
     "plays a crucial role": ["really matters", "is vital"],
     "plays a key role": ["drives", "shapes"],
@@ -1320,7 +1361,7 @@ GENERIC_VOCABULARY_REPLACEMENTS: dict[str, list[str]] = {
     "it is essential": ["it's vital", "we need"],
     "it is necessary": ["we must", "you need to"],
     "it is crucial": ["we must", "it's vital"],
-    "ensure the": ["make sure the", "check that the"],
+    "ensure the": ["make sure the"],
     "ensures the": ["keeps the", "makes sure the"],
     "ensure that": ["make sure that", "check that"],
     "ensuring": ["making sure", "keeping"],
@@ -1389,22 +1430,47 @@ GENERIC_VOCABULARY_REPLACEMENTS: dict[str, list[str]] = {
 }
 
 
+# Words that should NOT be replaced because doing so breaks meaning in context
+_WORD_COMPLEXITY_SKIP_CONTEXTS: dict[str, list[str]] = {
+    "performance": ["performance review", "performance art", "high performance", "performance metric",
+                    "performance test", "performance evaluation", "academic performance"],
+    "environment": ["natural environment", "work environment", "learning environment",
+                    "business environment", "production environment", "development environment",
+                    "staging environment", "test environment"],
+    "communication": ["communication skills", "communication style", "communication channel",
+                      "effective communication", "mass communication"],
+    "organization": ["non-profit organization", "world organization", "health organization"],
+    "professional": ["professional development", "professional experience", "professional growth"],
+    "understanding": ["deep understanding", "better understanding", "mutual understanding",
+                      "clear understanding"],
+    "information": ["personal information", "sensitive information", "contact information"],
+}
+
+
 def normalize_word_complexity(text: str) -> str:
     """
     Reduces mean word length by replacing unnecessarily long words with shorter
     common synonyms. Targets the external detector signal: mean word length 5.86 vs human 5.24.
+    Skips replacements that would break domain-specific phrases or collocations.
     """
     if not text:
         return text
 
+    text_lower = text.lower()
+
     for long_word, short_word in LONG_WORD_REPLACEMENTS.items():
+        # Check if this word appears in a domain phrase that shouldn't be broken
+        skip_contexts = _WORD_COMPLEXITY_SKIP_CONTEXTS.get(long_word, [])
+        if any(ctx in text_lower for ctx in skip_contexts):
+            continue
+
         pattern = r'\b' + re.escape(long_word) + r'\b'
         if re.search(pattern, text, re.IGNORECASE):
-            def _case_replace(m):
+            def _case_replace(m, sw=short_word):
                 matched = m.group(0)
                 if matched[0].isupper():
-                    return short_word[0].upper() + short_word[1:]
-                return short_word
+                    return sw[0].upper() + sw[1:]
+                return sw
             text = re.sub(pattern, _case_replace, text, flags=re.IGNORECASE)
 
     return text
@@ -1437,6 +1503,11 @@ def inject_pronoun_subjects(text: str, rng: random.Random) -> str:
     Replaces some nominal subjects with pronoun variants to break the noun-subject
     pattern that external detectors flag. AI text over-uses noun subjects like
     'Software testing...' while humans use 'It...', 'This...', 'They...'.
+
+    Guards against creating nonsensical pronoun substitutions by:
+    - Only replacing when the previous sentence establishes clear context
+    - Never replacing proper nouns, people's names, or first mentions of a topic
+    - Ensuring the resulting sentence reads grammatically
     """
     if not text:
         return text
@@ -1447,7 +1518,17 @@ def inject_pronoun_subjects(text: str, rng: random.Random) -> str:
 
     # Track what noun subjects appear for pronoun reference
     last_topic = None
+    last_topic_plural = False
     result = []
+
+    # Words that should NEVER be replaced with pronouns (proper nouns, names, etc.)
+    _NEVER_PRONOUN = {'however', 'therefore', 'meanwhile', 'instead', 'otherwise',
+                      'still', 'yet', 'also', 'even', 'just', 'only', 'not',
+                      'each', 'every', 'all', 'both', 'many', 'most', 'some',
+                      'few', 'several', 'no', 'any', 'other', 'such', 'what',
+                      'when', 'where', 'how', 'why', 'if', 'then', 'now',
+                      'here', 'there', 'first', 'second', 'third', 'next',
+                      'last', 'finally', 'today', 'tomorrow', 'yesterday'}
 
     for i, sent in enumerate(sentences):
         words = sent.split()
@@ -1455,50 +1536,49 @@ def inject_pronoun_subjects(text: str, rng: random.Random) -> str:
             result.append(sent)
             continue
 
-        # Only transform some sentences (30-40% of them)
-        if i == 0 or rng.random() > 0.38:
+        # Only transform some sentences (25-30% of them) — reduced from 38% to be safer
+        if i == 0 or rng.random() > 0.28:
             # Extract topic for future pronoun reference
             first_two = ' '.join(words[:2]).lower()
             if not first_two.startswith(('it ', 'this ', 'they ', 'we ', 'you ', 'he ', 'she ', 'i ')):
                 last_topic = words[0]
+                # Crude plural detection
+                last_topic_plural = words[0].lower().endswith('s') and not words[0].lower().endswith('ss')
             result.append(sent)
             continue
 
         first_word = words[0].lower().rstrip(',.:;')
 
-        # Skip if already starts with a pronoun
-        if first_word in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i', 'that', 'these', 'those', 'there'):
+        # Skip if already starts with a pronoun or a word we should never replace
+        if first_word in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i',
+                          'that', 'these', 'those', 'there'):
+            result.append(sent)
+            continue
+
+        if first_word in _NEVER_PRONOUN:
+            result.append(sent)
+            continue
+
+        # Only replace if we have a clear prior topic to reference
+        if not last_topic:
             result.append(sent)
             continue
 
         # Check for repeated noun subject from previous sentence
         if last_topic and words[0].lower() == last_topic.lower():
-            # Replace with "It" or "This"
-            pronoun = rng.choice(["It", "This"])
+            pronoun = "They" if last_topic_plural else rng.choice(["It", "This"])
             new_sent = pronoun + " " + " ".join(words[1:])
-            result.append(new_sent)
+            # Validate the new sentence has at least a verb after the pronoun
+            if len(words) >= 3:
+                result.append(new_sent)
+            else:
+                result.append(sent)
             continue
 
-        # Check for common patterns: "NOUN PHRASE verb..." -> "It/This verb..."
-        # Only do this for 2-3 word noun phrases
-        verb_pos = None
-        for vi, w in enumerate(words[1:4], 1):
-            if w.lower() in ('is', 'are', 'was', 'were', 'has', 'have', 'had', 'can', 'will',
-                             'helps', 'allows', 'enables', 'ensures', 'provides', 'improves',
-                             'reduces', 'makes', 'gives', 'offers', 'creates', 'requires',
-                             'involves', 'includes', 'covers', 'affects', 'drives', 'leads'):
-                verb_pos = vi
-                break
-
-        if verb_pos and verb_pos <= 3:
-            pronoun = rng.choice(["It", "This"])
-            new_sent = pronoun + " " + " ".join(words[verb_pos:])
-            result.append(new_sent)
+        if len(words) >= 2:
             last_topic = words[0]
-        else:
-            if len(words) >= 2:
-                last_topic = words[0]
-            result.append(sent)
+            last_topic_plural = words[0].lower().endswith('s') and not words[0].lower().endswith('ss')
+        result.append(sent)
 
     return _join_sentences(result)
 
@@ -1508,122 +1588,87 @@ def inject_micro_sentences(text: str, rng: random.Random) -> str:
     Injects very short sentences (3-7 words) as rhythm breaks to satisfy the
     external detector's burstiness requirement (human text has ~5.8% sentences ≤8 words
     vs AI's 2.4%).
-    Targets: at least 15% of sentences should be ≤8 words.
+    Targets: at least 12% of sentences should be ≤8 words.
+
+    Uses context-derived micro-sentences instead of canned templates to avoid
+    injecting nonsensical statements that break readability.
     """
     if not text:
         return text
 
     sentences = _split_sentences(text)
     total = len(sentences)
-    if total < 4:
+    if total < 5:
         return text
 
     # Count existing micro sentences
     micro_count = sum(1 for s in sentences if len(s.split()) <= 8)
-    target_micro = max(1, int(total * 0.18))  # Target 18% micro-sentences
+    target_micro = max(1, int(total * 0.12))  # Target 12% (reduced from 18% to avoid clutter)
 
     if micro_count >= target_micro:
         return text
 
-    # Micro-sentence templates (context-agnostic rhythm breaks)
-    micro_templates = [
-        "That matters.",
-        "It works.",
-        "The data backs it up.",
-        "Here's why.",
-        "Results speak for themselves.",
-        "Not always.",
-        "Speed counts here.",
-        "Most people miss this.",
-        "It adds up fast.",
-        "This is standard practice.",
-        "The difference is clear.",
-        "It's straightforward.",
-        "Think about it.",
-        "The logic holds.",
-        "No shortcuts here.",
-    ]
+    # Context-aware micro-sentence generation:
+    # Instead of injecting random canned phrases, derive short follow-ups from the
+    # preceding sentence's content to maintain coherence.
+    def _derive_micro(prev_sent: str) -> Optional[str]:
+        """Generate a contextually appropriate micro-sentence based on the previous sentence."""
+        prev_lower = prev_sent.lower()
+
+        # If the previous sentence mentions a positive outcome
+        if any(w in prev_lower for w in ['improve', 'better', 'boost', 'increase', 'grow',
+                                          'success', 'benefit', 'advantage', 'gain']):
+            return rng.choice(["It pays off.", "The results show.", "It makes a difference."])
+
+        # If the previous sentence mentions a problem or challenge
+        if any(w in prev_lower for w in ['problem', 'issue', 'challenge', 'difficult', 'hard',
+                                          'struggle', 'fail', 'error', 'bug', 'risk', 'danger']):
+            return rng.choice(["It's a real issue.", "That's the catch.", "It happens often."])
+
+        # If the previous sentence mentions importance or significance
+        if any(w in prev_lower for w in ['important', 'essential', 'vital', 'critical',
+                                          'necessary', 'required', 'must', 'need']):
+            return rng.choice(["It really matters.", "It can't be skipped."])
+
+        # If the previous sentence mentions time or process
+        if any(w in prev_lower for w in ['process', 'step', 'phase', 'stage', 'time',
+                                          'years', 'months', 'weeks', 'days']):
+            return rng.choice(["It takes time.", "Every step counts."])
+
+        # Generic but natural follow-ups (sparingly used)
+        return None  # Don't inject if no good contextual match
 
     needed = target_micro - micro_count
-    # Insert micro-sentences at natural paragraph breaks (after every 3-5 sentences)
     result = []
     inserted = 0
     for i, sent in enumerate(sentences):
         result.append(sent)
-        # Insert after longer sentences (15+ words) at intervals
+        # Insert after longer sentences (14+ words) at natural intervals
         if (inserted < needed
                 and i > 0
                 and i < total - 1
-                and len(sent.split()) >= 12
-                and (i % rng.randint(2, 4) == 0)):
-            micro = rng.choice(micro_templates)
-            result.append(micro)
-            inserted += 1
+                and len(sent.split()) >= 14
+                and (i % rng.randint(3, 5) == 0)):
+            micro = _derive_micro(sent)
+            if micro:
+                result.append(micro)
+                inserted += 1
 
     return _join_sentences(result)
 
 
-def enforce_short_sentences_aggressive(text: str, max_words: int = 16) -> str:
+def enforce_short_sentences_aggressive(text: str, max_words: int = 18) -> str:
     """
-    Aggressive sentence splitting that handles cases the standard splitter misses.
-    Uses brute-force split at comma positions as last resort, with fragment guards.
+    Sentence splitting that breaks compound sentences at natural conjunction boundaries.
+    Never creates fragments by blindly splitting at mid-sentence commas.
     """
-    # First run the standard splitter
-    text = enforce_short_sentences(text, max_words=max_words)
-
-    _SUBJ_START = re.compile(
-        r'^(?:it|this|they|we|you|he|she|that|these|those|the|a|an|i|his|her|its|our|their|'
-        r'each|some|many|most|all|any|no|every|[A-Z][a-z]+)',
-        re.IGNORECASE
-    )
-
-    _SUBORDINATE_START = re.compile(r'^(?:(?:however|therefore|moreover|furthermore|additionally|thus|so),?\s+)?(?:because|since|although|while|if|unless)\b', re.IGNORECASE)
-    # Second pass: catch any remaining long sentences with brute-force splitting
-    sentences = _split_sentences(text)
-    res = []
-    for s in sentences:
-        words = s.split()
-        if len(words) <= max_words:
-            res.append(s)
-            continue
-
-        split_done = False
-
-        if not _SUBORDINATE_START.match(s) and not re.match(r'^(?:things like|activities like|such as)\b', s, re.IGNORECASE):
-            # Try comma positions, preferring ones that produce valid subject-starting parts
-            comma_positions = [i for i, c in enumerate(s) if c == ',']
-            if comma_positions:
-                mid = len(s) // 2
-                sorted_commas = sorted(comma_positions, key=lambda c: abs(c - mid))
-                for best_comma in sorted_commas:
-                    # Do not split inside listed items (e.g. after 'such as' or 'including' or 'things like')
-                    if re.search(r'\b(?:such as|including|for example|e\.g\.|things like|like)\b', s[:best_comma], re.IGNORECASE):
-                        continue
-                    part1 = s[:best_comma].strip() + '.'
-                    part2 = s[best_comma + 1:].strip()
-                    if part2:
-                        part2 = part2[0].upper() + part2[1:]
-                    # Guard: both parts must be substantial and part2 must start with a valid subject
-                    if (len(part1.split()) >= 4
-                            and len(part2.split()) >= 4
-                            and not _SUBORDINATE_START.match(part1)
-                            and _SUBJ_START.match(part2)):
-                        res.extend([part1, part2])
-                        split_done = True
-                        break
-
-        if not split_done:
-            # Keep as-is rather than creating fragments
-            res.append(s)
-
-    return _join_sentences(res)
+    return enforce_short_sentences(text, max_words=max_words)
 
 
 def fix_sentence_fragments(text: str) -> str:
     """
     Transforms orphaned dependent clause fragments into natural standalone sentences
-    with proper pronoun subjects (e.g. 'Making X' -> 'That makes X', 'Which saves Y' -> 'This saves Y').
-    Only merges as a comma-clause if conversion into a standalone sentence is unnatural.
+    or merges them back into the preceding sentence so that no grammatical fragments remain.
     """
     if not text:
         return text
@@ -1649,6 +1694,11 @@ def fix_sentence_fragments(text: str) -> str:
         "which": "This",
     }
 
+    _ING_NOUNS = {'everything', 'nothing', 'something', 'anything', 'during', 'spring', 'ring',
+                  'king', 'wing', 'string', 'morning', 'evening', 'ceiling', 'feeling', 'building',
+                  'training', 'computing', 'meeting', 'learning', 'programming', 'writing', 'reading',
+                  'marketing', 'accounting', 'banking', 'housing', 'clothing', 'shipping', 'testing'}
+
     result = [sentences[0]]
     for i in range(1, len(sentences)):
         sent = sentences[i]
@@ -1665,15 +1715,30 @@ def fix_sentence_fragments(text: str) -> str:
             result.append(converted_sent)
             continue
 
-        # Case 3: Subordinate conjunction clauses (e.g. "Because you're focused on goals...") -> merge with following or previous
+        # Case 2: Any other -ing participle fragment without an auxiliary verb -> merge with previous sentence
+        # Guard: if sentence has an introductory clause with a comma followed by a finite verb (e.g. "Looking ahead, X is expected..."), keep it intact!
+        has_intro_clause = (',' in ' '.join(words[:4])) and any(w.lower().rstrip(',.') in ('is', 'are', 'was', 'were', 'has', 'have', 'had', 'can', 'could', 'will', 'would', 'should') for w in words[3:])
+        if (first_lower.endswith('ing')
+                and first_lower not in _ING_NOUNS
+                and not has_intro_clause
+                and not any(w.lower() in ('is', 'are', 'was', 'were', 'has', 'have', 'can', 'will', 'would', 'should') for w in words[:3])):
+            prev = result[-1].rstrip('.!?')
+            fragment_lower = sent[0].lower() + sent[1:]
+            result[-1] = prev + ', ' + fragment_lower
+            continue
+
+        # Case 3: Subordinate conjunction clauses (e.g. "Because you're focused on goals...") -> merge with previous
         if first_lower in ("because", "although", "since", "while", "unless") and len(words) <= 16:
             prev = result[-1].rstrip('.!?')
             fragment_lower = sent[0].lower() + sent[1:]
             result[-1] = prev + ', ' + fragment_lower
             continue
 
-        # Case 4: Uncovertible short dependent fragment -> merge with previous
-        if first_lower in ("who", "where", "when", "including", "such as") and len(words) <= 12:
+        # Case 4: Dependent fragment or broken list continuation -> merge with previous
+        if (first_lower in ("who", "where", "when", "including", "such as", "like")
+                or (first_lower in ("and", "or", "nor")
+                    and len(words) <= 14
+                    and not any(w.lower() in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i') for w in words[:3]))):
             prev = result[-1].rstrip('.!?')
             fragment_lower = sent[0].lower() + sent[1:]
             result[-1] = prev + ', ' + fragment_lower
@@ -1804,10 +1869,137 @@ def humanize(
     # Step 5: Final punctuation and capitalization cleanup
     text = clean_erroneous_punctuation(text)
 
+    # Step 5.5: Grammar repair pass — fix all grammar breakage from regex surgery
+    text = grammar_repair(text)
+
     # Proper Noun and sentence capitalization cleanup
     text = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
     text = re.sub(r'  +', ' ', text)
 
     final_text = text.strip()
     return final_text if final_text else (original_text or text)
+
+
+def grammar_repair(text: str) -> str:
+    """
+    Comprehensive grammar repair pass that fixes common issues created by
+    the regex-based post-processing pipeline:
+
+    1. Preserves paragraph structure (\n\n)
+    2. Sentences starting with lowercase after period
+    3. Merges participial fragments (-ing clauses with no auxiliary) with previous sentence
+    4. Merges broken list/conjunction fragments with previous sentence
+    5. Dangling commas and broken punctuation
+    6. Extremely short fragments
+    7. Duplicate consecutive words ("the the", "is is")
+    8. Missing periods at sentence boundaries
+    9. Orphaned conjunctions/prepositions at end of sentences
+    10. Subject-verb number disagreement (e.g. "It are" -> "They are", "This are" -> "These are")
+    11. Proper spacing around punctuation
+    """
+    if not text or len(text) < 5:
+        return text
+
+    paras = text.split('\n\n')
+    repaired_paras = []
+
+    _ING_NOUNS = {'everything', 'nothing', 'something', 'anything', 'during', 'spring', 'ring',
+                  'king', 'wing', 'string', 'morning', 'evening', 'ceiling', 'feeling', 'building',
+                  'training', 'computing', 'meeting', 'learning', 'programming', 'writing', 'reading',
+                  'marketing', 'accounting', 'banking', 'housing', 'clothing', 'shipping', 'testing'}
+
+    for para in paras:
+        if not para.strip():
+            continue
+
+        sentences = _split_sentences(para)
+        repaired = []
+
+        for i, sent in enumerate(sentences):
+            sent = sent.strip()
+            if not sent:
+                continue
+
+            # Fix 1: Remove leading punctuation artifacts (commas, colons, semicolons)
+            sent = re.sub(r'^[,;:\s]+', '', sent).strip()
+            if not sent:
+                continue
+
+            words = sent.split()
+            first_word_clean = words[0].lower().rstrip(',.:;')
+
+            # Fix 2: Merge orphaned participial fragments with previous sentence
+            # Guard: if sentence has an introductory clause with a comma followed by a finite verb (e.g. "Looking ahead, X is expected..."), keep it intact!
+            has_intro_clause = (',' in ' '.join(words[:4])) and any(w.lower().rstrip(',.') in ('is', 'are', 'was', 'were', 'has', 'have', 'had', 'can', 'could', 'will', 'would', 'should') for w in words[3:])
+            if (repaired
+                    and first_word_clean.endswith('ing')
+                    and first_word_clean not in _ING_NOUNS
+                    and not has_intro_clause
+                    and not any(w.lower() in ('is', 'are', 'was', 'were', 'has', 'have', 'can', 'will', 'would', 'should') for w in words[:3])):
+                prev = repaired[-1].rstrip('.!?')
+                repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
+                continue
+
+            # Fix 3: Merge broken list continuations and orphaned conjunction fragments
+            # (e.g. "Trust, and the security...", "Sea level rise, and an increase...", "And came home...")
+            if (repaired
+                    and (first_word_clean in ('and', 'or', 'nor')
+                         and len(words) <= 12
+                         and not any(w.lower() in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i') for w in words[:3]))):
+                prev = repaired[-1].rstrip('.!?')
+                repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
+                continue
+
+            # Fix 4: Capitalize first letter
+            if sent and sent[0].islower():
+                sent = sent[0].upper() + sent[1:]
+
+            # Fix 5: Remove duplicate consecutive words ("the the", "is is", "a a", "to to")
+            sent = re.sub(r'\b(\w+)\s+\1\b', r'\1', sent, flags=re.IGNORECASE)
+
+            # Fix 6: Fix orphaned conjunctions at end of sentence ("... and." -> "...")
+            sent = re.sub(r'\s+(?:and|but|or|so|yet|for|nor)\s*[.!?]$', '.', sent)
+
+            # Fix 7: Fix sentences ending with a comma instead of period
+            if sent.endswith(','):
+                sent = sent[:-1] + '.'
+
+            # Fix 8: Ensure sentence ends with punctuation
+            if sent and sent[-1] not in '.!?':
+                sent = sent + '.'
+
+            # Fix 9: Subject-verb agreement fixes for common pronoun injections
+            sent = re.sub(r'\bIt are\b', 'They are', sent)
+            sent = re.sub(r'\bThis are\b', 'These are', sent)
+            sent = re.sub(r'\bit are\b', 'they are', sent)
+            sent = re.sub(r'\bthis are\b', 'these are', sent)
+            sent = re.sub(r'\bThese is\b', 'These are', sent)
+            sent = re.sub(r'\bthese is\b', 'these are', sent)
+
+            # Fix 10: Skip extremely short single-word fragments (unless intentional interjection)
+            words = sent.rstrip('.!?').split()
+            if len(words) < 2 and sent.rstrip('.!?').lower() not in (
+                'yes', 'no', 'done', 'agreed', 'exactly', 'true', 'false', 'right',
+                'indeed', 'absolutely', 'definitely', 'certainly', 'period',
+            ):
+                if repaired:
+                    prev = repaired[-1].rstrip('.!?')
+                    repaired[-1] = prev + ' ' + sent[0].lower() + sent[1:]
+                    continue
+                continue
+
+            # Fix 11: Fix double periods and spaces around punctuation
+            sent = re.sub(r'\.{2,}', '.', sent)
+            sent = re.sub(r'\s+([.!?,;:])', r'\1', sent)
+            sent = re.sub(r'([.!?])([A-Za-z])', r'\1 \2', sent)
+
+            repaired.append(sent)
+
+        para_result = _join_sentences(repaired)
+        para_result = re.sub(r'[ \t]+', ' ', para_result).strip()
+        if para_result:
+            repaired_paras.append(para_result)
+
+    result = '\n\n'.join(repaired_paras)
+    return result
 

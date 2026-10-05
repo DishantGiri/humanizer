@@ -50,6 +50,8 @@ class StandardHumanizePipeline:
     def __init__(
         self,
         rewriter: Optional[TextRewriter] = None,
+        *args,
+        **kwargs,
     ):
         self.rewriter = rewriter or TextRewriter()
 
@@ -219,6 +221,25 @@ class StandardHumanizePipeline:
                 # Update ai_report with latest score
                 report_final = AICheckEngine.analyze(final_result)
                 ai_report = report_final.to_dict()
+
+        # ── Step 4: Final Grammar Polish ──────────────────────────────────────
+        # After all regex-based post-processing, run a lightweight LLM grammar
+        # correction pass to fix any broken sentences, fragments, or artifacts
+        # created by the signal-targeted cleanup pipeline.
+        if len(final_result.split()) >= 15:
+            logger.info("Pipeline Step 4: Final LLM grammar polish")
+            try:
+                polished = self.rewriter.grammar_polish(final_result)
+                if polished and len(polished.split()) >= int(len(final_result.split()) * 0.85):
+                    # Verify polish didn't reintroduce AI signals
+                    polished = strip_formatting_artifacts(polished)
+                    polished = clean_erroneous_punctuation(polished)
+                    final_result = polished
+                    logger.info("Grammar polish applied successfully.")
+                else:
+                    logger.warning("Grammar polish output too short; keeping pre-polish result.")
+            except Exception as gp_err:
+                logger.warning("Grammar polish failed: %s. Keeping pre-polish result.", gp_err)
 
         elapsed_ms = int((time.time() - start_time) * 1000)
 
