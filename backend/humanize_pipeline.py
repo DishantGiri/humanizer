@@ -33,6 +33,8 @@ from humanizer import (
     inject_pronoun_subjects,
     inject_micro_sentences,
     extract_final_output,
+    grammar_repair,
+    fix_sentence_fragments,
 )
 from ai_checker import AICheckEngine
 from validators import validate_human_statistics
@@ -172,6 +174,8 @@ class StandardHumanizePipeline:
                 final_result = enforce_short_sentences_aggressive(final_result, max_words=20)
                 final_result = disrupt_sentence_rhythm(final_result, short_threshold=8)
                 final_result = inject_pronoun_subjects(final_result, _rng)
+                final_result = fix_sentence_fragments(final_result)
+                final_result = grammar_repair(final_result)
                 final_result = clean_erroneous_punctuation(final_result)
 
                 # Re-check after regex surgery
@@ -241,6 +245,7 @@ class StandardHumanizePipeline:
             except Exception as gp_err:
                 logger.warning("Grammar polish failed: %s. Keeping pre-polish result.", gp_err)
 
+        final_result = grammar_repair(final_result)
         elapsed_ms = int((time.time() - start_time) * 1000)
 
         return {

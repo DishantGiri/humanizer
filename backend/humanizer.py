@@ -1217,11 +1217,6 @@ def disrupt_sentence_rhythm(text: str, short_threshold: int = 8) -> str:
 
 # Long-word → short-word replacements (reduces mean word length while preserving domain terms)
 LONG_WORD_REPLACEMENTS: dict[str, str] = {
-    "implementation": "setup",
-    "implementations": "setups",
-    "implementing": "setting up",
-    "implement": "set up",
-    "implemented": "set up",
     "application": "app",
     "applications": "apps",
     "configuration": "setup",
@@ -1233,7 +1228,6 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "significant": "big",
     "significantly": "much",
     "reliability": "dependability",
-    "performance": "speed",
     "effectively": "well",
     "organization": "group",
     "organizations": "groups",
@@ -1266,14 +1260,12 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "infrastructure": "systems",
     "characteristics": "traits",
     "characteristic": "trait",
-    "understanding": "grasp",
     "considerable": "big",
     "considerably": "much",
     "satisfaction": "approval",
     "verification": "check",
     "identification": "finding",
     "automatically": "on its own",
-    "compatibility": "fit",
     "comprehensive": "full",
     "traditionally": "in the past",
     "collaboration": "teamwork",
@@ -1305,15 +1297,11 @@ LONG_WORD_REPLACEMENTS: dict[str, str] = {
     "complexity": "difficulty",
     "complexities": "difficulties",
     "programming": "coding",
-    "information": "info",
-    "responsible": "in charge",
     "examination": "review",
     "independent": "separate",
     "immediately": "right away",
     "alternative": "other",
     "alternatives": "options",
-    "interaction": "contact",
-    "interactions": "contacts",
     "appropriate": "right",
     "inappropriately": "wrongly",
 }
@@ -1361,10 +1349,7 @@ GENERIC_VOCABULARY_REPLACEMENTS: dict[str, list[str]] = {
     "it is essential": ["it's vital", "we need"],
     "it is necessary": ["we must", "you need to"],
     "it is crucial": ["we must", "it's vital"],
-    "ensure the": ["make sure the"],
-    "ensures the": ["keeps the", "makes sure the"],
     "ensure that": ["make sure that", "check that"],
-    "ensuring": ["making sure", "keeping"],
     "for this reason,": ["that's why,", "because of this,", "so,"],
     "for this reason": ["that's why", "because of this", "so"],
     "as a result of this,": ["that's why,", "because of this,"],
@@ -1665,6 +1650,75 @@ def enforce_short_sentences_aggressive(text: str, max_words: int = 18) -> str:
     return enforce_short_sentences(text, max_words=max_words)
 
 
+_COMMON_FINITE_VERBS = {
+    # Auxiliaries & modals
+    'is', 'are', 'was', 'were', 'am', 'be', 'been', 'has', 'have', 'had',
+    'can', 'could', 'will', 'would', 'shall', 'should', 'may', 'might', 'must',
+    'do', 'does', 'did',
+    # Common 3rd person singular present verbs (often paired with gerund subjects)
+    'requires', 'helps', 'takes', 'makes', 'gives', 'provides', 'allows', 'enables',
+    'causes', 'leads', 'results', 'shows', 'means', 'creates', 'prevents', 'reduces',
+    'increases', 'boosts', 'improves', 'ensures', 'offers', 'serves', 'represents',
+    'brings', 'costs', 'depends', 'affects', 'demands', 'stands', 'remains', 'becomes',
+    'comes', 'goes', 'holds', 'carries', 'supports', 'protects', 'drives', 'plays',
+    'delivers', 'generates', 'eliminates', 'mitigates', 'minimizes', 'maximizes',
+    'triggers', 'begins', 'starts', 'transforms', 'alters', 'powers', 'works', 'runs',
+    'finds', 'uses', 'includes', 'involves', 'focuses', 'deals', 'relies', 'builds',
+    'grows', 'changes', 'continues', 'keeps', 'addresses', 'indicates', 'suggests',
+    'proves', 'determines', 'establishes', 'produces', 'achieves', 'maintains',
+    # Common plural / base form verbs
+    'require', 'help', 'take', 'make', 'give', 'provide', 'allow', 'enable',
+    'cause', 'lead', 'result', 'show', 'mean', 'create', 'prevent', 'reduce',
+    'increase', 'boost', 'improve', 'ensure', 'offer', 'serve', 'represent',
+    'bring', 'cost', 'depend', 'affect', 'demand', 'stand', 'remain', 'become',
+    'come', 'go', 'hold', 'carry', 'support', 'protect', 'drive', 'play',
+    'deliver', 'generate', 'eliminate', 'mitigate', 'minimize', 'maximize',
+    'trigger', 'begin', 'start', 'transform', 'alter', 'power', 'work', 'run',
+    'find', 'use', 'include', 'involve', 'focus', 'deal', 'rely', 'build',
+    'grow', 'change', 'continue', 'keep', 'address', 'indicate', 'suggest',
+    'prove', 'determine', 'establish', 'produce', 'achieve', 'maintain',
+    # Common past tense verbs
+    'required', 'helped', 'took', 'made', 'gave', 'provided', 'allowed', 'enabled',
+    'caused', 'led', 'resulted', 'showed', 'meant', 'created', 'prevented', 'reduced',
+    'increased', 'boosted', 'improved', 'ensured', 'offered', 'served', 'represented',
+    'brought', 'depended', 'affected', 'demanded', 'stood', 'remained', 'became',
+    'came', 'went', 'held', 'carried', 'supported', 'protected', 'drove', 'played',
+    'delivered', 'generated', 'eliminated', 'mitigated', 'minimized', 'maximized',
+    'triggered', 'began', 'started', 'transformed', 'altered', 'powered', 'worked',
+    'ran', 'found', 'used', 'included', 'involved', 'focused', 'dealt', 'relied',
+    'built', 'grew', 'changed', 'continued', 'kept', 'addressed', 'indicated',
+    'suggested', 'proved', 'determined', 'established', 'produced', 'achieved',
+    'maintained',
+}
+
+_ING_NOUNS = {
+    'everything', 'nothing', 'something', 'anything', 'during', 'spring', 'ring',
+    'king', 'wing', 'string', 'morning', 'evening', 'ceiling', 'feeling', 'building',
+    'training', 'computing', 'meeting', 'learning', 'programming', 'writing', 'reading',
+    'marketing', 'accounting', 'banking', 'housing', 'clothing', 'shipping', 'testing'
+}
+
+
+def _has_finite_verb(words: list[str]) -> bool:
+    """
+    Checks if a list of words (starting from the second word) contains a finite verb.
+    Used to distinguish complete sentences starting with gerunds or participial clauses
+    from true orphaned fragments.
+    """
+    if len(words) < 2:
+        return False
+    for w in words[1:]:
+        clean = w.lower().rstrip(',.:;!?\'"')
+        if clean in _COMMON_FINITE_VERBS:
+            return True
+        if clean.endswith('ed') and len(clean) > 4 and clean not in {
+            'speed', 'need', 'seed', 'feed', 'weed', 'bleed', 'breed', 'creed', 'greed',
+            'indeed', 'naked', 'wicked', 'crooked', 'sacred', 'united', 'advanced', 'sophisticated'
+        }:
+            return True
+    return False
+
+
 def fix_sentence_fragments(text: str) -> str:
     """
     Transforms orphaned dependent clause fragments into natural standalone sentences
@@ -1694,11 +1748,6 @@ def fix_sentence_fragments(text: str) -> str:
         "which": "This",
     }
 
-    _ING_NOUNS = {'everything', 'nothing', 'something', 'anything', 'during', 'spring', 'ring',
-                  'king', 'wing', 'string', 'morning', 'evening', 'ceiling', 'feeling', 'building',
-                  'training', 'computing', 'meeting', 'learning', 'programming', 'writing', 'reading',
-                  'marketing', 'accounting', 'banking', 'housing', 'clothing', 'shipping', 'testing'}
-
     result = [sentences[0]]
     for i in range(1, len(sentences)):
         sent = sentences[i]
@@ -1708,20 +1757,18 @@ def fix_sentence_fragments(text: str) -> str:
 
         first_lower = words[0].lower().rstrip(',.:;')
 
-        # Case 1: Can convert to a clean standalone sentence with pronoun
-        if first_lower in participle_map and len(words) >= 3:
+        # Case 1: Can convert to a clean standalone sentence with pronoun if no main verb
+        if first_lower in participle_map and not _has_finite_verb(words) and len(words) >= 3:
             replacement_prefix = participle_map[first_lower]
             converted_sent = replacement_prefix + " " + " ".join(words[1:])
             result.append(converted_sent)
             continue
 
-        # Case 2: Any other -ing participle fragment without an auxiliary verb -> merge with previous sentence
-        # Guard: if sentence has an introductory clause with a comma followed by a finite verb (e.g. "Looking ahead, X is expected..."), keep it intact!
-        has_intro_clause = (',' in ' '.join(words[:4])) and any(w.lower().rstrip(',.') in ('is', 'are', 'was', 'were', 'has', 'have', 'had', 'can', 'could', 'will', 'would', 'should') for w in words[3:])
-        if (first_lower.endswith('ing')
-                and first_lower not in _ING_NOUNS
-                and not has_intro_clause
-                and not any(w.lower() in ('is', 'are', 'was', 'were', 'has', 'have', 'can', 'will', 'would', 'should') for w in words[:3])):
+        # Case 2: -ing word without a finite verb is an orphaned participial fragment -> merge
+        if first_lower.endswith('ing') and first_lower not in _ING_NOUNS:
+            if _has_finite_verb(words):
+                result.append(sent)
+                continue
             prev = result[-1].rstrip('.!?')
             fragment_lower = sent[0].lower() + sent[1:]
             result[-1] = prev + ', ' + fragment_lower
@@ -1734,15 +1781,20 @@ def fix_sentence_fragments(text: str) -> str:
             result[-1] = prev + ', ' + fragment_lower
             continue
 
-        # Case 4: Dependent fragment or broken list continuation -> merge with previous
-        if (first_lower in ("who", "where", "when", "including", "such as", "like")
-                or (first_lower in ("and", "or", "nor")
-                    and len(words) <= 14
-                    and not any(w.lower() in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i') for w in words[:3]))):
+        # Case 4: Dependent relative clause or prepositional fragments
+        if first_lower in ("who", "where", "when", "including", "such as", "like"):
             prev = result[-1].rstrip('.!?')
             fragment_lower = sent[0].lower() + sent[1:]
             result[-1] = prev + ', ' + fragment_lower
             continue
+
+        # Case 5: Broken conjunction list fragment (e.g. "And modern supercomputers.", "Or data centers.")
+        if first_lower in ("and", "or", "nor"):
+            if not _has_finite_verb(words) or len(words) <= 5:
+                prev = result[-1].rstrip('.!?')
+                fragment_lower = sent[0].lower() + sent[1:]
+                result[-1] = prev + ', ' + fragment_lower
+                continue
 
         result.append(sent)
 
@@ -1758,7 +1810,11 @@ def boost_function_words(text: str) -> str:
     if not text:
         return text
 
-    determiners = {"the", "a", "an", "this", "that", "these", "those", "early", "proper", "its", "their", "our", "your", "during", "for", "in", "of"}
+    determiners = {
+        "the", "a", "an", "this", "that", "these", "those", "early", "proper",
+        "its", "their", "our", "your", "during", "for", "in", "of", "and", "or",
+        "nor", "with", "without", "between", "both"
+    }
     phrases = ["quality of", "security of", "testing phase", "correctness of", "trust, usability"]
 
     for phrase in phrases:
@@ -1929,26 +1985,22 @@ def grammar_repair(text: str) -> str:
             first_word_clean = words[0].lower().rstrip(',.:;')
 
             # Fix 2: Merge orphaned participial fragments with previous sentence
-            # Guard: if sentence has an introductory clause with a comma followed by a finite verb (e.g. "Looking ahead, X is expected..."), keep it intact!
-            has_intro_clause = (',' in ' '.join(words[:4])) and any(w.lower().rstrip(',.') in ('is', 'are', 'was', 'were', 'has', 'have', 'had', 'can', 'could', 'will', 'would', 'should') for w in words[3:])
             if (repaired
                     and first_word_clean.endswith('ing')
-                    and first_word_clean not in _ING_NOUNS
-                    and not has_intro_clause
-                    and not any(w.lower() in ('is', 'are', 'was', 'were', 'has', 'have', 'can', 'will', 'would', 'should') for w in words[:3])):
-                prev = repaired[-1].rstrip('.!?')
-                repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
-                continue
+                    and first_word_clean not in _ING_NOUNS):
+                if _has_finite_verb(words):
+                    pass  # Complete sentence with a finite verb (gerund subject or main clause)
+                else:
+                    prev = repaired[-1].rstrip('.!?')
+                    repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
+                    continue
 
             # Fix 3: Merge broken list continuations and orphaned conjunction fragments
-            # (e.g. "Trust, and the security...", "Sea level rise, and an increase...", "And came home...")
-            if (repaired
-                    and (first_word_clean in ('and', 'or', 'nor')
-                         and len(words) <= 12
-                         and not any(w.lower() in ('it', 'this', 'they', 'we', 'you', 'he', 'she', 'i') for w in words[:3]))):
-                prev = repaired[-1].rstrip('.!?')
-                repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
-                continue
+            if repaired and first_word_clean in ('and', 'or', 'nor'):
+                if not _has_finite_verb(words) or len(words) <= 5:
+                    prev = repaired[-1].rstrip('.!?')
+                    repaired[-1] = f"{prev}, {sent[0].lower()}{sent[1:]}"
+                    continue
 
             # Fix 4: Capitalize first letter
             if sent and sent[0].islower():
