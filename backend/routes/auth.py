@@ -76,6 +76,9 @@ class VerifyEmailRequest(BaseModel):
     email: EmailStr
     code: str
 
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
 class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
@@ -273,18 +276,51 @@ def validate_user_name(name: str) -> str:
 async def register(request: RegisterRequest):
     """
     Register a new user account and send an SMTP email verification code.
-    Generic response prevents email enumeration.
+    Blocks duplicate email registrations and reports errors clearly.
     """
     email_clean = request.email.lower().strip()
     name_clean = validate_user_name(request.name)
 
-    if fetch_one("SELECT id FROM users WHERE email = ?", (email_clean,)):
-        return {
-            "message": "Registration request received. Please check your email for the 6-digit verification code.",
-            "email": email_clean,
-            "require_verification": True,
-            "email_sent": False
-        }
+    existing_user = fetch_one("SELECT id, name, email_verified FROM users WHERE email = ?", (email_clean,))
+    if existing_user:
+        if existing_user.get("email_verified") == 1:
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists. Please log in instead."
+            )
+        else:
+            # Existing unverified account (e.g. earlier failed delivery or expired code)
+            # Update password and name, then issue and send a new verification code
+            user_id = existing_user["id"]
+            pwd_hash, salt = hash_password(request.password)
+            execute_query(
+                "UPDATE users SET name = ?, password_hash = ?, salt = ? WHERE id = ?",
+                (name_clean, pwd_hash, salt, user_id)
+            )
+
+            code = str(secrets.randbelow(900000) + 100000)
+            expires_at = (datetime.utcnow() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+            code_id = str(uuid.uuid4())
+
+            execute_query("DELETE FROM reset_codes WHERE email = ? AND purpose = 'verify_registration'", (email_clean,))
+            execute_query(
+                "INSERT INTO reset_codes (id, email, code, purpose, expires_at) VALUES (?, ?, ?, 'verify_registration', ?)",
+                (code_id, email_clean, code, expires_at)
+            )
+
+            sent = send_verification_email(email_clean, name_clean, code)
+            if not sent:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to send verification email. Please check your SMTP settings in backend/.env."
+                )
+
+            return {
+                "message": "A fresh verification code has been sent to your email. Please check your inbox.",
+                "email": email_clean,
+                "require_verification": True,
+                "email_sent": True
+            }
 
     initial_plan = "pro" if PRO_PERK_DOMAIN_KEYWORD in email_clean.split("@")[-1] else "free"
     user_id = str(uuid.uuid4())
@@ -309,13 +345,65 @@ async def register(request: RegisterRequest):
     )
 
     sent = send_verification_email(email_clean, name_clean, code)
+    if not sent:
+        # Roll back unverified user creation so failed SMTP doesn't lock the email in DB
+        execute_query("DELETE FROM users WHERE id = ?", (user_id,))
+        execute_query("DELETE FROM reset_codes WHERE email = ? AND purpose = 'verify_registration'", (email_clean,))
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send verification email. Please verify SMTP credentials in backend/.env."
+        )
 
     return {
         "message": "Registration successful. Please check your email for the 6-digit verification code.",
         "email": email_clean,
         "require_verification": True,
-        "email_sent": sent
+        "email_sent": True
     }
+
+
+@router.post("/resend-verification")
+async def resend_verification(request: ResendVerificationRequest):
+    """
+    Resend a 6-digit verification code for an unverified account.
+    """
+    email_clean = request.email.lower().strip()
+    user_row = fetch_one("SELECT id, name, email_verified FROM users WHERE email = ?", (email_clean,))
+    if not user_row:
+        raise HTTPException(status_code=404, detail="No registered account found with this email.")
+    if user_row.get("email_verified") == 1:
+        raise HTTPException(status_code=400, detail="This account is already verified. Please log in.")
+
+    code = str(secrets.randbelow(900000) + 100000)
+    expires_at = (datetime.utcnow() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+    code_id = str(uuid.uuid4())
+
+    execute_query("DELETE FROM reset_codes WHERE email = ? AND purpose = 'verify_registration'", (email_clean,))
+    execute_query(
+        "INSERT INTO reset_codes (id, email, code, purpose, expires_at) VALUES (?, ?, ?, 'verify_registration', ?)",
+        (code_id, email_clean, code, expires_at)
+    )
+
+    sent = send_verification_email(email_clean, user_row["name"], code)
+    if not sent:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send verification email. Please check your SMTP settings in backend/.env."
+        )
+
+    return {
+        "message": "Verification code resent successfully. Please check your inbox.",
+        "email_sent": True
+    }
+
+
+@router.get("/smtp-status")
+async def smtp_status():
+    """
+    Check SMTP connectivity status and diagnostic info.
+    """
+    from mailer import test_smtp_connection
+    return test_smtp_connection()
 
 
 @router.post("/verify-email", response_model=AuthResponse)

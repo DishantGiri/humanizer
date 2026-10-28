@@ -3,49 +3,198 @@ SMTP Email Service supporting registration verification, forgot password reset c
 """
 
 import os
+import ssl
 import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("MAIL", os.getenv("SMTP_USER", "dishantgiri22@gmail.com"))
-SMTP_PASSWORD = os.getenv("APP_PASSWORD", os.getenv("SMTP_PASSWORD", "hcgbmemrqmuqtuid"))
-SMTP_FROM = os.getenv("SMTP_FROM", f"CloakWriter AI <{SMTP_USER}>")
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+
+
+def get_smtp_config():
+    """
+    Dynamically reload and return current SMTP configuration from environment.
+    This guarantees that modifications to backend/.env take immediate effect
+    without requiring a server process restart.
+    """
+    if os.path.exists(ENV_PATH):
+        load_dotenv(ENV_PATH, override=True)
+
+    host = (os.getenv("SMTP_HOST") or "smtp.gmail.com").strip()
+    try:
+        port = int((os.getenv("SMTP_PORT") or "587").strip())
+    except Exception:
+        port = 587
+
+    user = (os.getenv("MAIL") or os.getenv("SMTP_USER") or "").strip()
+    # Remove any internal spaces (Google App Passwords are shown as 4 groups of 4: 'xxxx xxxx xxxx xxxx')
+    raw_pw = (os.getenv("APP_PASSWORD") or os.getenv("SMTP_PASSWORD") or "").strip()
+    password = raw_pw.replace(" ", "")
+
+    from_name = (os.getenv("SMTP_FROM_NAME") or "CloakWriter AI").strip()
+    from_addr = (os.getenv("SMTP_FROM") or f"{from_name} <{user}>").strip()
+
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "from_addr": from_addr,
+    }
 
 
 def send_email(to_email: str, subject: str, html_content: str) -> bool:
     """
-    Send an HTML email via SMTP (TLS). Returns True on success.
+    Send an HTML email via SMTP. Automatically handles port 587 (STARTTLS)
+    and port 465 (SSL), with automatic retry across ports if connection fails.
+    Returns True on success, False on failure.
     """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        logger.warning("SMTP credentials not set. Email not sent to %s", to_email)
+    cfg = get_smtp_config()
+    host = cfg["host"]
+    port = cfg["port"]
+    user = cfg["user"]
+    password = cfg["password"]
+    from_addr = cfg["from_addr"]
+
+    if not user or not password:
+        logger.warning(
+            "SMTP credentials not configured (MAIL or APP_PASSWORD missing in backend/.env). Cannot send email to %s",
+            to_email
+        )
         return False
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = SMTP_FROM
-        msg["To"] = to_email
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_email
 
-        html_part = MIMEText(html_content, "html")
-        msg.attach(html_part)
+    html_part = MIMEText(html_content, "html")
+    msg.attach(html_part)
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=12) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, [to_email], msg.as_string())
-
-        logger.info("Email sent successfully to %s: subject='%s'", to_email, subject)
+    def _attempt_send(p: int, use_ssl: bool) -> bool:
+        ssl_ctx = ssl.create_default_context()
+        if use_ssl:
+            with smtplib.SMTP_SSL(host, p, context=ssl_ctx, timeout=12) as server:
+                server.ehlo()
+                server.login(user, password)
+                server.sendmail(user, [to_email], msg.as_string())
+        else:
+            with smtplib.SMTP(host, p, timeout=12) as server:
+                server.ehlo()
+                server.starttls(context=ssl_ctx)
+                server.ehlo()
+                server.login(user, password)
+                server.sendmail(user, [to_email], msg.as_string())
         return True
 
-    except Exception as e:
-        logger.error("Failed to send SMTP email to %s: %s", to_email, e)
+    # 1. Try preferred port
+    primary_ssl = (port == 465)
+    try:
+        _attempt_send(port, primary_ssl)
+        logger.info("Email sent successfully to %s: subject='%s' via %s:%d", to_email, subject, host, port)
+        return True
+    except smtplib.SMTPAuthenticationError as auth_err:
+        logger.error(
+            "SMTP Authentication failed (BadCredentials) for %s on %s:%d. "
+            "Please check APP_PASSWORD in backend/.env (ensure 2FA is active and generate a valid 16-char App Password at https://myaccount.google.com/apppasswords): %s",
+            user, host, port, auth_err
+        )
         return False
+    except Exception as primary_err:
+        logger.warning(
+            "Primary SMTP attempt on %s:%d (ssl=%s) failed: %s. Trying alternate port fallback...",
+            host, port, primary_ssl, primary_err
+        )
+
+    # 2. Try alternate port fallback (465 <-> 587)
+    fallback_port = 465 if port == 587 else (587 if port == 465 else None)
+    if fallback_port:
+        try:
+            _attempt_send(fallback_port, fallback_port == 465)
+            logger.info("Email sent successfully to %s via fallback port %d", to_email, fallback_port)
+            return True
+        except smtplib.SMTPAuthenticationError as auth_err:
+            logger.error("SMTP Authentication failed on fallback port %d: %s", fallback_port, auth_err)
+            return False
+        except Exception as fb_err:
+            logger.error("Fallback SMTP attempt on %s:%d also failed: %s", host, fallback_port, fb_err)
+
+    return False
+
+
+def test_smtp_connection() -> dict:
+    """
+    Test and diagnose SMTP connectivity and credentials without sending an email.
+    """
+    cfg = get_smtp_config()
+    host = cfg["host"]
+    port = cfg["port"]
+    user = cfg["user"]
+    password = cfg["password"]
+
+    if not user or not password:
+        return {
+            "success": False,
+            "error": "MAIL or APP_PASSWORD is missing in backend/.env",
+            "host": host,
+            "port": port,
+            "user": user or None
+        }
+
+    last_err = "Unknown error"
+    for p, use_ssl in [(port, port == 465), (465 if port == 587 else 587, port != 465)]:
+        try:
+            ssl_ctx = ssl.create_default_context()
+            if use_ssl:
+                with smtplib.SMTP_SSL(host, p, context=ssl_ctx, timeout=8) as server:
+                    server.ehlo()
+                    server.login(user, password)
+            else:
+                with smtplib.SMTP(host, p, timeout=8) as server:
+                    server.ehlo()
+                    server.starttls(context=ssl_ctx)
+                    server.ehlo()
+                    server.login(user, password)
+            return {
+                "success": True,
+                "message": f"SMTP authentication successful on {host}:{p} (SSL={use_ssl})",
+                "host": host,
+                "port": p,
+                "user": user
+            }
+        except smtplib.SMTPAuthenticationError as e:
+            err_msg = e.smtp_error.decode() if hasattr(e.smtp_error, "decode") else str(e)
+            return {
+                "success": False,
+                "error": f"Authentication failed (BadCredentials) on {host}:{p}: {err_msg}. Ensure 2-Step Verification is active and generate a valid 16-character App Password at https://myaccount.google.com/apppasswords",
+                "host": host,
+                "port": p,
+                "user": user
+            }
+        except smtplib.SMTPServerDisconnected:
+            # Gmail drops connection immediately after 535 BadCredentials during auth handshake
+            last_err = (
+                f"Google SMTP server disconnected during authentication on {host}:{p}. "
+                "This usually indicates invalid credentials (BadCredentials). "
+                "Please generate a fresh 16-character App Password at https://myaccount.google.com/apppasswords "
+                "and update APP_PASSWORD in backend/.env"
+            )
+            continue
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {e}"
+            continue
+
+    return {
+        "success": False,
+        "error": last_err,
+        "host": host,
+        "port": port,
+        "user": user
+    }
 
 
 def send_verification_email(email: str, name: str, code: str) -> bool:

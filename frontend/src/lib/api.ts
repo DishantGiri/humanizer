@@ -508,6 +508,21 @@ export async function verifyEmail(email: string, code: string): Promise<AuthResp
   return await response.json();
 }
 
+export async function resendVerificationCode(email: string): Promise<{ message: string; email_sent: boolean }> {
+  const response = await fetch(`${API_BASE}/api/auth/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    throw new Error(parseErrorMessage(errorJson, `Failed to resend verification code (${response.status})`));
+  }
+
+  return await response.json();
+}
+
 export async function forgotPassword(email: string): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
     method: 'POST',

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Sparkles, ArrowDown, Eye, EyeOff, MailCheck } from 'lucide-react';
-import { registerUser, verifyEmail, googleAuthUser, fetchGoogleOauthConfig } from '@/lib/api';
+import { registerUser, verifyEmail, resendVerificationCode, googleAuthUser, fetchGoogleOauthConfig } from '@/lib/api';
 import { toast } from '@/components/Toast';
 import { validateName, validateEmail } from '@/lib/utils';
 
@@ -19,6 +19,8 @@ export default function RegisterPage() {
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     const savedTheme =
@@ -92,6 +94,29 @@ export default function RegisterPage() {
       toast.danger(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  const handleResendCode = async () => {
+    if (!email || resendLoading || resendCooldown > 0) return;
+    setResendLoading(true);
+    try {
+      const res = await resendVerificationCode(email);
+      toast.success(res.message || 'Verification code resent to your email.');
+      setResendCooldown(60);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to resend verification code.';
+      toast.danger(msg);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -191,20 +216,42 @@ export default function RegisterPage() {
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setStep('register')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#94a3b8',
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                      marginTop: '8px'
-                    }}
-                  >
-                    ← Back to Registration
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStep('register')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        padding: '4px 0',
+                      }}
+                    >
+                      ← Back to Registration
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResendCode}
+                      disabled={resendLoading || resendCooldown > 0}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: resendCooldown > 0 ? '#64748b' : '#38bdf8',
+                        fontSize: '0.85rem',
+                        cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                        fontWeight: 600,
+                        padding: '4px 0',
+                      }}
+                    >
+                      {resendCooldown > 0
+                        ? `Resend in ${resendCooldown}s`
+                        : resendLoading
+                        ? 'Sending...'
+                        : 'Resend Code'}
+                    </button>
+                  </div>
                 </form>
               </div>
             ) : (
